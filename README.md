@@ -66,42 +66,12 @@ If the configuration is invalid (unknown types, bad keys, transitions referencin
 - This project intentionally uses vanilla HTML, CSS, and JavaScript for simplicity.
 
 
-## Entidades y Atributos
+## Explicación del Modelo Entidad-Relación (MER)
 
-### 1. PROVEEDOR
-- `id_proveedor` (INT, PK): Identificador único del proveedor.
-- `rut` (STRING): RUT o identificación fiscal de la empresa.
-- `nombre` (STRING): Nombre o razón social del proveedor.
-- `email` (STRING): Correo electrónico de contacto.
-- `telefono` (STRING): Teléfono de contacto.
-- `direccion` (STRING): Dirección física del proveedor.
+El modelo de datos para el módulo de **Adquisiciones y Compras (Procurement / SRM)** está diseñado para gestionar de forma escalable el flujo transaccional de abastecimiento de la empresa. Su funcionamiento se basa en las siguientes entidades y relaciones:
 
-### 2. EMPLEADO
-- `id_empleado` (INT, PK): Identificador único del empleado.
-- `nombre` (STRING): Nombre completo del trabajador.
-- `cargo` (STRING): Rol dentro del área de compras/gestión.
-
-### 3. CATEGORIA
-- `id_categoria` (INT, PK): Identificador de la categoría del insumo.
-- `nombre` (STRING): Nombre de la categoría (ej. Materia prima, Herramientas).
-
-### 4. PRODUCTO
-- `id_producto` (INT, PK): Identificador del producto/insumo.
-- `id_categoria` (INT, FK): Relación con la tabla CATEGORIA.
-- `nombre` (STRING): Nombre del producto.
-- `unidad_medida` (STRING): Unidad de stock (ej. kg, unidades, litros).
-- `stock` (INT): Cantidad disponible en inventario.
-
-### 5. ORDEN_COMPRA
-- `id_orden_compra` (INT, PK): Folio/identificador de la orden.
-- `id_proveedor` (INT, FK): Relación con PROVEEDOR.
-- `id_empleado` (INT, FK): Relación con EMPLEADO que registra la compra.
-- `fecha` (DATE): Fecha de emisión de la orden.
-- `estado` (STRING): Estado de la orden (ej. Pendiente, Aprobada, Recibida).
-- `total` (DECIMAL): Monto total calculado de la compra.
-
-### 6. DETALLE_COMPRA
-- `id_orden_compra` (INT, PK, FK): Folio de la orden asociada.
-- `id_producto` (INT, PK, FK): Identificador del producto comprado.
-- `cantidad` (INT): Cantidad solicitada.
-- `costo_unitario` (DECIMAL): Precio unitario acordado.
+1. **Gestión de Proveedores (`PROVEEDOR`):** Almacena la información de contacto y tributaria (RUT, razón social, dirección, correo y teléfono) de las empresas proveedoras. Cada proveedor puede recibir múltiples órdenes de compra ($1 : N$).
+2. **Control Interno (`EMPLEADO`):** Identifica al trabajador o ejecutivo que autoriza y genera la orden de compra dentro del sistema ERP. Un empleado puede registrar múltiples órdenes ($1 : N$).
+3. **Catálogo de Productos e Insumos (`PRODUCTO` y `CATEGORIA`):** Los productos e insumos se clasifican dentro de categorías (ej. Materias primas, Herramientas, Equipamiento). Cada producto mantiene un control de stock actual y su respectiva unidad de medida.
+4. **Documento Transaccional (`ORDEN_COMPRA`):** Representa el documento formal emitido hacia el proveedor. Almacena la fecha de emisión, el estado de procesamiento (`Pendiente`, `Aprobada`, `En tránsito`, `Recibida`) y el monto total acumulado.
+5. **Detalle de la Transacción (`DETALLE_COMPRA`):** Es la entidad intermedia que resuelve la relación de *muchos a muchos* ($N : M$) entre las órdenes de compra y los productos. Registra la cantidad solicitada de cada ítem, el costo unitario negociado y calcula el subtotal correspondiente.

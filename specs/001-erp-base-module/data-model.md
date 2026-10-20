@@ -104,6 +104,9 @@ Objeto de configuración cargado al arrancar que adapta el módulo base en un m�
 - El campo `status` es intencionadamente de texto libre a nivel base para que cada módulo personalizado pueda imponer su propio ciclo de vida (p. ej., estados de pedidos, estados de aprobación).
 - La unicidad de folio por serie, las partidas de documento (líneas con producto, cantidad y precio) y la numeración automática son puntos de extensión naturales para módulos que los requieran.
 
+# Data Model - Módulo de Adquisiciones y Compras
+
+## Modelo Entidad-Relación (MER)
 
 ```mermaid
 erDiagram
