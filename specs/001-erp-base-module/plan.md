@@ -112,3 +112,25 @@ specs/002-erp-purchasing-module/
 ├── quickstart.md
 ├── contracts/
 └── tasks.md
+src/
+├── main.js
+├── styles.css
+├── storage.js
+├── app.js
+├── module-config.js
+└── components/
+    ├── shell.js           (marco del espacio de trabajo: barra superior, logotipo SVG de Compras, barra lateral)
+    ├── dashboard.js       (panel de entrada: acciones rápidas de compras + tarjetas de métricas en vivo)
+    ├── entity-form.js     (formulario maestro de Proveedores con campos personalizados: RUT, email, teléfono, dirección)
+    ├── document-form.js   (formulario de Orden de Compra: selección de Proveedor, Empleado, ítems de Detalle_Compra con cálculo de total)
+    ├── product-form.js    (formulario secundario para catálogo de Productos y Categorías)
+    └── order-list.js      (vista de consulta y seguimiento de Órdenes de Compra y estados)
+
+tests/
+├── unit/
+│   ├── supplier.test.js
+│   ├── purchase-order.test.js
+│   └── storage.test.js
+├── integration/
+│   └── purchasing-flow.test.js
+└── setup/
