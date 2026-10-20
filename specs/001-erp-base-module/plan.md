@@ -16,6 +16,7 @@ Construir una aplicación web ligera con Vite que sirva como módulo base de sof
 **Plataforma Objetivo**: Navegadores modernos de escritorio y móviles  
 **Tipo de Proyecto**: Aplicación web  
 **Objetivos de Rendimiento**: Ines nteraccioresponsivas para listas de hasta 500 registros; la búsqueda y las actualizaciones de la interfaz deben sentirse instantáneas  
+**Objetivos de Rendimiento**: Interacciones responsivas para listas de hasta 500 registros; la búsqueda y las actualizaciones de la interfaz deben sentirse instantáneas  
 **Restricciones**: Huella mínima de librerías, despliegue simple, sin backend requerido; la estructura debe mantenerse extensible para módulos personalizados  
 **Escala/Alcance**: Módulo base con CRUD de datos maestros (Entidad) y documentos transaccionales (Documento), búsqueda y capacidades de navegación
 
