@@ -69,3 +69,46 @@ tests/
 ## Seguimiento de Complejidad
 
 Este plan no introdujo violaciones de la constitución.
+
+# Plan de Implementación: Módulo de Compras y Adquisiciones ERP
+
+**Rama**: `002-erp-purchasing-module` | **Fecha**: 2026-10-20 | **Especificación**: [spec.md](spec.md)
+**Entrada**: Especificación de la funcionalidad desde `/specs/002-erp-purchasing-module/spec.md` y diagrama de modelo relacional (`PROVEEDOR`, `ORDEN_COMPRA`, `DETALLE_COMPRA`, `PRODUCTO`, `CATEGORIA`, `EMPLEADO`).
+
+## Resumen
+
+Construir una aplicación web ligera adaptada al **Módulo de Compras y Adquisiciones** sobre la base de la arquitectura ERP ligera desarrollada con Vite, HTML, CSS y JavaScript vanilla. El módulo permite gestionar el ciclo completo de aprovisionamiento de la empresa mediante dos pilares de información: la **gestión de datos maestros de Proveedores** (Entidad) y la **emisión/seguimiento de Órdenes de Compra** (Documento Transaccional con sus detalles de productos). La interfaz se presenta en un espacio de trabajo ERP unificado con barra superior de marca (`Compras & Adquisiciones`), barra lateral de navegación persistente y un panel/dashboard principal de entrada que ofrece métricas clave en tiempo real (monto total de compras del mes, órdenes pendientes de recepción, proveedores activos, stock crítico) y botones de acción rápida para registrar proveedores, emitir órdenes de compra y consultar el historial. La adaptación del dominio se realiza a través de la configuración centralizada (`src/module-config.js`), personalizando campos (RUT, teléfono, dirección, productos, costo unitario, empleado emisor), ciclo de vida del documento (`Borrador` -> `Emitida` -> `Recibida` -> `Anulada`) y un color de acento azul índigo institucional, preservando la arquitectura base sin alterar la lógica de persistencia local.
+
+## Contexto Técnico
+
+**Lenguaje/Versión**: JavaScript (ES2022), HTML, CSS  
+**Dependencias Principales**: Vite, sin framework de interfaz pesado  
+**Almacenamiento**: `localStorage` del navegador para la persistencia del módulo de compras  
+**Pruebas**: Vitest con `jsdom` para pruebas unitarias y de integración de flujos de compra  
+**Plataforma Objetivo**: Navegadores modernos de escritorio y dispositivos móviles  
+**Tipo de Proyecto**: Aplicación web SPA  
+**Objetivos de Rendimiento**: Interacciones responsivas para listas de hasta 500 registros (proveedores y órdenes de compra); las búsquedas por RUT, proveedor o folio de orden deben ser instantáneas  
+**Restricciones**: Huella mínima de librerías, despliegue simple, sin backend requerido; mantener la integridad referencial básica entre Proveedores, Productos y Órdenes de Compra  
+**Escala/Alcance**: Módulo de Compras con CRUD de Datos Maestros (Proveedores), Gestión de Documentos Transaccionales (Órdenes de Compra y Detalle de Compra), cálculo de totales y estados de ciclo de vida
+
+## Verificación de la Constitución
+
+*COMPROBACIÓN: Debe pasar antes de la investigación de la Fase 0. Reverificar tras el diseño de la Fase 1.*
+
+- **Calidad**: La implementación mantendrá una arquitectura JavaScript modular donde la capa de almacenamiento (`storage.js`) gestionará de forma desacoplada las entidades relacionales del módulo de compras (`PROVEEDOR`, `ORDEN_COMPRA`, `DETALLE_COMPRA`, `PRODUCTO`), asegurando la validez del RUT y la integridad de las llaves foráneas antes de guardar.
+- **Pruebas**: Cobertura de pruebas automatizadas para la creación/edición de Proveedores, la emisión de Órdenes de Compra con cálculo correcto de totales (`cantidad` x `costo_unitario`), cambios de estado del ciclo de vida y filtrado/búsqueda por folios o RUT.
+- **Experiencia de Usuario**: Interfaz intuitiva con formularios estructurados, validaciones claras para campos obligatorios (RUT, Proveedor, Producto), retroalimentación visual de cambios de estado de la orden y un marco visual coherente con el estilo ERP (barra superior, logotipo de compras y barra lateral activa).
+- **Rendimiento**: Renderizado eficiente del DOM para listados de compras y actualización inmediata de los indicadores del panel de control al registrar nuevas transacciones.
+
+## Estructura del Proyecto
+
+### Documentación (esta funcionalidad)
+
+```text
+specs/002-erp-purchasing-module/
+├── plan.md
+├── research.md
+├── data-model.md
+├── quickstart.md
+├── contracts/
+└── tasks.md
