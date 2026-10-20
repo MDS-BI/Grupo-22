@@ -104,44 +104,56 @@ Objeto de configuración cargado al arrancar que adapta el módulo base en un m�
 - El campo `status` es intencionadamente de texto libre a nivel base para que cada módulo personalizado pueda imponer su propio ciclo de vida (p. ej., estados de pedidos, estados de aprobación).
 - La unicidad de folio por serie, las partidas de documento (líneas con producto, cantidad y precio) y la numeración automática son puntos de extensión naturales para módulos que los requieran.
 
-# Data Model - Módulo de Adquisiciones y Compras
 
-## Entidades y Atributos
+```mermaid
+erDiagram
+    PROVEEDOR ||--o{ ORDEN_COMPRA : recibe
+    EMPLEADO ||--o{ ORDEN_COMPRA : registra
+    CATEGORIA ||--o{ PRODUCTO : clasifica
+    PRODUCTO ||--o{ DETALLE_COMPRA : "se adquiere en"
+    ORDEN_COMPRA ||--|{ DETALLE_COMPRA : contiene
 
-### 1. PROVEEDOR
-- `id_proveedor` (INT, PK): Identificador único del proveedor.
-- `rut` (STRING): RUT o identificación fiscal de la empresa.
-- `nombre` (STRING): Nombre o razón social del proveedor.
-- `email` (STRING): Correo electrónico de contacto.
-- `telefono` (STRING): Teléfono de contacto.
-- `direccion` (STRING): Dirección física del proveedor.
+    PROVEEDOR {
+        int id_proveedor PK
+        string rut
+        string nombre
+        string email
+        string telefono
+        string direccion
+    }
 
-### 2. EMPLEADO
-- `id_empleado` (INT, PK): Identificador único del empleado.
-- `nombre` (STRING): Nombre completo del trabajador.
-- `cargo` (STRING): Rol dentro del área de compras/gestión.
+    EMPLEADO {
+        int id_empleado PK
+        string nombre
+        string cargo
+    }
 
-### 3. CATEGORIA
-- `id_categoria` (INT, PK): Identificador de la categoría del insumo.
-- `nombre` (STRING): Nombre de la categoría (ej. Materia prima, Herramientas).
+    CATEGORIA {
+        int id_categoria PK
+        string nombre
+    }
 
-### 4. PRODUCTO
-- `id_producto` (INT, PK): Identificador del producto/insumo.
-- `id_categoria` (INT, FK): Relación con la tabla CATEGORIA.
-- `nombre` (STRING): Nombre del producto.
-- `unidad_medida` (STRING): Unidad de stock (ej. kg, unidades, litros).
-- `stock` (INT): Cantidad disponible en inventario.
+    PRODUCTO {
+        int id_producto PK
+        int id_categoria FK
+        string nombre
+        string unidad_medida
+        int stock
+    }
 
-### 5. ORDEN_COMPRA
-- `id_orden_compra` (INT, PK): Folio/identificador de la orden.
-- `id_proveedor` (INT, FK): Relación con PROVEEDOR.
-- `id_empleado` (INT, FK): Relación con EMPLEADO que registra la compra.
-- `fecha` (DATE): Fecha de emisión de la orden.
-- `estado` (STRING): Estado de la orden (ej. Pendiente, Aprobada, Recibida).
-- `total` (DECIMAL): Monto total calculado de la compra.
+    ORDEN_COMPRA {
+        int id_orden_compra PK
+        int id_proveedor FK
+        int id_empleado FK
+        date fecha
+        string estado
+        decimal total
+    }
 
-### 6. DETALLE_COMPRA
-- `id_orden_compra` (INT, PK, FK): Folio de la orden asociada.
-- `id_producto` (INT, PK, FK): Identificador del producto comprado.
-- `cantidad` (INT): Cantidad solicitada.
-- `costo_unitario` (DECIMAL): Precio unitario acordado.
+    DETALLE_COMPRA {
+        int id_orden_compra PK
+        int id_producto PK
+        int cantidad
+        decimal costo_unitario
+        decimal subtotal
+    }
