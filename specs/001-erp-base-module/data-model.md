@@ -103,3 +103,45 @@ Objeto de configuración cargado al arrancar que adapta el módulo base en un m�
 - Los módulos personalizados pueden añadir campos específicos del dominio a cualquiera de los dos tipos de registro; los campos base anteriores deben mantener sus nombres y semántica para que el almacenamiento, la validación y la integridad referencial permanezcan intactos.
 - El campo `status` es intencionadamente de texto libre a nivel base para que cada módulo personalizado pueda imponer su propio ciclo de vida (p. ej., estados de pedidos, estados de aprobación).
 - La unicidad de folio por serie, las partidas de documento (líneas con producto, cantidad y precio) y la numeración automática son puntos de extensión naturales para módulos que los requieran.
+
+# Data Model - Módulo de Adquisiciones y Compras
+
+## Entidades y Atributos
+
+### 1. PROVEEDOR
+- `id_proveedor` (INT, PK): Identificador único del proveedor.
+- `rut` (STRING): RUT o identificación fiscal de la empresa.
+- `nombre` (STRING): Nombre o razón social del proveedor.
+- `email` (STRING): Correo electrónico de contacto.
+- `telefono` (STRING): Teléfono de contacto.
+- `direccion` (STRING): Dirección física del proveedor.
+
+### 2. EMPLEADO
+- `id_empleado` (INT, PK): Identificador único del empleado.
+- `nombre` (STRING): Nombre completo del trabajador.
+- `cargo` (STRING): Rol dentro del área de compras/gestión.
+
+### 3. CATEGORIA
+- `id_categoria` (INT, PK): Identificador de la categoría del insumo.
+- `nombre` (STRING): Nombre de la categoría (ej. Materia prima, Herramientas).
+
+### 4. PRODUCTO
+- `id_producto` (INT, PK): Identificador del producto/insumo.
+- `id_categoria` (INT, FK): Relación con la tabla CATEGORIA.
+- `nombre` (STRING): Nombre del producto.
+- `unidad_medida` (STRING): Unidad de stock (ej. kg, unidades, litros).
+- `stock` (INT): Cantidad disponible en inventario.
+
+### 5. ORDEN_COMPRA
+- `id_orden_compra` (INT, PK): Folio/identificador de la orden.
+- `id_proveedor` (INT, FK): Relación con PROVEEDOR.
+- `id_empleado` (INT, FK): Relación con EMPLEADO que registra la compra.
+- `fecha` (DATE): Fecha de emisión de la orden.
+- `estado` (STRING): Estado de la orden (ej. Pendiente, Aprobada, Recibida).
+- `total` (DECIMAL): Monto total calculado de la compra.
+
+### 6. DETALLE_COMPRA
+- `id_orden_compra` (INT, PK, FK): Folio de la orden asociada.
+- `id_producto` (INT, PK, FK): Identificador del producto comprado.
+- `cantidad` (INT): Cantidad solicitada.
+- `costo_unitario` (DECIMAL): Precio unitario acordado.
