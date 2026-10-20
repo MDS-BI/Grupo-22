@@ -64,3 +64,58 @@ If the configuration is invalid (unknown types, bad keys, transitions referencin
 - Data is persisted to `localStorage` under the keys `erp_base_module:entities` and `erp_base_module:documents`.
 - Deleting an entity also deletes its documents (cascade).
 - This project intentionally uses vanilla HTML, CSS, and JavaScript for simplicity.
+
+## Modelo Entidad-Relación (MER) - Módulo de Compras
+
+```mermaid
+erDiagram
+    PROVEEDOR ||--o{ ORDEN_COMPRA : recibe
+    EMPLEADO ||--o{ ORDEN_COMPRA : registra
+    CATEGORIA ||--o{ PRODUCTO : clasifica
+    PRODUCTO ||--o{ DETALLE_COMPRA : "se adquiere en"
+    ORDEN_COMPRA ||--|{ DETALLE_COMPRA : contiene
+
+    PROVEEDOR {
+        int id_proveedor PK
+        string rut
+        string nombre
+        string email
+        string telefono
+        string direccion
+    }
+
+    EMPLEADO {
+        int id_empleado PK
+        string nombre
+        string cargo
+    }
+
+    CATEGORIA {
+        int id_categoria PK
+        string nombre
+    }
+
+    PRODUCTO {
+        int id_producto PK
+        int id_categoria FK
+        string nombre
+        string unidad_medida
+        int stock
+    }
+
+    ORDEN_COMPRA {
+        int id_orden_compra PK
+        int id_proveedor FK
+        int id_empleado FK
+        date fecha
+        string estado
+        decimal total
+    }
+
+    DETALLE_COMPRA {
+        int id_orden_compra PK
+        int id_producto PK
+        int cantidad
+        decimal costo_unitario
+        decimal subtotal
+    }
