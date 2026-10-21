@@ -112,6 +112,10 @@ specs/002-erp-purchasing-module/
 ├── quickstart.md
 ├── contracts/
 └── tasks.md
+```
+### Código Fuente (raíz del repositorio)
+
+```text
 src/
 ├── main.js
 ├── styles.css
@@ -134,3 +138,4 @@ tests/
 ├── integration/
 │   └── purchasing-flow.test.js
 └── setup/
+```
