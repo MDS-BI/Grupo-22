@@ -25,19 +25,20 @@ Como usuario de negocio, quiero crear entradas de entidad con detalles claros pa
 
 ---
 
-### Historia de Usuario 2 - Editar y eliminar entidades (Prioridad: P1)
-Como usuario de negocio, quiero actualizar o eliminar entidades cuando cambien los datos maestros para que los registros se mantengan precisos.
+### Historia de Usuario 2 - Emitir órdenes de compra asociadas a un proveedor (Prioridad: P1)
 
-**Por qué esta prioridad**: Mantener los registros actualizados es esencial para la confianza en la herramienta y para soportar las operaciones comerciales diarias.
+Como agente de compras, quiero crear, editar y eliminar órdenes de compra vinculadas a un proveedor, para registrar cada adquisición junto al proveedor que la abastece.
 
-**Prueba Independiente**: Un usuario puede seleccionar una entidad existente, cambiar su información o eliminarla, y la lista refleja el cambio.
+Por qué esta prioridad: La orden de compra es el documento transaccional central del proceso. Sin ella el módulo solo sería un directorio de proveedores.
 
-**Escenarios de Aceptación**:
+Prueba Independiente: Un agente selecciona un proveedor en la pantalla de gestión, crea una OC con número, fecha de emisión y monto, la edita y verifica que queda asociada a ese proveedor.
 
-1. **Dada** una entidad que ya existe en la lista, **cuando** el usuario edita sus detalles, **entonces** la información actualizada se guarda y se muestra en la lista.
-2. **Dada** una entidad que ya no es relevante, **cuando** el usuario la elimina, **entonces** desaparece de la lista y deja de aparecer en los resultados de búsqueda.
-3. **Dadas** cientos de entidades almacenadas, **cuando** el usuario edita o elimina una, **entonces** la lista se actualiza correctamente y sigue siendo ágil.
+Escenarios de Aceptación:
 
+Dado un proveedor existente, cuando el agente crea una orden de compra con número, fecha de emisión y monto, entonces la OC se guarda asociada exactamente a ese proveedor.
+Dado que el agente está creando una OC, cuando deja en blanco el número o el monto, entonces el sistema impide guardar y explica qué información se requiere.
+Dada una OC existente, cuando el agente selecciona su proveedor en la pantalla de gestión, entonces los detalles de la OC se muestran en la vista de gestión de Órdenes de Compra.
+Dado que el agente registra una fecha de entrega anterior a la fecha de emisión, cuando intenta guardar, entonces el sistema rechaza el registro con una explicación clara.
 ---
 
 ### Historia de Usuario 3 - Panel de inicio con acciones rápidas y estadísticas de registros (Prioridad: P1)
@@ -340,4 +341,3 @@ Los módulos personalizados construidos sobre esta base DEBEN poder:
 - Los datos siguen persistiéndose en el localStorage del navegador y no se ven afectados por la navegación entre pantallas.
 - La pantalla de búsqueda se centra en encontrar y ver entidades; la edición permanece en la pantalla de gestión.
 - El contenido del usuario introducido por el usuario (nombres, descripciones, notas de documentos) DEBE sanitizarse antes de renderizarse en el DOM para prevenir ataques de inyección de scripts (XSS). El módulo base DEBE escapar HTML y atributos de eventos al mostrar datos de localStorage.
-
