@@ -40,22 +40,20 @@ Como usuario de negocio, quiero actualizar o eliminar entidades cuando cambien l
 
 ---
 
-### Historia de Usuario 3 - Panel de inicio con acciones rápidas y estadísticas de registros (Prioridad: P1)
+### Historia de Usuario 3 - Panel de control de compras (Prioridad: P1)
 
-Como usuario de negocio, quiero aterrizar en un panel estilo ERP con botones de acción rápida claramente etiquetados para las tareas clave y totales de registros de un vistazo al abrir la aplicación, para poder empezar a trabajar de inmediato.
+Como gerente de compras, quiero un panel de inicio con el total de proveedores y órdenes de compra y con accesos rápidos a las tareas clave, para conocer el estado del área de un vistazo y derivar trabajo sin perder tiempo navegando.
 
-**Por qué esta prioridad**: El panel es el punto de entrada de la aplicación. Nada más puede alcanzarse sin él, y las acciones rápidas son la ruta más rápida hacia cada flujo de trabajo central.
+Por qué esta prioridad: El panel es el punto de entrada del módulo. Le da a la gerencia visibilidad inmediata del volumen de operación.
 
-**Prueba Independiente**: Un usuario abre la aplicación, ve un panel con múltiples botones de acción rápida y estadísticas de registros, inicia una nueva entidad o documento con un solo clic y ve estadísticas que reflejan los datos almacenados.
+Prueba Independiente: El gerente abre la aplicación, ve las tarjetas con el número de proveedores y de OC, y desde una acción rápida abre directamente el formulario de nueva OC.
 
-**Escenarios de Aceptación**:
+Escenarios de Aceptación:
 
-1. **Dado** que el usuario abre la aplicación, **cuando** la aplicación carga, **entonces** se muestra el panel de inicio con al menos cuatro botones de acción rápida claramente etiquetados que cubren las tareas ERP clave: crear una nueva entidad, crear un nuevo documento, abrir la gestión de entidades y buscar registros.
-2. **Dado** que se muestra el panel, **cuando** el usuario activa la acción de nueva entidad, **entonces** la aplicación abre el área de gestión de entidades con un formulario vacío listo para introducir datos.
-3. **Dado** que se muestra el panel, **cuando** el usuario activa la acción de nuevo documento, **entonces** la aplicación abre el área de gestión de documentos con un formulario vacío listo para introducir datos.
-4. **Dado** que se muestra el panel, **cuando** el usuario activa la acción de buscar registros, **entonces** la aplicación abre la pantalla de búsqueda con el campo de búsqueda enfocado.
-5. **Dadas** entidades y documentos almacenados, **cuando** el usuario ve el panel, **entonces** las tarjetas de estadísticas muestran el recuento actual de entidades y documentos.
-6. **Dado** que el usuario crea o elimina registros en otra parte de la aplicación, **cuando** vuelve al panel, **entonces** las estadísticas reflejan el cambio.
+Dado que el gerente abre la aplicación, cuando carga el panel, entonces se muestran acciones rápidas para Nuevo Proveedor, Nueva Orden de Compra, Gestionar Proveedores y Buscar.
+Dados proveedores y órdenes de compra almacenados, cuando el gerente ve el panel, entonces las tarjetas de estadísticas muestran el recuento actual de cada uno.
+Dado que un agente creó o eliminó órdenes de compra, cuando el gerente vuelve al panel, entonces las estadísticas reflejan el cambio.
+Dado que no existen registros, cuando se muestra el panel, entonces las tarjetas indican cero sin errores.
 
 ---
 
