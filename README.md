@@ -1,4 +1,4 @@
-# Módulo Base ERP (Vite + JavaScript Vanilla)
+﻿# Módulo Base ERP (Vite + JavaScript Vanilla)
 
 Aplicación mínima de una sola página que sirve como módulo base de software de planificación de recursos empresariales (ERP). Proporciona la base común para construir módulos ERP personalizados: gestión de datos maestros (Entidades) y documentos transaccionales vinculados (Documentos), con crear/editar/eliminar/buscar, validación y persistencia en el `localStorage` del navegador, usando Vite y HTML, CSS y JavaScript vanilla.
 
@@ -59,15 +59,28 @@ Toda la personalización vive en un solo lugar: el objeto `userConfig` al inicio
 
 Si la configuración es inválida (tipos desconocidos, claves incorrectas, transiciones que referencian estados desconocidos, colores de acento no hexadecimales), la aplicación muestra los problemas en un banner y retrocede a los valores predeterminados en lugar de romperse.
 
+## Módulo de Adquisiciones y Compras
+
+El módulo de Adquisiciones y Compras gestiona el proceso de compra de bienes a proveedores dentro del sistema ERP. Permite registrar y dar seguimiento a las órdenes de compra, gestionar el detalle de productos adquiridos, sus cantidades, costos unitarios, el estado de la orden y la recepción de mercancía, actualizando el inventario al momento de recibirla.
+
+### Funcionalidades clave
+
+- **Datos maestros**: Gestión de proveedores, empleados, categorías y productos.
+- **Documentos transaccionales**: Órdenes de compra con numeración por serie y folio.
+- **Detalle de transacciones**: Líneas con producto, cantidad, costo unitario y cálculo de totales.
+- **Control de estados**: Seguimiento del ciclo de vida de las órdenes de compra.
+- **Integración con inventario**: Actualización de existencias al recibir la mercancía.
+- **Trazabilidad**: Registro de responsable, proveedor, fechas, y relación entre productos, categorías y órdenes de compra.
+
 ## Módulo de Adquisiciones y Compras: Modelo Entidad-Relación (MER)
 
-Esta sección explica, en palabras, el modelo de datos del módulo personalizado de **Adquisiciones y Compras** y cómo funciona sobre el módulo base. El módulo cubre el proceso de comprar bienes a proveedores: a quién se compra, qué se compra, quién registra la compra y cuánto cuesta. Las **ventas** pertenecen a otro módulo distinto y quedan fuera de este modelo.
+Esta sección explica, en palabras, el modelo de datos del módulo personalizado de **Adquisiciones y Compras** y cómo funciona sobre el módulo base. El módulo cubre el proceso de comprar bienes a proveedores: a quién se compra, qué se compra, quién registra la compra y cuánto cuesta.
 
 ### Diagrama
 
-![Modelo Entidad-Relación del módulo de Adquisiciones y Compras: Proveedor, Empleado, Categoría, Producto, Orden de compra y Detalle de compra](mer-adquisiciones-compras.png)
+El diagrama del modelo entidad-relación se encuentra en el archivo: [MER-adquisiciones-compras.txt](MER-adquisiciones-compras.txt)
 
-*Figura: MER del módulo. En lila, los elementos que vienen del módulo base (Proveedor = Entidad, Orden de compra = Documento); en verde, las extensiones propias del módulo.*
+*Figura: MER del módulo. En referencia al archivo de texto, se identifican los elementos que vienen del módulo base (Proveedor = Entidad, Orden de compra = Documento) y las extensiones propias del módulo (Empleado, Categoría, Producto, Detalle de compra).*
 
 ### Las entidades, en palabras
 
