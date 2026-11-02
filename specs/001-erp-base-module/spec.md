@@ -11,18 +11,21 @@ Este proyecto sirve como módulo base reutilizable para construir módulos ERP p
 
 ## Escenarios de Usuario y Pruebas *(obligatorio)*
 
-### Historia de Usuario 1 - Crear y organizar entidades (Prioridad: P1)
-Como usuario de negocio, quiero crear entradas de entidad con detalles claros para poder construir y mantener los datos maestros del módulo.
+### Historia de Usuario 1 - Registrar y mantener proveedores (Prioridad: P1)
 
-**Por qué esta prioridad**: Este es el valor central del producto porque, sin crear entidades, el resto de la experiencia no puede aportar valor.
+Como agente de compras, quiero registrar, editar, visualizar y eliminar la información de los proveedores (RUT/identificador, razón social, contacto y categoría), para mantener una base de datos maestra centralizada y actualizada para la gestión de adquisiciones de la empresa.
 
-**Prueba Independiente**: Un usuario puede abrir el módulo, añadir una nueva entidad y verla aparecer en la lista.
+**Por qué esta prioridad**: El proveedor es la entidad maestra principal del módulo de compras. Sin un registro actualizado de proveedores, el sistema no puede emitir órdenes de compra ni vincular operaciones transaccionales.
+
+**Prueba Independiente**: Un agente de compras puede navegar a la pantalla de gestión, crear un nuevo proveedor con sus campos obligatorios, modificar sus datos existentes, eliminar un registro sin documentos vinculados y verificar que los cambios se reflejan inmediatamente en la lista.
 
 **Escenarios de Aceptación**:
 
-1. **Dado** que un usuario está viendo la lista de entidades, **cuando** crea una nueva entidad con un nombre y un código, **entonces** la nueva entidad se guarda y aparece en la lista.
-2. **Dado** que un usuario está creando una entidad, **cuando** deja la información obligatoria en blanco, **entonces** el sistema impide guardar y explica qué se necesita.
-
+1. **Dado** que el agente de compras está en el formulario de gestión de proveedores, **cuando** ingresa una nueva entidad con RUT/código, razón social y contacto válidos, **entonces** el sistema guarda el proveedor y lo muestra en el registro maestro.
+2. **Dado** que el agente está creando o editando un proveedor, **cuando** deja en blanco un campo obligatorio (como RUT o razón social), **entonces** el sistema bloquea el guardado y muestra un mensaje indicando los datos requeridos.
+3. **Dado** un proveedor existente, **cuando** el agente actualiza su información de contacto o dirección y confirma la acción, **entonces** los datos actualizados se guardan de forma inmediata.
+4. **Dado** que se intenta registrar un proveedor cuyo RUT o código identificador ya existe en el sistema, **cuando** el usuario intenta guardar, **entonces** el sistema rechaza el duplicado y muestra una alerta de error.
+5. **Dado** un proveedor registrado que no posee órdenes de compra asociadas, **cuando** el agente solicita su eliminación y confirma la acción, **entonces** el proveedor se elimina del sistema.
 ---
 
 ### Historia de Usuario 2 - Emitir órdenes de compra asociadas a un proveedor (Prioridad: P1)
