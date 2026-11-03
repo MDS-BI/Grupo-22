@@ -38,10 +38,10 @@ Prueba Independiente: Un agente selecciona un proveedor en la pantalla de gesti�
 
 Escenarios de Aceptación:
 
-1. **Dado** un proveedor existente, cuando el agente crea una orden de compra con número, fecha de emisión y monto, entonces la OC se guarda asociada exactamente a ese proveedor.
-2. **Dado** que el agente está creando una OC, cuando deja en blanco el número o el monto, entonces el sistema impide guardar y explica qué información se requiere.
-3. **Dada** una OC existente, cuando el agente selecciona su proveedor en la pantalla de gestión, entonces los detalles de la OC se muestran en la vista de gestión de Órdenes de Compra.
-4. **Dado** que el agente registra una fecha de entrega anterior a la fecha de emisión, cuando intenta guardar, entonces el sistema rechaza el registro con una explicación clara.
+Dado un proveedor existente, cuando el agente crea una orden de compra con número, fecha de emisión y monto, entonces la OC se guarda asociada exactamente a ese proveedor.
+Dado que el agente está creando una OC, cuando deja en blanco el número o el monto, entonces el sistema impide guardar y explica qué información se requiere.
+Dada una OC existente, cuando el agente selecciona su proveedor en la pantalla de gestión, entonces los detalles de la OC se muestran en la vista de gestión de Órdenes de Compra.
+Dado que el agente registra una fecha de entrega anterior a la fecha de emisión, cuando intenta guardar, entonces el sistema rechaza el registro con una explicación clara.
 ---
 
 ### Historia de Usuario 3 - Panel de control de compras (Prioridad: P1)
@@ -94,19 +94,20 @@ Como gerente de compras, quiero monitorear una orden de compra de forma en la qu
 
 ---
 
-### Historia de Usuario 6 - Reetiquetar pantallas desde la configuración (Prioridad: P1)
+### Historia de Usuario 6 - Configurar perfil del módulo de compras (Prioridad: P2)
 
-Como desarrollador de módulos, quiero que todas las etiquetas visibles para el usuario deriven de la configuración, para que un módulo adaptado hable su idioma de dominio de forma consistente en todo momento.
+Como administrador del sistema, quiero configurar las opciones generales, roles y permisos del módulo de compras, para controlar qué puede hacer cada integrante del equipo y mantener el flujo de adquisiciones ordenado.
 
-**Por qué esta prioridad**: Los usuarios confían en un módulo que dice consistentemente "Cliente" y "Pedido de Venta" en lugar de dejar filtrarse una "Entidad" genérica por media interfaz; la terminología inconsistente hace que los módulos adaptados parezcan rotos. Esta historia depende del perfil de configuración (Historia de Usuario 5).
+**Por qué esta prioridad**: Es clave para la gestión del ERP, ya que permite definir las atribuciones de los usuarios antes de que comiencen a emitir órdenes o gestionar proveedores.
 
-**Prueba Independiente**: Un desarrollador mapea Entidad→Cliente y Documento→Pedido de Venta en la configuración, y cada pestaña, botón, etiqueta de formulario, encabezado y mensaje en las tres pantallas usa los términos mapeados.
+**Prueba Independiente**: El administrador entra al panel de configuración del módulo, modifica los permisos de un rol (o un parámetro global), guarda los cambios y verifica en la pantalla que los ajustes quedaron registrados correctamente.
 
 **Escenarios de Aceptación**:
 
-1. **Dados** mapeos de términos definidos en la configuración, **cuando** cualquier pantalla carga, **entonces** pestañas, botones, etiquetas de formulario, encabezados y mensajes de estado vacío muestran los términos configurados.
-2. **Dado** que las etiquetas han sido remapeadas, **cuando** el usuario navega entre pantallas, **entonces** el comportamiento de navegación no cambia.
-3. **Dado** que no se proporcionan mapeos, **cuando** cualquier pantalla carga, **entonces** se muestran los términos predeterminados Entidad/Documento.
+1. **Dado** que estoy en la pantalla de configuración de perfil del módulo de compras, **cuando** creo o edito un rol de usuario (agente, gerente o jefe de inventario), **entonces** el sistema guarda los permisos asignados sin errores.
+2. **Dado** que estoy definiendo los accesos del módulo, **cuando** habilito o restringo una sección específica para un rol, **entonces** el sistema actualiza la vista permitida para esos usuarios.
+3. **Dado** que establezco parámetros del módulo, **cuando** configuro un límite presupuestario o tope de compra por rol, **entonces** el sistema valida esos límites al momento de operar.
+4. **Dado** que guardo la configuración, **cuando** confirmo los cambios en la interfaz, **entonces** el sistema muestra un mensaje de éxito y actualiza los datos.
 
 ---
 
@@ -336,18 +337,3 @@ Los módulos personalizados construidos sobre esta base DEBEN poder:
 - Los datos siguen persistiéndose en el localStorage del navegador y no se ven afectados por la navegación entre pantallas.
 - La pantalla de búsqueda se centra en encontrar y ver entidades; la edición permanece en la pantalla de gestión.
 - El contenido del usuario introducido por el usuario (nombres, descripciones, notas de documentos) DEBE sanitizarse antes de renderizarse en el DOM para prevenir ataques de inyección de scripts (XSS). El módulo base DEBE escapar HTML y atributos de eventos al mostrar datos de localStorage.
-
-### Historia de Usuario 6 - Configurar perfil del módulo de compras (Prioridad: P2)
-
-Como administrador del sistema, quiero configurar las opciones generales, roles y permisos del módulo de compras, para controlar qué puede hacer cada integrante del equipo y mantener el flujo de adquisiciones ordenado.
-
-**Por qué esta prioridad**: Es clave para la gestión del ERP, ya que permite definir las atribuciones de los usuarios antes de que comiencen a emitir órdenes o gestionar proveedores.
-
-**Prueba Independiente**: El administrador entra al panel de configuración del módulo, modifica los permisos de un rol (o un parámetro global), guarda los cambios y verifica en la pantalla que los ajustes quedaron registrados correctamente.
-
-**Escenarios de Aceptación**:
-
-1. **Dado** que estoy en la pantalla de configuración de perfil del módulo de compras, **cuando** creo o edito un rol de usuario (agente, gerente o jefe de inventario), **entonces** el sistema guarda los permisos asignados sin errores.
-2. **Dado** que estoy definiendo los accesos del módulo, **cuando** habilito o restringo una sección específica para un rol, **entonces** el sistema actualiza la vista permitida para esos usuarios.
-3. **Dado** que establezco parámetros del módulo, **cuando** configuro un límite presupuestario o tope de compra por rol, **entonces** el sistema valida esos límites al momento de operar.
-4. **Dado** que guardo la configuración, **cuando** confirmo los cambios en la interfaz, **entonces** el sistema muestra un mensaje de éxito y actualiza los datos.
