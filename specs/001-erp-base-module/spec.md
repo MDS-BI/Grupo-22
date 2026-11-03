@@ -11,106 +11,103 @@ Este proyecto sirve como módulo base reutilizable para construir módulos ERP p
 
 ## Escenarios de Usuario y Pruebas *(obligatorio)*
 
-### Historia de Usuario 1 - Crear y organizar entidades (Prioridad: P1)
-Como usuario de negocio, quiero crear entradas de entidad con detalles claros para poder construir y mantener los datos maestros del módulo.
+### Historia de Usuario 1 - Registrar y mantener proveedores (Prioridad: P1)
 
-**Por qué esta prioridad**: Este es el valor central del producto porque, sin crear entidades, el resto de la experiencia no puede aportar valor.
+Como agente de compras, quiero registrar, editar, visualizar y eliminar la información de los proveedores (RUT/identificador, razón social, contacto y categoría), para mantener una base de datos maestra centralizada y actualizada para la gestión de adquisiciones de la empresa.
 
-**Prueba Independiente**: Un usuario puede abrir el módulo, añadir una nueva entidad y verla aparecer en la lista.
+**Por qué esta prioridad**: El proveedor es la entidad maestra principal del módulo de compras. Sin un registro actualizado de proveedores, el sistema no puede emitir órdenes de compra ni vincular operaciones transaccionales.
+
+**Prueba Independiente**: Un agente de compras puede navegar a la pantalla de gestión, crear un nuevo proveedor con sus campos obligatorios, modificar sus datos existentes, eliminar un registro sin documentos vinculados y verificar que los cambios se reflejan inmediatamente en la lista.
 
 **Escenarios de Aceptación**:
 
-1. **Dado** que un usuario está viendo la lista de entidades, **cuando** crea una nueva entidad con un nombre y un código, **entonces** la nueva entidad se guarda y aparece en la lista.
-2. **Dado** que un usuario está creando una entidad, **cuando** deja la información obligatoria en blanco, **entonces** el sistema impide guardar y explica qué se necesita.
+1. **Dado** que el agente de compras está en el formulario de gestión de proveedores, **cuando** ingresa una nueva entidad con RUT/código, razón social y contacto válidos, **entonces** el sistema guarda el proveedor y lo muestra en el registro maestro.
+2. **Dado** que el agente está creando o editando un proveedor, **cuando** deja en blanco un campo obligatorio (como RUT o razón social), **entonces** el sistema bloquea el guardado y muestra un mensaje indicando los datos requeridos.
+3. **Dado** un proveedor existente, **cuando** el agente actualiza su información de contacto o dirección y confirma la acción, **entonces** los datos actualizados se guardan de forma inmediata.
+4. **Dado** que se intenta registrar un proveedor cuyo RUT o código identificador ya existe en el sistema, **cuando** el usuario intenta guardar, **entonces** el sistema rechaza el duplicado y muestra una alerta de error.
+5. **Dado** un proveedor registrado que no posee órdenes de compra asociadas, **cuando** el agente solicita su eliminación y confirma la acción, **entonces** el proveedor se elimina del sistema.
+---
+
+### Historia de Usuario 2 - Emitir órdenes de compra asociadas a un proveedor (Prioridad: P1)
+
+Como agente de compras, quiero crear, editar y eliminar órdenes de compra vinculadas a un proveedor, para registrar cada adquisición junto al proveedor que la abastece.
+
+Por qué esta prioridad: La orden de compra es el documento transaccional central del proceso. Sin ella el módulo solo sería un directorio de proveedores.
+
+Prueba Independiente: Un agente selecciona un proveedor en la pantalla de gestión, crea una OC con número, fecha de emisión y monto, la edita y verifica que queda asociada a ese proveedor.
+
+Escenarios de Aceptación:
+
+1. **Dado** un proveedor existente, cuando el agente crea una orden de compra con número, fecha de emisión y monto, entonces la OC se guarda asociada exactamente a ese proveedor.
+2. **Dado** que el agente está creando una OC, cuando deja en blanco el número o el monto, entonces el sistema impide guardar y explica qué información se requiere.
+3. **Dada** una OC existente, cuando el agente selecciona su proveedor en la pantalla de gestión, entonces los detalles de la OC se muestran en la vista de gestión de Órdenes de Compra.
+4. **Dado** que el agente registra una fecha de entrega anterior a la fecha de emisión, cuando intenta guardar, entonces el sistema rechaza el registro con una explicación clara.
+---
+
+### Historia de Usuario 3 - Panel de control de compras (Prioridad: P1)
+
+Como gerente de compras, quiero un panel de inicio con el total de proveedores y órdenes de compra y con accesos rápidos a las tareas clave, para conocer el estado del área de un vistazo y derivar trabajo sin perder tiempo navegando.
+
+Por qué esta prioridad: El panel es el punto de entrada del módulo. Le da a la gerencia visibilidad inmediata del volumen de operación.
+
+Prueba Independiente: El gerente abre la aplicación, ve las tarjetas con el número de proveedores y de OC, y desde una acción rápida abre directamente el formulario de nueva OC.
+
+Escenarios de Aceptación:
+
+Dado que el gerente abre la aplicación, cuando carga el panel, entonces se muestran acciones rápidas para Nuevo Proveedor, Nueva Orden de Compra, Gestionar Proveedores y Buscar.
+Dados proveedores y órdenes de compra almacenados, cuando el gerente ve el panel, entonces las tarjetas de estadísticas muestran el recuento actual de cada uno.
+Dado que un agente creó o eliminó órdenes de compra, cuando el gerente vuelve al panel, entonces las estadísticas reflejan el cambio.
+Dado que no existen registros, cuando se muestra el panel, entonces las tarjetas indican cero sin errores.
 
 ---
 
-### Historia de Usuario 2 - Editar y eliminar entidades (Prioridad: P1)
-Como usuario de negocio, quiero actualizar o eliminar entidades cuando cambien los datos maestros para que los registros se mantengan precisos.
+### Historia de Usuario 4 - Buscar proveedores y fechas de entrega comprometidas (Prioridad: P2)
 
-**Por qué esta prioridad**: Mantener los registros actualizados es esencial para la confianza en la herramienta y para soportar las operaciones comerciales diarias.
+Como jefe de inventario, quiero buscar proveedores por nombre, RUT, categoría o fecha de entrega comprometida, para saber rápidamente quién abastece un insumo y cuándo debo esperar la recepción en bodega.
 
-**Prueba Independiente**: Un usuario puede seleccionar una entidad existente, cambiar su información o eliminarla, y la lista refleja el cambio.
+Por qué esta prioridad: Facilita la planificación de bodega y el seguimiento de quiebres de stock, pero no es indispensable para registrar compras.
 
-**Escenarios de Aceptación**:
+Prueba Independiente: El jefe de inventario abre la pantalla de búsqueda desde la barra lateral, busca la categoría “insumos eléctricos” y ve solo los proveedores coincidentes con su fecha objetivo visible.
 
-1. **Dada** una entidad que ya existe en la lista, **cuando** el usuario edita sus detalles, **entonces** la información actualizada se guarda y se muestra en la lista.
-2. **Dada** una entidad que ya no es relevante, **cuando** el usuario la elimina, **entonces** desaparece de la lista y deja de aparecer en los resultados de búsqueda.
-3. **Dadas** cientos de entidades almacenadas, **cuando** el usuario edita o elimina una, **entonces** la lista se actualiza correctamente y sigue siendo ágil.
+Escenarios de Aceptación:
 
----
-
-### Historia de Usuario 3 - Panel de inicio con acciones rápidas y estadísticas de registros (Prioridad: P1)
-
-Como usuario de negocio, quiero aterrizar en un panel estilo ERP con botones de acción rápida claramente etiquetados para las tareas clave y totales de registros de un vistazo al abrir la aplicación, para poder empezar a trabajar de inmediato.
-
-**Por qué esta prioridad**: El panel es el punto de entrada de la aplicación. Nada más puede alcanzarse sin él, y las acciones rápidas son la ruta más rápida hacia cada flujo de trabajo central.
-
-**Prueba Independiente**: Un usuario abre la aplicación, ve un panel con múltiples botones de acción rápida y estadísticas de registros, inicia una nueva entidad o documento con un solo clic y ve estadísticas que reflejan los datos almacenados.
-
-**Escenarios de Aceptación**:
-
-1. **Dado** que el usuario abre la aplicación, **cuando** la aplicación carga, **entonces** se muestra el panel de inicio con al menos cuatro botones de acción rápida claramente etiquetados que cubren las tareas ERP clave: crear una nueva entidad, crear un nuevo documento, abrir la gestión de entidades y buscar registros.
-2. **Dado** que se muestra el panel, **cuando** el usuario activa la acción de nueva entidad, **entonces** la aplicación abre el área de gestión de entidades con un formulario vacío listo para introducir datos.
-3. **Dado** que se muestra el panel, **cuando** el usuario activa la acción de nuevo documento, **entonces** la aplicación abre el área de gestión de documentos con un formulario vacío listo para introducir datos.
-4. **Dado** que se muestra el panel, **cuando** el usuario activa la acción de buscar registros, **entonces** la aplicación abre la pantalla de búsqueda con el campo de búsqueda enfocado.
-5. **Dadas** entidades y documentos almacenados, **cuando** el usuario ve el panel, **entonces** las tarjetas de estadísticas muestran el recuento actual de entidades y documentos.
-6. **Dado** que el usuario crea o elimina registros en otra parte de la aplicación, **cuando** vuelve al panel, **entonces** las estadísticas reflejan el cambio.
+1. Dado que el jefe de inventario está en la pantalla de búsqueda, cuando introduce un nombre, RUT o categoría, entonces solo se muestran los proveedores coincidentes.
+2. Dados proveedores con fecha objetivo de entrega registrada, cuando se muestran en los resultados, entonces la fecha es identificable de un vistazo.
+3. Dada una búsqueda sin coincidencias, cuando se envía, entonces se muestra un estado vacío claro y puede intentar de nuevo.
+4. Dados cientos de proveedores almacenados, cuando busca, entonces los resultados aparecen sin retraso perceptible.
 
 ---
 
-### Historia de Usuario 4 - Gestionar entidades y documentos en una pantalla dedicada (Prioridad: P1)
+### Historia de Usuario 5 - Controlar el ciclo de vida de la orden de compra (Prioridad: P1)
 
-Como usuario de negocio, quiero una pantalla dedicada donde pueda añadir, editar y eliminar entidades y sus documentos, para poder gestionar los datos del módulo en un lugar enfocado.
+Como gerente de compras, quiero monitorear una orden de compra de forma en la que esta siga un orden definido por etapas (Solicitada, Cotizada, Aprovada, Recibida, Cerrada) de manera en la que no se determine el ciclo como recibido o cerrado sin tener aprobación previa.
 
-**Por qué esta prioridad**: Esto preserva el valor central de las capacidades de gestión del módulo, presentado como una única pantalla de gestión accesible desde la barra lateral y las acciones rápidas del panel.
+**Por qué esta prioridad**: Otorga gobernanza, trazabilidad y reduce el riesgo de fraude en el proceso de compras. Sin embargo, la operación básica puede funcionar inicialmente permitiendo cambios de estado libres.
 
-**Prueba Independiente**: Un usuario puede navegar a la pantalla de gestión mediante la barra lateral o una acción rápida, alternar entre la gestión de entidades y documentos, y volver al panel, añadiendo, editando y eliminando con éxito una entidad y un documento.
+**Prueba Independiente**: Un usuario intenta cambiar una orden de compra en estado “Solicitada” directamente a “Aprobada” o “Recibida”; el sistema bloquea la acción, muestra una alerta explicativa y solo habilita la transición hacia “Cotizada”.
 
 **Escenarios de Aceptación**:
 
-1. **Dado** que el usuario está en la pantalla de gestión, **cuando** mira la navegación, **entonces** la barra lateral del espacio de trabajo ofrece botones de módulo para Entidades, Documentos y Panel con el módulo activo resaltado.
-2. **Dada** la barra lateral visible, **cuando** el usuario activa el botón Entidades, **entonces** se muestra el contenido de gestión de entidades.
-3. **Dada** la barra lateral visible, **cuando** el usuario activa el botón Documentos, **entonces** se muestra el contenido de gestión de documentos.
-4. **Dado** que el usuario está en la pantalla de gestión, **cuando** mira la pantalla, **entonces** la lista de entidades no se muestra.
-5. **Dado** que el usuario está en la pantalla de gestión, **cuando** crea una nueva entidad, **entonces** la entidad se guarda.
-6. **Dada** una entidad existente, **cuando** el usuario edita sus detalles, **entonces** la información actualizada se guarda.
-7. **Dada** una entidad que ya no es relevante, **cuando** el usuario la elimina, **entonces** se elimina junto con sus documentos.
-8. **Dada** una entidad existente, **cuando** el usuario añade, edita o elimina un documento, **entonces** los cambios del documento se guardan y quedan asociados a esa entidad.
-9. **Dado** que el usuario está en la pantalla de gestión, **cuando** activa el botón Panel en la barra lateral, **entonces** vuelve al panel de inicio.
+1. **Dado** que una orden de compra está en un estado determinado, cuando un usuario intenta modificar su estado, **entonces** el sistema solo despliega como opciones elegibles las transiciones válidas del flujo.   
+2. **Dada** una orden de compra en estado “Solicitada” o “Cotizada”, cuando se intenta forzar el estado a “Recibida” o “Cerrada”, **entonces** el sistema rechaza la operación y notifica que se requiere la aprobación previa.   
+3. **Dada** la lista o vista general de órdenes de compra, cuando el gerente de compras ingresa a gestionarlas, **entonces** el estado actual de cada documento se destaca visualmente con una etiqueta o indicador claro.
 
 ---
 
-### Historia de Usuario 5 - Definir un perfil de configuración del módulo (Prioridad: P1)
+### Historia de Usuario 6 - Configurar perfil del módulo de compras (Prioridad: P2)
 
-Como desarrollador de módulos, quiero declarar un único archivo de configuración que defina la identidad, terminología, campos personalizados y reglas de mi módulo, para adaptar el módulo base en un módulo específico sin modificar su código central.
+Como administrador del sistema, quiero configurar las opciones generales, roles y permisos del módulo de compras, para controlar qué puede hacer cada integrante del equipo y mantener el flujo de adquisiciones ordenado.
 
-**Por qué esta prioridad**: La adaptación mediante configuración es lo que convierte este proyecto de una aplicación fija en una base reutilizable. Sin ella, cada módulo personalizado requeriría editar archivos fuente centrales, lo que frustra el propósito de la plantilla; todas las historias de personalización posteriores dependen de que este mecanismo exista primero.
+**Por qué esta prioridad**: Es clave para la gestión del ERP, ya que permite definir las atribuciones de los usuarios antes de que comiencen a emitir órdenes o gestionar proveedores.
 
-**Prueba Independiente**: Un desarrollador proporciona un archivo de configuración que define un perfil de Ventas (nombre del módulo, mapeos Entidad→Cliente, campos personalizados, ciclo de vida), y la aplicación se presenta plenamente como un módulo de Ventas; al quitar el archivo se restauran los valores predeterminados de la base sin errores.
-
-**Escenarios de Aceptación**:
-
-1. **Dado** que un archivo de configuración define el nombre del módulo, **cuando** la aplicación carga, **entonces** el panel de inicio y el marco del espacio de trabajo muestran el nombre configurado.
-2. **Dada** una configuración completa (nombre, mapeos de términos, campos personalizados, ciclo de vida), **cuando** la aplicación carga, **entonces** el módulo se presenta plenamente bajo la identidad configurada sin que se vean términos del módulo base en ningún sitio.
-3. **Dado** que no se proporciona configuración, **cuando** la aplicación carga, **entonces** la aplicación retrocede a los valores predeterminados integrados Entidad/Documento sin errores.
-4. **Dada** una configuración con valores inválidos o conflictivos, **cuando** la aplicación carga, **entonces** el sistema informa del problema con claridad en lugar de fallar silenciosamente.
-
----
-
-### Historia de Usuario 6 - Reetiquetar pantallas desde la configuración (Prioridad: P1)
-
-Como desarrollador de módulos, quiero que todas las etiquetas visibles para el usuario deriven de la configuración, para que un módulo adaptado hable su idioma de dominio de forma consistente en todo momento.
-
-**Por qué esta prioridad**: Los usuarios confían en un módulo que dice consistentemente "Cliente" y "Pedido de Venta" en lugar de dejar filtrarse una "Entidad" genérica por media interfaz; la terminología inconsistente hace que los módulos adaptados parezcan rotos. Esta historia depende del perfil de configuración (Historia de Usuario 5).
-
-**Prueba Independiente**: Un desarrollador mapea Entidad→Cliente y Documento→Pedido de Venta en la configuración, y cada pestaña, botón, etiqueta de formulario, encabezado y mensaje en las tres pantallas usa los términos mapeados.
+**Prueba Independiente**: El administrador entra al panel de configuración del módulo, modifica los permisos de un rol (o un parámetro global), guarda los cambios y verifica en la pantalla que los ajustes quedaron registrados correctamente.
 
 **Escenarios de Aceptación**:
 
-1. **Dados** mapeos de términos definidos en la configuración, **cuando** cualquier pantalla carga, **entonces** pestañas, botones, etiquetas de formulario, encabezados y mensajes de estado vacío muestran los términos configurados.
-2. **Dado** que las etiquetas han sido remapeadas, **cuando** el usuario navega entre pantallas, **entonces** el comportamiento de navegación no cambia.
-3. **Dado** que no se proporcionan mapeos, **cuando** cualquier pantalla carga, **entonces** se muestran los términos predeterminados Entidad/Documento.
+1. **Dado** que estoy en la pantalla de configuración de perfil del módulo de compras, **cuando** creo o edito un rol de usuario (agente, gerente o jefe de inventario), **entonces** el sistema guarda los permisos asignados sin errores.
+2. **Dado** que estoy definiendo los accesos del módulo, **cuando** habilito o restringo una sección específica para un rol, **entonces** el sistema actualiza la vista permitida para esos usuarios.
+3. **Dado** que establezco parámetros del módulo, **cuando** configuro un límite presupuestario o tope de compra por rol, **entonces** el sistema valida esos límites al momento de operar.
+4. **Dado** que guardo la configuración, **cuando** confirmo los cambios en la interfaz, **entonces** el sistema muestra un mensaje de éxito y actualiza los datos.
 
 ---
 
