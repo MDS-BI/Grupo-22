@@ -78,20 +78,19 @@ Escenarios de Aceptación:
 
 ---
 
-### Historia de Usuario 5 - Definir un perfil de configuración del módulo (Prioridad: P1)
+### Historia de Usuario 5 - Controlar el ciclo de vida de la orden de compra (Prioridad: P1)
 
-Como desarrollador de módulos, quiero declarar un único archivo de configuración que defina la identidad, terminología, campos personalizados y reglas de mi módulo, para adaptar el módulo base en un módulo específico sin modificar su código central.
+Como gerente de compras, quiero monitorear una orden de compra de forma en la que esta siga un orden definido por etapas (Solicitada, Cotizada, Aprovada, Recibida, Cerrada) de manera en la que no se determine el ciclo como recibido o cerrado sin tener aprobación previa.
 
-**Por qué esta prioridad**: La adaptación mediante configuración es lo que convierte este proyecto de una aplicación fija en una base reutilizable. Sin ella, cada módulo personalizado requeriría editar archivos fuente centrales, lo que frustra el propósito de la plantilla; todas las historias de personalización posteriores dependen de que este mecanismo exista primero.
+**Por qué esta prioridad**: Otorga gobernanza, trazabilidad y reduce el riesgo de fraude en el proceso de compras. Sin embargo, la operación básica puede funcionar inicialmente permitiendo cambios de estado libres.
 
-**Prueba Independiente**: Un desarrollador proporciona un archivo de configuración que define un perfil de Ventas (nombre del módulo, mapeos Entidad→Cliente, campos personalizados, ciclo de vida), y la aplicación se presenta plenamente como un módulo de Ventas; al quitar el archivo se restauran los valores predeterminados de la base sin errores.
+**Prueba Independiente**: Un usuario intenta cambiar una orden de compra en estado “Solicitada” directamente a “Aprobada” o “Recibida”; el sistema bloquea la acción, muestra una alerta explicativa y solo habilita la transición hacia “Cotizada”.
 
 **Escenarios de Aceptación**:
 
-1. **Dado** que un archivo de configuración define el nombre del módulo, **cuando** la aplicación carga, **entonces** el panel de inicio y el marco del espacio de trabajo muestran el nombre configurado.
-2. **Dada** una configuración completa (nombre, mapeos de términos, campos personalizados, ciclo de vida), **cuando** la aplicación carga, **entonces** el módulo se presenta plenamente bajo la identidad configurada sin que se vean términos del módulo base en ningún sitio.
-3. **Dado** que no se proporciona configuración, **cuando** la aplicación carga, **entonces** la aplicación retrocede a los valores predeterminados integrados Entidad/Documento sin errores.
-4. **Dada** una configuración con valores inválidos o conflictivos, **cuando** la aplicación carga, **entonces** el sistema informa del problema con claridad en lugar de fallar silenciosamente.
+1. **Dado** que una orden de compra está en un estado determinado, cuando un usuario intenta modificar su estado, **entonces** el sistema solo despliega como opciones elegibles las transiciones válidas del flujo.   
+2. **Dada** una orden de compra en estado “Solicitada” o “Cotizada”, cuando se intenta forzar el estado a “Recibida” o “Cerrada”, **entonces** el sistema rechaza la operación y notifica que se requiere la aprobación previa.   
+3. **Dada** la lista o vista general de órdenes de compra, cuando el gerente de compras ingresa a gestionarlas, **entonces** el estado actual de cada documento se destaca visualmente con una etiqueta o indicador claro.
 
 ---
 
