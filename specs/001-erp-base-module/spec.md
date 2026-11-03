@@ -337,3 +337,18 @@ Los módulos personalizados construidos sobre esta base DEBEN poder:
 - Los datos siguen persistiéndose en el localStorage del navegador y no se ven afectados por la navegación entre pantallas.
 - La pantalla de búsqueda se centra en encontrar y ver entidades; la edición permanece en la pantalla de gestión.
 - El contenido del usuario introducido por el usuario (nombres, descripciones, notas de documentos) DEBE sanitizarse antes de renderizarse en el DOM para prevenir ataques de inyección de scripts (XSS). El módulo base DEBE escapar HTML y atributos de eventos al mostrar datos de localStorage.
+
+### Historia de Usuario 6 - Configurar perfil del módulo de compras (Prioridad: P2)
+
+Como administrador del sistema, quiero configurar las opciones generales, roles y permisos del módulo de compras, para controlar qué puede hacer cada integrante del equipo y mantener el flujo de adquisiciones ordenado.
+
+**Por qué esta prioridad**: Es clave para la gestión del ERP, ya que permite definir las atribuciones de los usuarios antes de que comiencen a emitir órdenes o gestionar proveedores.
+
+**Prueba Independiente**: El administrador entra al panel de configuración del módulo, modifica los permisos de un rol (o un parámetro global), guarda los cambios y verifica en la pantalla que los ajustes quedaron registrados correctamente.
+
+**Escenarios de Aceptación**:
+
+1. **Dado** que estoy en la pantalla de configuración de perfil del módulo de compras, **cuando** creo o edito un rol de usuario (agente, gerente o jefe de inventario), **entonces** el sistema guarda los permisos asignados sin errores.
+2. **Dado** que estoy definiendo los accesos del módulo, **cuando** habilito o restringo una sección específica para un rol, **entonces** el sistema actualiza la vista permitida para esos usuarios.
+3. **Dado** que establezco parámetros del módulo, **cuando** configuro un límite presupuestario o tope de compra por rol, **entonces** el sistema valida esos límites al momento de operar.
+4. **Dado** que guardo la configuración, **cuando** confirmo los cambios en la interfaz, **entonces** el sistema muestra un mensaje de éxito y actualiza los datos.
