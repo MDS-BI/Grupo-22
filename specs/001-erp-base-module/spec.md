@@ -38,10 +38,10 @@ Prueba Independiente: Un agente selecciona un proveedor en la pantalla de gesti�
 
 Escenarios de Aceptación:
 
-1. **Dado** un proveedor existente, cuando el agente crea una orden de compra con número, fecha de emisión y monto, entonces la OC se guarda asociada exactamente a ese proveedor.
-2. **Dado** que el agente está creando una OC, cuando deja en blanco el número o el monto, entonces el sistema impide guardar y explica qué información se requiere.
-3. **Dada** una OC existente, cuando el agente selecciona su proveedor en la pantalla de gestión, entonces los detalles de la OC se muestran en la vista de gestión de Órdenes de Compra.
-4. **Dado** que el agente registra una fecha de entrega anterior a la fecha de emisión, cuando intenta guardar, entonces el sistema rechaza el registro con una explicación clara.
+Dado un proveedor existente, cuando el agente crea una orden de compra con número, fecha de emisión y monto, entonces la OC se guarda asociada exactamente a ese proveedor.
+Dado que el agente está creando una OC, cuando deja en blanco el número o el monto, entonces el sistema impide guardar y explica qué información se requiere.
+Dada una OC existente, cuando el agente selecciona su proveedor en la pantalla de gestión, entonces los detalles de la OC se muestran en la vista de gestión de Órdenes de Compra.
+Dado que el agente registra una fecha de entrega anterior a la fecha de emisión, cuando intenta guardar, entonces el sistema rechaza el registro con una explicación clara.
 ---
 
 ### Historia de Usuario 3 - Panel de control de compras (Prioridad: P1)
@@ -336,5 +336,9 @@ Los módulos personalizados construidos sobre esta base DEBEN poder:
 - La navegación entre pantallas se maneja dentro de la aplicación (p. ej., cambio de vistas), y el botón atrás del navegador debe comportarse de forma predecible.
 - Los datos siguen persistiéndose en el localStorage del navegador y no se ven afectados por la navegación entre pantallas.
 - La pantalla de búsqueda se centra en encontrar y ver entidades; la edición permanece en la pantalla de gestión.
+<<<<<<< HEAD
 - El contenido del usuario introducido por el usuario (nombres, descripciones, notas de documentos) DEBE sanitizarse antes de renderizarse en el DOM para prevenir ataques de inyección de scripts (XSS). El módulo base DEBE escapar HTML y atributos de eventos al mostrar datos de localStorage.
 
+=======
+- El contenido del usuario introducido por el usuario (nombres, descripciones, notas de documentos) DEBE sanitizarse antes de renderizarse en el DOM para prevenir ataques de inyección de scripts (XSS). El módulo base DEBE escapar HTML y atributos de eventos al mostrar datos de localStorage.
+>>>>>>> fa1ce0695321737f446693557588fd5628d89be7
