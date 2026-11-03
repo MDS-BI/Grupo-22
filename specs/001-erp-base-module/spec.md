@@ -61,25 +61,20 @@ Dado que no existen registros, cuando se muestra el panel, entonces las tarjetas
 
 ---
 
-### Historia de Usuario 4 - Gestionar entidades y documentos en una pantalla dedicada (Prioridad: P1)
+### Historia de Usuario 4 - Buscar proveedores y fechas de entrega comprometidas (Prioridad: P2)
 
-Como usuario de negocio, quiero una pantalla dedicada donde pueda añadir, editar y eliminar entidades y sus documentos, para poder gestionar los datos del módulo en un lugar enfocado.
+Como jefe de inventario, quiero buscar proveedores por nombre, RUT, categoría o fecha de entrega comprometida, para saber rápidamente quién abastece un insumo y cuándo debo esperar la recepción en bodega.
 
-**Por qué esta prioridad**: Esto preserva el valor central de las capacidades de gestión del módulo, presentado como una única pantalla de gestión accesible desde la barra lateral y las acciones rápidas del panel.
+Por qué esta prioridad: Facilita la planificación de bodega y el seguimiento de quiebres de stock, pero no es indispensable para registrar compras.
 
-**Prueba Independiente**: Un usuario puede navegar a la pantalla de gestión mediante la barra lateral o una acción rápida, alternar entre la gestión de entidades y documentos, y volver al panel, añadiendo, editando y eliminando con éxito una entidad y un documento.
+Prueba Independiente: El jefe de inventario abre la pantalla de búsqueda desde la barra lateral, busca la categoría “insumos eléctricos” y ve solo los proveedores coincidentes con su fecha objetivo visible.
 
-**Escenarios de Aceptación**:
+Escenarios de Aceptación:
 
-1. **Dado** que el usuario está en la pantalla de gestión, **cuando** mira la navegación, **entonces** la barra lateral del espacio de trabajo ofrece botones de módulo para Entidades, Documentos y Panel con el módulo activo resaltado.
-2. **Dada** la barra lateral visible, **cuando** el usuario activa el botón Entidades, **entonces** se muestra el contenido de gestión de entidades.
-3. **Dada** la barra lateral visible, **cuando** el usuario activa el botón Documentos, **entonces** se muestra el contenido de gestión de documentos.
-4. **Dado** que el usuario está en la pantalla de gestión, **cuando** mira la pantalla, **entonces** la lista de entidades no se muestra.
-5. **Dado** que el usuario está en la pantalla de gestión, **cuando** crea una nueva entidad, **entonces** la entidad se guarda.
-6. **Dada** una entidad existente, **cuando** el usuario edita sus detalles, **entonces** la información actualizada se guarda.
-7. **Dada** una entidad que ya no es relevante, **cuando** el usuario la elimina, **entonces** se elimina junto con sus documentos.
-8. **Dada** una entidad existente, **cuando** el usuario añade, edita o elimina un documento, **entonces** los cambios del documento se guardan y quedan asociados a esa entidad.
-9. **Dado** que el usuario está en la pantalla de gestión, **cuando** activa el botón Panel en la barra lateral, **entonces** vuelve al panel de inicio.
+1. Dado que el jefe de inventario está en la pantalla de búsqueda, cuando introduce un nombre, RUT o categoría, entonces solo se muestran los proveedores coincidentes.
+2. Dados proveedores con fecha objetivo de entrega registrada, cuando se muestran en los resultados, entonces la fecha es identificable de un vistazo.
+3. Dada una búsqueda sin coincidencias, cuando se envía, entonces se muestra un estado vacío claro y puede intentar de nuevo.
+4. Dados cientos de proveedores almacenados, cuando busca, entonces los resultados aparecen sin retraso perceptible.
 
 ---
 
