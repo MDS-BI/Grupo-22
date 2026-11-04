@@ -108,55 +108,46 @@ Objeto de configuración cargado al arrancar que adapta el módulo base en un m�
 
 ## Modelo Entidad-Relación (MER)
 
-```mermaid
-erDiagram
-    PROVEEDOR ||--o{ ORDEN_COMPRA : recibe
-    EMPLEADO ||--o{ ORDEN_COMPRA : registra
-    CATEGORIA ||--o{ PRODUCTO : clasifica
-    PRODUCTO ||--o{ DETALLE_COMPRA : "se adquiere en"
-    ORDEN_COMPRA ||--|{ DETALLE_COMPRA : contiene
+### Entidades y atributos
 
-    PROVEEDOR {
-        int id_proveedor PK
-        string rut
-        string nombre
-        string email
-        string telefono
-        string direccion
-    }
+| Entidad | Atributo | Tipo | Clave |
+|---|---|---|---|
+| PROVEEDOR | id_proveedor | int | PK |
+| PROVEEDOR | rut | string | |
+| PROVEEDOR | nombre | string | |
+| PROVEEDOR | email | string | |
+| PROVEEDOR | telefono | string | |
+| PROVEEDOR | direccion | string | |
+| EMPLEADO | id_empleado | int | PK |
+| EMPLEADO | nombre | string | |
+| EMPLEADO | cargo | string | |
+| CATEGORIA | id_categoria | int | PK |
+| CATEGORIA | nombre | string | |
+| PRODUCTO | id_producto | int | PK |
+| PRODUCTO | id_categoria | int | FK (CATEGORIA.id_categoria) |
+| PRODUCTO | nombre | string | |
+| PRODUCTO | unidad_medida | string | |
+| PRODUCTO | stock | int | |
+| ORDEN_COMPRA | id_orden_compra | int | PK |
+| ORDEN_COMPRA | id_proveedor | int | FK (PROVEEDOR.id_proveedor) |
+| ORDEN_COMPRA | id_empleado | int | FK (EMPLEADO.id_empleado) |
+| ORDEN_COMPRA | fecha | date | |
+| ORDEN_COMPRA | estado | string | |
+| ORDEN_COMPRA | total | decimal | |
+| DETALLE_COMPRA | id_orden_compra | int | PK, FK (ORDEN_COMPRA.id_orden_compra) |
+| DETALLE_COMPRA | id_producto | int | PK, FK (PRODUCTO.id_producto) |
+| DETALLE_COMPRA | cantidad | int | |
+| DETALLE_COMPRA | costo_unitario | decimal | |
+| DETALLE_COMPRA | subtotal | decimal | |
 
-    EMPLEADO {
-        int id_empleado PK
-        string nombre
-        string cargo
-    }
+### Relaciones y cardinalidades
 
-    CATEGORIA {
-        int id_categoria PK
-        string nombre
-    }
+| Entidad de origen | Cardinalidad | Entidad relacionada | Cardinalidad | Descripción |
+|---|---:|---|---:|---|
+| PROVEEDOR | 1 | ORDEN_COMPRA | 0..N | Un proveedor puede tener cero o muchas órdenes de compra; cada orden corresponde a un proveedor. |
+| EMPLEADO | 1 | ORDEN_COMPRA | 0..N | Un empleado puede registrar cero o muchas órdenes de compra; cada orden la registra un empleado. |
+| CATEGORIA | 1 | PRODUCTO | 0..N | Una categoría puede clasificar cero o muchos productos; cada producto pertenece a una categoría. |
+| PRODUCTO | 1 | DETALLE_COMPRA | 0..N | Un producto puede aparecer en cero o muchos detalles de compra; cada detalle corresponde a un producto. |
+| ORDEN_COMPRA | 1 | DETALLE_COMPRA | 1..N | Una orden contiene uno o más detalles de compra; cada detalle pertenece a una orden. |
 
-    PRODUCTO {
-        int id_producto PK
-        int id_categoria FK
-        string nombre
-        string unidad_medida
-        int stock
-    }
-
-    ORDEN_COMPRA {
-        int id_orden_compra PK
-        int id_proveedor FK
-        int id_empleado FK
-        date fecha
-        string estado
-        decimal total
-    }
-
-    DETALLE_COMPRA {
-        int id_orden_compra PK
-        int id_producto PK
-        int cantidad
-        decimal costo_unitario
-        decimal subtotal
-    }
+La clave primaria de `DETALLE_COMPRA` es compuesta por `id_orden_compra` e `id_producto`.
