@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
+import { normalizeConfig, DEFAULT_CONFIG } from '../../src/module-config.js';
 import { addEntity, loadEntities, loadDocuments } from '../../src/storage.js';
 
 const html = fs.readFileSync(fileURLToPath(new URL('../../index.html', import.meta.url)), 'utf8');
@@ -21,8 +22,8 @@ beforeEach(async () => {
   w.scrollTo = vi.fn();
   w.localStorage.clear();
   vi.resetModules();
-  const { boot } = await import('../../src/app.js');
-  await boot();
+  const { initApp } = await import('../../src/app.js');
+  await initApp(normalizeConfig(DEFAULT_CONFIG));
 });
 
 afterEach(() => {

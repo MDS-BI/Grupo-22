@@ -69,7 +69,7 @@
           <form id="document-form" novalidate>
             <h2 id="document-form-heading">Agregar / Editar Documento</h2>
             <input type="hidden" id="document-id">
-            <div class="field"><label for="document-entity">Entidad</label><select id="document-entity"></select><small class="field-error" id="error-document-entity"></small></div>
+            <div class="field"><label for="document-entity" id="document-entity-label">Entidad</label><select id="document-entity"></select><small class="field-error" id="error-document-entity"></small></div>
             <div class="field"><label for="series">Serie</label><input id="series"></div>
             <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" id="error-folio"></small></div>
             <div class="field"><label for="startDate">Fecha de inicio</label><input id="startDate" type="date"><small class="field-error" id="error-startDate"></small></div>
@@ -105,6 +105,6 @@
     </main>
   </div>
   <div id="config-warning" class="config-warning" hidden></div>
-  <script type="module" src="/src/app.js"></script>
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>

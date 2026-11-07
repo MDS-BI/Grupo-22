@@ -42,9 +42,11 @@ function relabel() {
     labels.entity === 'Entidad' ? 'Nueva Entidad' :
     labels.entity === 'Cliente' ? 'Nuevo Cliente' :
     labels.entity === 'Proveedor' ? 'Nuevo Proveedor' : `Nuevo ${labels.entity}`;
-  qs('action-new-document-title').textContent = `Nuevo ${labels.document}`;
-  qs('action-open-entities-title').textContent = labels.entities;
-  qs('action-find-title').textContent = 'Buscar registros';
+  qs('action-new-document-title').textContent = labels.document === 'Orden de Compra'
+    ? 'Nueva Orden de Compra'
+    : `Nuevo ${labels.document}`;
+  qs('action-open-entities-title').textContent = `Gestionar ${labels.entities}`;
+  qs('action-find-title').textContent = 'Buscar';
   qs('stat-entities-label').textContent = labels.entities;
   qs('stat-documents-label').textContent = labels.documents;
   qs('entities-view-heading').textContent = labels.entities;
@@ -57,12 +59,15 @@ function relabel() {
     : `Eliminar el ${labels.entity.toLowerCase()} seleccionado`;
   qs('documents-view-heading').textContent = labels.documents;
   qs('document-form-heading').textContent = `Agregar / Editar ${labels.document}`;
+  qs('document-entity-label').textContent = labels.entity;
+  const documentArticle = labels.document === 'Orden de Compra' ? 'la' : 'el';
+  const documentSelectedSuffix = labels.document === 'Orden de Compra' ? 'seleccionada' : 'seleccionado';
   qs('edit-document-heading').textContent = labels.document === 'Documento'
     ? 'Editar o eliminar el documento'
-    : `Editar o eliminar el ${labels.document.toLowerCase()}`;
+    : `Editar o eliminar ${documentArticle} ${labels.document.toLowerCase()}`;
   qs('delete-document').textContent = labels.document === 'Documento'
     ? 'Eliminar el documento seleccionado'
-    : `Eliminar el ${labels.document.toLowerCase()} seleccionado`;
+    : `Eliminar ${documentArticle} ${labels.document.toLowerCase()} ${documentSelectedSuffix}`;
   qs('search-view-heading').textContent = `Buscar ${labels.entities}`;
   qs('submit-button').textContent = `Guardar ${labels.entity}`;
   qs('document-submit-button').textContent = `Guardar ${labels.document}`;

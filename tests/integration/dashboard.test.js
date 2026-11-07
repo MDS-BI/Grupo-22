@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { normalizeConfig } from '../../src/module-config.js';
+import { normalizeConfig, PURCHASING_CONFIG } from '../../src/module-config.js';
 import { addEntity, addDocument, loadEntities } from '../../src/storage.js';
 
 const html = fs.readFileSync(fileURLToPath(new URL('../../index.html', import.meta.url)), 'utf8');
@@ -51,8 +51,39 @@ describe('User Story 3 - home dashboard with quick actions and record stats', ()
     await bootWith(undefined);
     expect(qs('action-new-entity-title').textContent).toBe('Nueva Entidad');
     expect(qs('action-new-document-title').textContent).toBe('Nuevo Documento');
-    expect(qs('action-open-entities-title').textContent).toBe('Entidades');
-    expect(qs('action-find-title').textContent).toBe('Buscar registros');
+    expect(qs('action-open-entities-title').textContent).toBe('Gestionar Entidades');
+    expect(qs('action-find-title').textContent).toBe('Buscar');
+  });
+
+  it('uses Compras terminology and opens each quick-action screen', async () => {
+    await bootWith(PURCHASING_CONFIG);
+    expect(qs('action-new-entity-title').textContent).toBe('Nuevo Proveedor');
+    expect(qs('action-new-document-title').textContent).toBe('Nueva Orden de Compra');
+    expect(qs('action-open-entities-title').textContent).toBe('Gestionar Proveedores');
+    expect(qs('action-find-title').textContent).toBe('Buscar');
+
+    qs('action-new-entity').click();
+    expect(qs('view-entities').hidden).toBe(false);
+    expect(qs('entity-id').value).toBe('');
+    expect(qs('name').value).toBe('');
+    expect(qs('code').value).toBe('');
+    expect(document.activeElement).toBe(qs('name'));
+
+    qs('nav-dashboard').click();
+    qs('action-new-document').click();
+    expect(qs('view-documents').hidden).toBe(false);
+    expect(qs('document-id').value).toBe('');
+    expect(qs('folio').value).toBe('');
+    expect(document.activeElement).toBe(qs('document-entity'));
+
+    qs('nav-dashboard').click();
+    qs('action-open-entities').click();
+    expect(qs('view-entities').hidden).toBe(false);
+
+    qs('nav-dashboard').click();
+    qs('action-find').click();
+    expect(qs('view-search').hidden).toBe(false);
+    expect(document.activeElement).toBe(qs('search-input'));
   });
 
   it('uses configured terminology on quick actions and stat cards', async () => {

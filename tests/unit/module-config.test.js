@@ -98,10 +98,14 @@ describe('module-config', () => {
     expect(config.statusLifecycle).toBeNull();
   });
 
-  it('loadModuleConfig reflects the userConfig slot (null by default)', async () => {
+  it('falls back to the built-in Compras defaults when no user configuration is provided', async () => {
     const { config, errors } = await loadModuleConfig();
     expect(errors).toEqual([]);
-    expect(config.moduleName).toBe(DEFAULT_CONFIG.moduleName);
+    expect(config.moduleName).toBe('Adquisiciones y Compras');
+    expect(config.labels.entity).toBe('Proveedor');
+    expect(config.labels.entities).toBe('Proveedores');
+    expect(config.labels.document).toBe('Orden de Compra');
+    expect(config.labels.documents).toBe('Órdenes de Compra');
   });
 
   it('exposes active config and label helpers after setActiveConfig', () => {

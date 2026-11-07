@@ -32,7 +32,40 @@ async function bootWith(configOverride){
   await initApp(normalizeConfig(configOverride));
 }
 
+async function bootDefault(){
+  vi.resetModules();
+  const { initApp } = await import('../../src/app.js');
+  await initApp();
+}
+
 describe('User Story 6 - relabel screens from configuration', () => {
+  it('uses the built-in Compras terminology when no configuration is provided', async () => {
+    await bootDefault();
+    expect(document.title).toBe('Adquisiciones y Compras');
+    expect(qs('brand-name').textContent).toBe('Adquisiciones y Compras');
+    expect(qs('nav-entities-label').textContent).toBe('Proveedores');
+    expect(qs('nav-documents-label').textContent).toBe('Órdenes de Compra');
+    expect(qs('action-new-entity-title').textContent).toBe('Nuevo Proveedor');
+    expect(qs('action-new-document-title').textContent).toBe('Nueva Orden de Compra');
+    expect(qs('action-open-entities-title').textContent).toBe('Gestionar Proveedores');
+    expect(qs('action-find-title').textContent).toBe('Buscar');
+
+    qs('nav-entities').click();
+    expect(qs('entity-form-heading').textContent).toBe('Agregar / Editar Proveedor');
+    expect(qs('delete-entity').textContent).toBe('Eliminar el proveedor seleccionado');
+
+    qs('nav-documents').click();
+    expect(qs('documents-view-heading').textContent).toBe('Órdenes de Compra');
+    expect(qs('document-form-heading').textContent).toBe('Agregar / Editar Orden de Compra');
+    expect(qs('edit-document-heading').textContent).toBe('Editar o eliminar la orden de compra');
+    expect(qs('delete-document').textContent).toBe('Eliminar la orden de compra seleccionada');
+    expect(qs('document-entity-label').textContent).toBe('Proveedor');
+
+    qs('nav-search').click();
+    expect(qs('search-view-heading').textContent).toBe('Buscar Proveedores');
+    expect(document.body.textContent).not.toMatch(/Entidad(es)?|Documento(s)?/);
+  });
+
   it('shows default Entidad/Documento terms everywhere when no mappings are provided', async () => {
     await bootWith(undefined);
     expect(qs('brand-name').textContent).toBe('Módulo Base ERP');

@@ -175,10 +175,17 @@ export function normalizeConfig(input) {
 }
 
 export async function loadModuleConfig() {
-  if (userConfig && typeof userConfig === 'object') {
-    return normalizeConfig(userConfig);
+  if (!userConfig) {
+    return normalizeConfig(PURCHASING_CONFIG);
   }
-  return normalizeConfig(null);
+  const result = normalizeConfig(userConfig);
+  if (result.errors.length) {
+    return {
+      config: normalizeConfig(PURCHASING_CONFIG).config,
+      errors: result.errors
+    };
+  }
+  return result;
 }
 
 export function setActiveConfig(configOrResult) {
