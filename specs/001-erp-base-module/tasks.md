@@ -1,16 +1,22 @@
-# Tareas: Módulo de Compras y Adquisiciones (ERP)
+# Tareas: Módulo Base de Software de Planificación de Recursos Empresariales (ERP)
 
-**Entrada**: [spec.md](spec.md), [plan.md](plan.md), [data-model.md](data-model.md), [research.md](research.md), [quickstart.md](quickstart.md), [contracts/entity-storage.md](contracts/entity-storage.md)
-
-**Prerrequisitos**: plan.md, spec.md, research.md, data-model.md, contracts/
-
-**Pruebas**: Obligatorias por la Constitución II (Test-First & Verification). Las pruebas de cada historia se escriben primero y deben fallar antes de la implementación.
-
-**Restricción clave**: SC-008 — la adaptación a Compras se realiza mediante `src/module-config.js` y puntos de extensión (`src/domain/purchasing.js`, componentes nuevos). No se modifican archivos centrales del módulo base para adaptar Compras.
-
-**Alcance**: exactamente las 6 historias de usuario de `spec.md` (HU1–HU6). No se generan fases ni tareas para historias adicionales.
+**Entrada**: Documentos de diseño desde `/specs/001-erp-base-module/`
+**Prerrequisitos**: plan.md (obligatorio), spec.md (obligatorio para las historias de usuario), research.md, data-model.md, contracts/
 
 ## Formato: `[ID] [P?] [Historia] Descripción`
+
+- **[P]**: Puede ejecutarse en paralelo (archivos distintos, sin dependencias).
+- **[Historia]**: Historia de usuario a la que pertenece la tarea (`US1`-`US6`).
+- Las rutas indicadas corresponden a la estructura definida en `plan.md`.
+
+## Rutas del Proyecto
+
+- **Código fuente**: `src/`
+- **Pruebas**: `tests/unit/`, `tests/integration/`, `tests/setup/`
+- **Configuración**: `src/module-config.js`
+- **Dominio de compras**: `src/domain/purchasing.js`
+
+---
 
 - `T###` es correlativo en todo el documento.
 - `[P]` solo cuando la tarea usa archivos distintos y no depende de otra tarea pendiente.
@@ -29,415 +35,359 @@
 
 ## Fase 1: Setup (Estructura del Proyecto y Configuración Inicial)
 
-**Propósito**: Inicializar la estructura Vite, el entorno de pruebas y las herramientas de calidad compartidas.
+**Propósito**: Inicializar la estructura del proyecto Vite y las herramientas compartidas.
 
-- [ ] T001 Completar la estructura Vite con `index.html`, `src/main.js`, `src/app.js`, `src/styles.css`, `src/storage.js`, `src/module-config.js`, `src/domain/`, `src/components/`, `tests/unit/`, `tests/integration/` y `tests/setup/` según `plan.md` (SC-006, SC-008)
-- [ ] T002 [P] Configurar Vite, Vitest, jsdom y scripts `dev`, `build`, `preview`, `test` en `package.json` y `vitest.config.mjs` (SC-006)
-- [ ] T003 [P] Crear el entorno compartido de pruebas con DOM, `localStorage`, alertas y helpers de arranque en `tests/setup/dom.js` (SC-006)
-- [ ] T004 Configurar linting y formato con scripts de verificación en `package.json`, `eslint.config.js` y `.prettierrc` (SC-006)
-- [ ] T005 Auditar la suite heredada, reescribir o retirar pruebas de Entidad/Documento que contradigan el spec de 6 HU y eliminar casos de historias fuera del alcance en `tests/unit/` y `tests/integration/` (SC-006, SC-008)
-
-**Checkpoint**: La aplicación arranca con `npm run dev`, la suite se ejecuta con `npm test` y no quedan pruebas de historias fuera del alcance.
+- [X] T001 Crear la estructura de la aplicación Vite con src/, tests/, y archivos de configuración
+- [X] T002 Instalar las dependencias Vite y Vitest para el proyecto
+- [X] T003 [P] Configurar el linting y formateo para la aplicación JavaScript ligera
 
 ---
 
 ## Fase 2: Fundacional (Capacidades Heredadas y Prerrequisitos Bloqueantes)
 
-**Propósito**: Crear el almacenamiento base, la carga de ModuleConfig, la sanitización, los campos personalizados y el marco de navegación de los que dependen las 6 historias.
+**Propósito**: Crear la capa de almacenamiento y el esqueleto de la aplicación de los que dependen todas las historias.
 
-**⚠️ CRÍTICO**: Ninguna historia de usuario puede comenzar hasta completar esta fase.
-
-- [ ] T006 Implementar el almacenamiento base de entidades con `id`, `entity_id`, marcas de tiempo, CRUD y valores extendidos en `src/storage.js` (FR-054, FR-055, XR-001, XR-004)
-- [ ] T007 Implementar el almacenamiento base de documentos vinculados por `entity_id`, CRUD y cascada entidad→documentos en `src/storage.js` (FR-054, FR-055, XR-004)
-- [ ] T008 Crear el adaptador de almacenamiento para las claves `erp_purchasing:employees`, `erp_purchasing:categories`, `erp_purchasing:products` y `erp_purchasing:purchase-order-lines` en `src/storage.js` (FR-055, XR-001, XR-004)
-- [ ] T009 Implementar el cargador de ModuleConfig con precedencia (configuración válida de Compras → defaults integrados de Compras), validación, reporte de errores y retroceso seguro en `src/module-config.js` (FR-047, FR-048, FR-049, FR-056, XR-002)
-- [ ] T010 Implementar normalización de texto para búsqueda (mayúsculas, tildes y RUT) y utilidades de escape XSS en `src/storage.js` (FR-033, FR-058, XR-003)
-- [ ] T011 Implementar la normalización y validación de definiciones `customFields` (target, key, label, type, required, options) en `src/module-config.js` y `src/storage.js` (FR-057, XR-001)
-- [ ] T012 Crear el arranque de la aplicación, la carga de configuración y la aplicación de tokens de tema en `src/main.js`, `src/app.js` y `src/styles.css` (FR-056, FR-058, XR-002, XR-005)
-- [ ] T013 Implementar el marco del espacio de trabajo con barra superior de marca, logotipo derivado, barra lateral y navegación activa en `src/components/shell.js` (FR-052, FR-053, XR-005)
-- [ ] T014 Implementar la contracción responsiva de la barra lateral a una columna de iconos operables en `src/styles.css` (FR-059)
-- [ ] T015 [P] Crear el renderizador reutilizable de campos personalizados para formularios, validación, listas y búsqueda en `src/components/custom-fields.js` (FR-057, XR-001)
-- [ ] T016 [P] Añadir pruebas de almacenamiento base, cascada y claves de extensión en `tests/unit/storage.test.js` (FR-054, FR-055, XR-004)
-- [ ] T017 [P] Añadir pruebas de carga/validación de configuración, normalización, sanitización XSS y campos personalizados en `tests/unit/module-config.test.js` y `tests/unit/text-utils.test.js` (FR-048, FR-049, FR-056, FR-057, FR-058, XR-001, XR-002)
-- [ ] T018 [P] Añadir pruebas del marco, navegación sin pérdida de datos, barra lateral responsiva y etiquetas base en `tests/integration/workspace-shell.test.js` (FR-052, FR-053, FR-054, FR-059)
-- [ ] T019 Registrar el hook de limpieza en cascada de líneas al eliminar una orden en `src/app.js` (FR-003, FR-017, XR-004)
-
-**Checkpoint**: Los datos persisten, ModuleConfig carga con valores seguros, los campos personalizados se validan y renderizan, todo texto se escapa y toda pantalla nace dentro del marco navegable.
+- [X] T004 Crear el modelo de datos de entidad y los ayudantes de validación en src/storage.js
+- [X] T005 Implementar la persistencia en localStorage del navegador para registros de entidad en src/storage.js
+- [X] T006 Crear el esqueleto principal de la aplicación y renderizar el estado vacío inicial en src/app.js
+- [X] T007 [P] Construir una base de hoja de estilos compartida para diseño, formularios y estados de retroalimentación en src/styles.css
 
 ---
 
-## Fase 3: Historia de Usuario 1 — Registrar y mantener proveedores (Prioridad: P1) 🎯 MVP
+## Fase 3: Historia de Usuario 1 - Crear y organizar entidades (Prioridad: P1) 🎯 MVP
 
-**Objetivo**: Permitir crear, editar, listar y eliminar proveedores con nombre, RUT normalizado y validado por módulo 11, categoría, condición de pago y unicidad de RUT.
+**Objetivo**: Permitir a los usuarios añadir entidades y verlas en la lista.
 
-**Prueba Independiente**: Un agente de compras crea un proveedor con nombre, RUT válido, categoría y condición de pago, lo edita, lo elimina y comprueba que sus órdenes y líneas asociadas desaparecen en cascada.
+**Prueba Independiente**: Un usuario puede abrir la aplicación, enviar un formulario de entidad y ver la nueva entidad aparecer.
 
 ### Pruebas para la Historia de Usuario 1
 
-> **NOTA: Escribir estas pruebas primero y verificar que fallan antes de implementar.**
+- [X] T008 [P] [US1] Añadir pruebas unitarias para la validación de entidades en tests/unit/storage.test.js
+- [X] T009 [P] [US1] Añadir pruebas de integración para crear una entidad en tests/integration/create-entity.test.js
 
-- [ ] T020 [P] [US1] Añadir prueba de normalización de RUT con puntos, espacios, letra minúscula y K, y validación módulo 11 válida/inválida en `tests/unit/purchasing.test.js` (FR-005)
-- [ ] T021 [P] [US1] Añadir prueba de RUT inválido, RUT duplicado, categoría vacía y condición de pago vacía rechazados; proveedor válido guardado y retroalimentación de error en `tests/integration/suppliers.test.js` (FR-001, FR-004, FR-005, FR-006, FR-007)
-- [ ] T022 [US1] Añadir prueba de rechazo de RUT duplicado tras normalizar formatos distintos en `tests/integration/suppliers.test.js` (FR-006)
-- [ ] T023 [US1] Añadir prueba de creación, edición, listado y selección de proveedores con etiquetas configuradas en `tests/integration/suppliers.test.js` (FR-001, FR-002, FR-008)
-- [ ] T024 [US1] Añadir prueba de eliminación de proveedor con órdenes y líneas asociadas en cascada en `tests/integration/suppliers.test.js` (FR-003)
+### Implementación de la Historia de Usuario 1
 
-### Implementación para la Historia de Usuario 1
+- [X] T010 [P] [US1] Crear la interfaz del formulario de entidad en src/components/entity-form.js
+- [X] T011 [US1] Conectar el envío del formulario para crear y persistir una nueva entidad en src/app.js
+- [X] T012 [US1] Renderizar la lista de entidades y mostrar retroalimentación de validación en src/components/entity-list.js
 
-- [ ] T025 [US1] Implementar `normalizeRut`, validación módulo 11 (incluida K) y validaciones de nombre, categoría y condición de pago; incluir aserciones de RUT inválido, RUT duplicado, categoría vacía y condición de pago vacía rechazados, y proveedor válido guardado en `src/domain/purchasing.js` (FR-004, FR-005, FR-006, FR-007)
-- [ ] T026 [US1] Implementar la persistencia de proveedores usando el campo base `code` como RUT etiquetado "RUT", junto con `name`, `category` y `paymentTerms`, con verificación de RUT único, en `src/domain/purchasing.js` (FR-001, FR-006, XR-004)
-- [ ] T027 [US1] Implementar el formulario de proveedor con campos obligatorios, modo crear/editar y errores junto al campo en `src/components/entity-form.js` (FR-001, FR-002, FR-004, FR-007)
-- [ ] T028 [US1] Implementar la lista de proveedores, selección, acciones de editar/eliminar y estado vacío en `src/app.js` (FR-007, FR-008)
-- [ ] T029 [US1] Integrar crear, editar y eliminar proveedores, incluida la cascada proveedor→órdenes→líneas, en `src/app.js` (FR-001, FR-002, FR-003, XR-004)
-- [ ] T030 [US1] Añadir estilos y mensajes accesibles para el formulario y la lista de proveedores en `src/styles.css` (FR-007)
-
-**Checkpoint**: El agente de compras puede crear, editar, listar y eliminar proveedores; el RUT se normaliza, valida y no se duplica; la cascada elimina órdenes y líneas.
+**Punto de control**: La Historia de Usuario 1 debe estar completamente funcional y ser comprobable de forma independiente.
 
 ---
 
-## Fase 4: Historia de Usuario 2 — Emitir órdenes de compra con líneas de detalle (Prioridad: P1)
+## Fase 4: Historia de Usuario 2 - Editar y eliminar entidades (Prioridad: P1)
 
-**Objetivo**: Emitir órdenes de compra con folio único global, proveedor, empleado solicitante, fechas y al menos una línea, calculando neto, IVA y total; administrar Empleado, Categoría y Producto como datos maestros de apoyo.
+**Objetivo**: Permitir a los usuarios actualizar o eliminar entidades almacenadas, manteniendo la capacidad de respuesta con conjuntos de datos grandes.
 
-**Prueba Independiente**: Un agente crea una orden con proveedor, empleado, folio, fechas y al menos una línea, verifica que neto, IVA y total son correctos y comprueba que la orden queda asociada al proveedor.
+**Prueba Independiente**: Un usuario puede editar una entidad existente o eliminarla, y la lista se actualiza correctamente.
 
 ### Pruebas para la Historia de Usuario 2
 
-- [ ] T031 [P] [US2] Añadir prueba de creación de orden con proveedor, empleado, folio, fechas y líneas asociadas en `tests/integration/purchase-orders.test.js` (FR-009, FR-023)
-- [ ] T032 [P] [US2] Añadir prueba de folio duplicado, fecha de entrega anterior a emisión y orden sin líneas en `tests/unit/purchasing.test.js` (FR-010, FR-011, FR-012)
-- [ ] T033 [US2] Añadir prueba de línea con producto inexistente, cantidad no entera o no positiva, precio negativo y producto duplicado en `tests/unit/purchasing.test.js` (FR-013, FR-018)
-- [ ] T034 [US2] Añadir prueba de subtotal derivado no persistido, neto, IVA del 19 %, total redondeado a dos decimales y recálculo al editar en `tests/unit/purchasing.test.js` (FR-014, FR-015, FR-016)
-- [ ] T035 [P] [US2] Añadir prueba de CRUD de empleados, categorías y productos, unicidad de categoría y bloqueo de eliminación referenciada en `tests/integration/master-data.test.js` (FR-019, FR-020, FR-021, FR-022)
-- [ ] T036 [US2] Añadir prueba de edición de cabecera/líneas con recálculo y de eliminación de orden con sus líneas en `tests/integration/purchase-orders.test.js` (FR-016, FR-017, FR-023)
+- [X] T013 [P] [US2] Añadir pruebas unitarias para actualizar y eliminar entidades en tests/unit/storage.test.js
+- [X] T014 [P] [US2] Añadir pruebas de integración para editar y eliminar una entidad en tests/integration/edit-delete-entity.test.js
 
-### Implementación para la Historia de Usuario 2
+### Implementación de la Historia de Usuario 2
 
-- [ ] T037 [US2] Implementar modelos y persistencia CRUD de Empleado, Categoría y Producto en `src/domain/purchasing.js` (FR-019, FR-020, FR-021, XR-001, XR-004)
-- [ ] T038 [US2] Implementar la persistencia de líneas de compra con clave compuesta orden+producto y rechazo de duplicados en `src/domain/purchasing.js` (FR-009, FR-012, FR-018, XR-001)
-- [ ] T039 [US2] Implementar unicidad global de folio, validación de fechas y exigencia de al menos una línea en `src/domain/purchasing.js` (FR-010, FR-011, FR-012)
-- [ ] T040 [US2] Implementar validación de líneas y cálculo de subtotal derivado, neto, IVA del 19 %, total y redondeo a dos decimales en `src/domain/purchasing.js` (FR-013, FR-014, FR-015, FR-016)
-- [ ] T041 [US2] Implementar el bloqueo de eliminación de empleado, categoría o producto referenciado por una orden en `src/domain/purchasing.js` (FR-022)
-- [ ] T042 [P] [US2] Implementar los formularios de Empleado, Categoría y Producto con validaciones y etiquetas configuradas en `src/components/master-data-form.js` (FR-019, FR-020, FR-021)
-- [ ] T043 [P] [US2] Implementar la cabecera de orden con proveedor, empleado, folio, fecha de emisión, fecha de entrega y estado en `src/components/document-form.js` (FR-009, FR-023)
-- [ ] T044 [P] [US2] Implementar el editor de líneas con producto, cantidad, precio unitario, alta/baja y prevención de duplicados en `src/components/purchase-order-lines.js` (FR-012, FR-013, FR-018)
-- [ ] T045 [US2] Renderizar la lista y el detalle de órdenes con proveedor, empleado, fechas, estado, líneas, neto, IVA y total en `src/app.js` (FR-023)
-- [ ] T046 [US2] Integrar crear, editar y eliminar órdenes, recálculo de importes y eliminación de líneas en `src/app.js` (FR-016, FR-017, FR-009)
-- [ ] T047 [US2] Integrar las pantallas de datos maestros y el bloqueo de borrado referenciado en la navegación en `src/app.js` (FR-019, FR-020, FR-021, FR-022)
-- [ ] T048 [US2] Añadir estilos para cabecera de orden, editor de líneas y totales en `src/styles.css` (FR-023)
+- [X] T015 [P] [US2] Añadir controles de edición y eliminación a la interfaz de la lista de entidades en src/components/entity-list.js
+- [X] T016 [US2] Conectar las acciones de edición para poblar el formulario y actualizar los datos persistidos en src/app.js
+- [X] T017 [US2] Gestionar las acciones de eliminación y quitar registros del almacenamiento y la interfaz en src/app.js
 
-**Checkpoint**: Se pueden administrar empleados, categorías y productos; crear, editar y eliminar órdenes con líneas; y los importes se recalculan con la regla neto + IVA 19 % = total.
+**Punto de control**: Las Historias de Usuario 1 y 2 deben funcionar de forma independiente.
 
 ---
 
-## Fase 5: Historia de Usuario 3 — Panel de control de compras (Prioridad: P1)
+## Fase 5: Historia de Usuario 3 (original) - Pantalla de bienvenida con navegación (Prioridad: P1)
 
-**Objetivo**: Mostrar el panel de inicio con cuatro acciones rápidas, recuentos de proveedores y órdenes, órdenes por estado y órdenes atrasadas; la acción Buscar abre la búsqueda básica por nombre y RUT.
+**Objetivo**: Proporcionar la pantalla de punto de entrada con dos botones claramente etiquetados que llevan a gestión y búsqueda. *(Sustituida por el rediseño del panel de la Fase 17; se conserva como historial del trabajo entregado.)*
 
-**Prueba Independiente**: El gerente abre la aplicación, ve las acciones rápidas y los indicadores, usa Buscar para encontrar proveedores por nombre o RUT, y desde cualquier acción rápida abre la pantalla o formulario correspondiente.
+**Prueba Independiente**: Un usuario abre la aplicación, ve la pantalla de bienvenida y llega a ambas pantallas desde sus botones.
 
-### Pruebas para la Historia de Usuario 3
+### Implementación de la Historia de Usuario 3
 
-- [ ] T049 [P] [US3] Añadir prueba de acciones rápidas Nuevo Proveedor, Nueva Orden de Compra, Gestionar Proveedores y Buscar, y que Buscar abra la búsqueda básica y filtre por nombre y RUT en `tests/integration/dashboard.test.js` (FR-024, FR-030, FR-031)
-- [ ] T050 [US3] Añadir prueba de recuentos de proveedores, órdenes, órdenes por estado y órdenes atrasadas, incluido el estado vacío en cero, en `tests/integration/dashboard.test.js` (FR-025, FR-026, FR-027, FR-028, SC-007, SC-011)
-- [ ] T051 [US3] Añadir prueba de actualización de indicadores al volver al panel tras crear, editar, eliminar o cambiar estado en `tests/integration/dashboard.test.js` (FR-029, SC-010)
-- [ ] T052 [US3] Añadir prueba de OC atrasada con `fecha_entrega` anterior a la fecha actual local (America/Santiago) y estado distinto de recibido o cancelado; una entrega de hoy no está atrasada, en `tests/integration/dashboard.test.js` (FR-027, SC-011)
+- [x] T018 [P] [US3] [SUPERSEDIDA por Fase 17] Añadir una vista de pantalla de bienvenida con dos botones de navegación claramente etiquetados en index.html
+- [x] T019 [P] [US3] [SUPERSEDIDA por Fase 17] Añadir lógica de cambio de vista para las pantallas de bienvenida, gestión y búsqueda en src/app.js
 
-### Implementación para la Historia de Usuario 3
-
-- [ ] T053 [P] [US3] Implementar el panel de inicio con las cuatro acciones rápidas y etiquetas configuradas en `src/components/dashboard.js` (FR-024, FR-030)
-- [ ] T054 [P] [US3] Implementar los indicadores de compras: recuentos, órdenes por estado y órdenes atrasadas con `fecha_entrega` anterior a la fecha actual local (America/Santiago) y estado distinto de recibido/cancelado, en `src/components/purchasing-dashboard.js` (FR-025, FR-026, FR-027, FR-028)
-- [ ] T055 [US3] Implementar la pantalla de búsqueda básica de proveedores por nombre y RUT y su estado vacío en `src/app.js` (FR-030, FR-031)
-- [ ] T056 [US3] Integrar el enrutamiento del panel, los manejadores de las cuatro acciones rápidas, incluida Buscar → búsqueda básica por nombre/RUT, y el refresco al mostrar en `src/app.js` (FR-029, FR-030, SC-010)
-- [ ] T057 [US3] Añadir estilos de tarjetas, acciones rápidas, estado vacío del panel y búsqueda básica en `src/styles.css` (FR-028)
-
-**Checkpoint**: El panel abre por defecto, muestra cero sin errores, sus indicadores coinciden con el almacenamiento, las cuatro acciones rápidas funcionan y Buscar abre la búsqueda básica por nombre/RUT.
+**Punto de control**: La Historia de Usuario 3 debe estar completamente funcional y ser comprobable de forma independiente.
 
 ---
 
-## Fase 6: Historia de Usuario 6 — Configuración del módulo de Compras (Prioridad: P1)
+## Fase 6: Historia de Usuario 4 (pestañas originales) - Gestionar entidades y documentos en una pantalla dedicada (Prioridad: P1)
 
-**Objetivo**: Configurar nombre, color de acento, etiquetas de todas las entidades y ciclo de vida, aplicándolos en todas las pantallas sin modificar código central.
+**Objetivo**: Proporcionar la pantalla de gestión con la pestaña de navegación horizontal Entidades/Documentos/Inicio y formularios de gestión completos, sin mostrar la lista de entidades. *(La navegación por pestañas fue sustituida por el marco de barra lateral de la Fase 16; los flujos de gestión siguen vigentes.)*
 
-**Prueba Independiente**: El administrador modifica nombre, color, etiquetas y ciclo de vida, guarda la configuración y verifica que todas las pantallas reflejan los cambios; una configuración inválida se informa y se usan los valores predeterminados.
+**Prueba Independiente**: Desde la pantalla de bienvenida, un usuario llega a la pantalla de gestión, cambia de pestaña y añade, edita y elimina una entidad y un documento.
 
-### Pruebas para la Historia de Usuario 6
+### Implementación de la Historia de Usuario 4
 
-- [ ] T058 [P] [US6] Añadir prueba de aplicación del nombre del módulo y color de acento válido tras recargar en `tests/integration/module-config.test.js` (FR-046, FR-050)
-- [ ] T059 [P] [US6] Añadir prueba de etiquetas configuradas en barra lateral, pantallas, formularios, listas y mensajes, sin “Entidad” ni “Documento”, en `tests/integration/config-labels.test.js` (FR-046, FR-047, FR-051, SC-012)
-- [ ] T060 [P] [US6] Añadir prueba de que el control de estado ofrece solo las transiciones configuradas en `tests/integration/config-lifecycle.test.js` (FR-046, XR-006)
-- [ ] T061 [P] [US6] Añadir prueba de configuración ausente, inválida y válida; verificar defaults integrados de Proveedor, Orden de Compra, Empleado, Categoría, Producto y Detalle de compra, aviso visible y que no aparezcan “Entidad” ni “Documento”, en `tests/unit/module-config.test.js` (FR-047, FR-048, FR-049, FR-050)
+- [x] T020 [P] [US4] [SUPERSEDIDA por Fase 16] Añadir una pestaña de navegación horizontal con botones Entidades, Documentos e Inicio a la vista de gestión en index.html
+- [x] T021 [P] [US4] [SUPERSEDIDA por Fase 16] Organizar la vista de gestión en paneles de entidades y documentos y eliminar la lista de entidades en index.html
+- [x] T022 [US4] [SUPERSEDIDA por Fase 16] Añadir lógica de cambio de pestaña y navegación a Inicio desde la pantalla de gestión en src/app.js
+- [x] T023 [US4] [SUPERSEDIDA por Fase 16] Añadir edición y eliminación mediante selectores para entidades y documentos en src/app.js
+- [x] T024 [P] [US4] [SUPERSEDIDA por Fase 16] Añadir pruebas de integración para la pestaña de navegación de gestión en tests/integration/manage-tabs.test.js
+- [x] T025 [P] [US4] [SUPERSEDIDA por Fase 16] Añadir estilos para la pestaña de navegación horizontal en src/styles.css
 
-### Implementación para la Historia de Usuario 6
-
-- [ ] T062 [US6] Definir la configuración completa de Compras en `src/module-config.js`: nombre, etiquetas singular/plural de Proveedor, Orden de Compra, Empleado, Categoría, Producto y Detalle de compra, ciclo de vida estándar y color de acento predeterminado (FR-046, FR-049, XR-002, XR-005, XR-006)
-- [ ] T063 [US6] Implementar la validación de nombre, etiquetas, ciclo de vida y color de acento, con reporte de errores y retroceso a predeterminados en `src/module-config.js` (FR-048, FR-050)
-- [ ] T064 [US6] Aplicar nombre, etiquetas y color configurados en `src/components/shell.js`, `src/components/entity-form.js`, `src/components/document-form.js`, `src/components/master-data-form.js`, `src/components/purchase-order-lines.js`, `src/app.js` y `src/styles.css` (FR-047, FR-051, XR-002, XR-005)
-- [ ] T065 [US6] Conectar el ciclo de vida configurado con las opciones y transiciones de estado en `src/domain/purchasing.js` y `src/components/document-form.js` (FR-046, XR-006)
-- [ ] T066 [US6] Mostrar un aviso claro de configuración inválida sin impedir el arranque en `src/app.js` y `src/styles.css` (FR-048)
-- [ ] T067 [US6] Documentar la configuración, los valores predeterminados y la adaptación sin cambios centrales en `README.md` (SC-008, XR-002)
-
-**Checkpoint**: Nombre, color, etiquetas y ciclo de vida se aplican de extremo a extremo; sin configuración se usan los valores de Compras; una configuración inválida no rompe la aplicación.
+**Punto de control**: Las Historias de Usuario 1-4 deben estar completamente funcionales y ser comprobables de forma independiente.
 
 ---
 
-## Fase 7: Historia de Usuario 4 — Buscar proveedores y órdenes (Prioridad: P2)
+## Fase 7: Historia de Usuario 5 - Definir un perfil de configuración del módulo (Prioridad: P1)
 
-**Objetivo**: Ampliar la búsqueda básica de proveedores de HU3 con filtros por categoría y fecha de entrega de órdenes, comparación sin tildes y cumplimiento de los umbrales de rendimiento.
+**Objetivo**: Introducir `src/module-config.js` para que los desarrolladores puedan adaptar la identidad del módulo sin editar el código central, con valores predeterminados seguros e informes de error claros.
 
-**Prueba Independiente**: El jefe de inventario usa la búsqueda básica por nombre/RUT y luego filtra por categoría o fecha de entrega, sin distinguir tildes, y obtiene resultados dentro de los umbrales definidos.
-
-### Pruebas para la Historia de Usuario 4
-
-- [ ] T068 [P] [US4] Añadir prueba de búsqueda de proveedores por nombre, RUT con o sin puntos y con o sin guion, y filtro por categoría en `tests/integration/search.test.js` (FR-031)
-- [ ] T069 [US4] Añadir prueba de búsqueda sin distinción de mayúsculas ni tildes en `tests/integration/search.test.js` (FR-033)
-- [ ] T070 [US4] Añadir prueba de búsqueda de órdenes por fecha de entrega y resultados con estado y fechas en `tests/integration/search.test.js` (FR-032, FR-036)
-- [ ] T071 [US4] Añadir prueba de estado vacío claro y posibilidad de reintentar cuando no hay coincidencias en `tests/integration/search.test.js` (FR-034)
-- [ ] T072 [P] [US4] Añadir prueba de rendimiento con 500 proveedores y 2.000 órdenes: búsqueda ≤300 ms y listas ≤1 s, medida con `performance.now()`, en `tests/integration/search-performance.test.js` (FR-035, SC-004)
-
-### Implementación para la Historia de Usuario 4
-
-- [ ] T073 [US4] Ampliar la búsqueda normalizada de proveedores por nombre, RUT y categoría, y de órdenes por fecha de entrega, incluyendo comparación sin tildes, en `src/domain/purchasing.js` (FR-031, FR-032, FR-033, FR-035)
-- [ ] T074 [US4] Ampliar la pantalla de búsqueda con filtros de categoría y fecha, resultados con estado y fechas, y estado vacío con reintento en `src/app.js` (FR-031, FR-032, FR-034, FR-036)
-- [ ] T075 [US4] Conectar la entrada Buscar de la barra lateral con la pantalla de búsqueda, sin duplicar la acción rápida ya implementada en HU3, en `src/app.js` (FR-030, FR-034)
-- [ ] T076 [US4] Añadir estilos para filtros, resultados de búsqueda y estado vacío en `src/styles.css` (FR-034)
-
-**Checkpoint**: La búsqueda encuentra proveedores por nombre, RUT o categoría y órdenes por fecha de entrega, no distingue mayúsculas ni tildes y cumple búsqueda ≤300 ms y listas ≤1 s con 500 proveedores y 2.000 órdenes.
-
----
-
-## Fase 8: Historia de Usuario 5 — Ciclo de vida de la orden de compra con recepción (Prioridad: P2)
-
-**Objetivo**: Controlar los estados borrador, pendiente, aprobado, recibido y cancelado; rechazar transiciones inválidas; aplicar stock exactamente una vez al recibir; bloquear la edición de órdenes terminales.
-
-**Prueba Independiente**: Una transición inválida se rechaza; al pasar una orden a recibido el stock aumenta exactamente una vez y un segundo intento no lo duplica.
+**Prueba Independiente**: Un desarrollador suministra una configuración de Ventas; la aplicación carga mostrándola. Al quitar el archivo se restauran los valores predeterminados Entity/Document sin errores.
 
 ### Pruebas para la Historia de Usuario 5
 
-- [ ] T077 [P] [US5] Añadir prueba de transiciones válidas por estado y rechazo de transiciones inválidas por cualquier vía en `tests/unit/purchasing.test.js` (FR-037, FR-038, FR-039, FR-040)
-- [ ] T078 [US5] Añadir prueba de recepción que suma stock una sola vez, `stock_aplicado` que impide duplicar y cancelación que no modifica stock en `tests/unit/purchasing.test.js` (FR-041, FR-042, FR-045)
-- [ ] T079 [P] [US5] Añadir prueba de estado visible y edición bloqueada para órdenes recibidas o canceladas en `tests/integration/order-lifecycle.test.js` (FR-043, FR-044)
-- [ ] T080 [US5] Añadir prueba de integración aprobado→recibido con incremento exacto de stock en productos en `tests/integration/order-lifecycle.test.js` (FR-041, FR-042, SC-009)
+- [X] T026 [P] [US5] Añadir pruebas unitarias para carga de configuración, retroceso a predeterminados e informes de configuración inválida en tests/unit/module-config.test.js
 
-### Implementación para la Historia de Usuario 5
+### Implementación de la Historia de Usuario 5
 
-- [ ] T081 [US5] Implementar los estados y el validador de transiciones con mensajes de rechazo en `src/domain/purchasing.js` (FR-037, FR-038, FR-039, FR-040)
-- [ ] T082 [US5] Implementar la recepción idempotente con persistencia de `stock_aplicado` y suma de stock por producto en `src/domain/purchasing.js` (FR-041, FR-042, FR-045, XR-004)
-- [ ] T083 [US5] Implementar el bloqueo de edición de cabecera y líneas en órdenes recibidas o canceladas en `src/domain/purchasing.js` y `src/app.js` (FR-044)
-- [ ] T084 [US5] Renderizar solo las transiciones válidas y las etiquetas de estado en listas y detalle en `src/components/document-form.js` y `src/app.js` (FR-037, FR-038, FR-039, FR-043)
-- [ ] T085 [US5] Integrar la acción de recepción, el refresco de stock, la vista de solo lectura y el estado visible en `src/app.js` (FR-041, FR-043, FR-044)
-- [ ] T086 [US5] Añadir estilos para estados, badges y modo de solo lectura en `src/styles.css` (FR-043, FR-044)
+- [X] T027 [US5] Crear el cargador de configuración con valores predeterminados, validación e informes de error claros en src/module-config.js
+- [X] T028 [US5] Cargar la configuración al arrancar y pasarla a todas las vistas en src/main.js y src/app.js
 
-**Checkpoint**: Solo se ofrecen transiciones válidas, el estado es visible, la recepción actualiza el stock exactamente una vez y las órdenes terminales quedan inmutables.
+**Punto de control**: La configuración aún no impulsa nada visible, pero carga de forma fiable y valida limpiamente.
 
 ---
 
-## Fase 9: Pulido y Preocupaciones Transversales
+## Fase 8: Historia de Usuario 6 - Reetiquetar pantallas desde la configuración (Prioridad: P1)
 
-**Propósito**: Accesibilidad, seguridad, rendimiento, documentación, regresión y validación final de las 6 historias.
+**Objetivo**: Derivar todas las etiquetas visibles para el usuario de la configuración para que los módulos adaptados hablen su idioma de dominio en todo momento.
 
-- [ ] T087 [P] Añadir prueba automatizada de rendimiento con 500 proveedores y 2.000 órdenes: búsqueda ≤300 ms, carga del panel ≤500 ms y render de listas ≤1 s, medidas con `performance.now()`, en `tests/integration/performance.test.js` (FR-035, SC-004)
-- [ ] T088 [P] Añadir prueba automatizada de accesibilidad WCAG 2.1 AA: acciones operables con teclado, foco visible, inputs con etiqueta asociada, contraste mínimo 4,5:1 y `aria-label` en iconos de la barra lateral contraída, en `tests/integration/accessibility.test.js` (FR-060, SC-013)
-- [ ] T089 [P] Revisar y ajustar accesibilidad (etiquetas asociadas, foco de teclado visible, contraste ≥4,5:1, `aria-current`, `aria-label` en iconos de barra lateral contraída, encabezados y semántica) en `src/components/shell.js`, `src/components/entity-form.js`, `src/components/document-form.js`, `src/components/master-data-form.js`, `src/components/purchase-order-lines.js` y `src/styles.css` (FR-059, FR-060, SC-013)
-- [ ] T090 [P] Verificar y cubrir la sanitización XSS de nombres, descripciones, notas y campos personalizados con HTML y atributos de eventos en `tests/integration/xss.test.js` (FR-058)
-- [ ] T091 Verificar el rendimiento con 500 proveedores y 2.000 órdenes en panel, listas y búsqueda, y optimizar el renderizado por fragmentos en `src/components/purchasing-dashboard.js` y `src/app.js` (FR-035, SC-004)
-- [ ] T092 [P] Actualizar `README.md` con flujos de compra, configuración, claves de almacenamiento y comandos de desarrollo/pruebas/compilación (SC-006, XR-002)
-- [ ] T093 Ejecutar la suite completa de pruebas unitarias e integración y corregir regresiones de las 6 historias (SC-003, SC-006)
-- [ ] T094 Ejecutar linting y formato, y corregir advertencias de calidad en `src/` y `tests/` (SC-006)
-- [ ] T095 Ejecutar la compilación de producción con Vite y verificar que no hay errores en `index.html`, `src/` y `src/styles.css` (SC-006)
-- [ ] T096 Ejecutar la validación manual de `quickstart.md`: proveedor, orden con dos líneas, recepción, búsqueda por nombre/RUT/categoría, OC atrasada, accesibilidad, recarga y navegación (SC-001, SC-002, SC-003, SC-005, SC-006, SC-011, SC-013)
-- [ ] T097 Validar SC-008: confirmar que la adaptación de Compras se logra solo con `src/module-config.js` y puntos de extensión, sin cambios en archivos centrales (SC-008, XR-002)
-- [ ] T098 Validar SC-012: revisar todas las pantallas y confirmar que no aparecen las etiquetas “Entidad” ni “Documento” (FR-047, SC-012)
-- [ ] T099 Realizar limpieza final de código, nombres y duplicación en `src/domain/purchasing.js`, `src/components/` y `src/app.js` sin alterar comportamiento (SC-006, XR-002)
+**Prueba Independiente**: Con mapeos Entidad→Cliente y Documento→Pedido de Venta, cada pestaña, botón, etiqueta de formulario, encabezado y mensaje muestra los términos mapeados en las tres pantallas; el comportamiento no cambia.
 
-**Checkpoint**: La suite, el lint y la compilación pasan; se cumplen los umbrales de rendimiento con 500 proveedores y 2.000 órdenes; la aplicación cumple WCAG 2.1 AA, es segura, la documentación está actualizada y los flujos de las 6 HU quedan validados.
+### Pruebas para la Historia de Usuario 6
+
+- [X] T029 [P] [US6] Añadir pruebas de integración que verifiquen las etiquetas configuradas en las pantallas de bienvenida, gestión y búsqueda en tests/integration/relabeling.test.js
+
+### Implementación de la Historia de Usuario 6
+
+- [X] T030 [US6] Derivar todas las etiquetas visibles para el usuario de la configuración en lugar de texto codificado en index.html, src/app.js y los archivos de componentes
+
+**Punto de control**: Un módulo configurado se presenta completamente bajo su propia terminología.
+
+---
+
+## Fase 9: Historia de Usuario 7 - Declarar campos personalizados para los registros (Prioridad: P1)
+
+**Objetivo**: Permitir que los campos personalizados declarados fluyan automáticamente por formularios, validación, persistencia, listas y búsqueda.
+
+**Prueba Independiente**: Declarar un campo numérico obligatorio en las entidades renderiza una entrada numérica que bloquea guardados en blanco, muestra valores en listas y coincide en búsquedas; sin declaraciones la aplicación se comporta como la base sin modificar.
+
+### Pruebas para la Historia de Usuario 7
+
+- [X] T031 [P] [US7] Añadir pruebas unitarias para validación y persistencia de campos personalizados en tests/unit/storage.test.js
+- [X] T032 [P] [US7] Añadir pruebas de integración para el renderizado de campos personalizados en formularios, listas y búsqueda en tests/integration/custom-fields.test.js
+
+### Implementación de la Historia de Usuario 7
+
+- [X] T033 [P] [US7] Renderizar dinámicamente los campos personalizados declarados en los formularios de entidad y documento en src/components/entity-form.js y src/components/document-form.js
+- [X] T034 [US7] Incluir los campos personalizados en validación, persistencia, listas y búsqueda en src/storage.js y src/app.js
+
+**Punto de control**: Los datos específicos del módulo requieren cero cambios de código de interfaz.
+
+---
+
+## Fase 10: Historia de Usuario 8 - Buscar y encontrar entidades rápidamente (Prioridad: P2)
+
+**Objetivo**: Permitir a los usuarios buscar y filtrar entidades rápidamente, manteniendo la capacidad de respuesta con conjuntos de datos grandes.
+
+**Prueba Independiente**: Un usuario puede introducir un término de búsqueda y ver solo las entidades coincidentes.
+
+### Pruebas para la Historia de Usuario 8
+
+- [X] T035 [P] [US8] Añadir pruebas unitarias para la lógica de filtrado de búsqueda en tests/unit/storage.test.js
+- [X] T036 [P] [US8] Añadir pruebas de integración para el comportamiento de búsqueda en tests/integration/search-entities.test.js
+
+### Implementación de la Historia de Usuario 8
+
+- [X] T037 [P] [US8] Crear la interfaz de la barra de búsqueda en src/components/search-bar.js
+- [X] T038 [US8] Conectar la entrada de búsqueda al filtrado y al comportamiento de estado vacío en src/app.js
+- [X] T039 [US8] Asegurar que los resultados de búsqueda permanecen sincronizados con las acciones de crear, editar y eliminar en src/app.js
+
+**Punto de control**: Las historias centrales de datos y la búsqueda deben estar ahora funcionalmente independientes.
+
+---
+
+## Fase 11: Historia de Usuario 9 - Registrar una fecha objetivo (Prioridad: P2)
+
+**Objetivo**: Permitir a los usuarios adjuntar una fecha objetivo opcional a una entidad.
+
+**Prueba Independiente**: Un usuario puede fijar una fecha en una entidad y verla mostrada en la lista.
+
+### Pruebas para la Historia de Usuario 9
+
+- [X] T040 [P] [US9] Añadir pruebas unitarias para validación y persistencia de la fecha objetivo en tests/unit/storage.test.js
+
+### Implementación de la Historia de Usuario 9
+
+- [X] T041 [P] [US9] Añadir la entrada de fecha objetivo al formulario de entidad en index.html
+- [X] T042 [US9] Incluir targetDate en la lógica de validación, creación, actualización y búsqueda en src/storage.js
+- [X] T043 [US9] Conectar targetDate al envío del formulario, poblado de edición y visualización de errores en src/app.js
+- [X] T044 [US9] Mostrar la fecha objetivo en la lista de entidades en src/app.js
+
+**Punto de control**: La Historia de Usuario 9 debe estar completamente funcional y ser comprobable de forma independiente.
+
+---
+
+## Fase 12: Historia de Usuario 10 - Registrar los detalles de documentos de una entidad (Prioridad: P2)
+
+**Objetivo**: Permitir a los usuarios registrar detalles de documentos para una entidad y verlos juntos, con la eliminación en cascada protegiendo la integridad referencial.
+
+**Prueba Independiente**: Un usuario puede añadir un documento a una entidad y ver los detalles mostrados con esa entidad; eliminar la entidad elimina sus documentos.
+
+### Pruebas para la Historia de Usuario 10
+
+- [X] T045 [P] [US10] Añadir pruebas unitarias para generación de entity_id y validación de documentos en tests/unit/storage.test.js
+- [X] T046 [P] [US10] Añadir pruebas de integración para añadir un documento a una entidad en tests/integration/add-document.test.js
+- [X] T047 [P] [US10] Añadir pruebas de integración para edición, eliminación y eliminación en cascada de documentos en tests/integration/manage-document.test.js
+
+### Implementación de la Historia de Usuario 10
+
+- [X] T048 [P] [US10] Crear la interfaz del formulario de documento en src/components/document-form.js
+- [X] T049 [P] [US10] Crear la interfaz de la lista de documentos en src/components/document-list.js
+- [X] T050 [US10] Conectar las acciones de crear, editar y eliminar documentos para persistirlos en src/app.js
+- [X] T051 [US10] Añadir entity_id a la creación de entidades y mostrar los documentos con su entidad en src/app.js
+- [X] T052 [US10] Eliminar en cascada los documentos cuando se elimina una entidad en src/storage.js
+
+**Punto de control**: Los datos maestros y los documentos transaccionales deben estar completamente vinculados.
+
+---
+
+## Fase 13: Historia de Usuario 11 - Buscar entidades en una pantalla dedicada (Prioridad: P2)
+
+**Objetivo**: Proporcionar la pantalla de búsqueda dedicada accesible desde la pantalla de bienvenida, manteniendo la edición en la pantalla de gestión.
+
+**Prueba Independiente**: Un usuario navega desde la pantalla de bienvenida a la pantalla de búsqueda, busca, ve resultados o un estado vacío, y vuelve a Inicio.
+
+### Implementación de la Historia de Usuario 11
+
+- [x] T053 [P] [US11] Añadir la entrada de búsqueda y la lista de resultados a la vista de búsqueda dedicada en index.html
+- [x] T054 [US11] Conectar la entrada de búsqueda al filtrado de resultados y mostrar un estado vacío en la pantalla de búsqueda en src/app.js
+- [x] T055 [US11] Añadir navegación al Panel desde la pantalla de búsqueda en index.html
+
+**Punto de control**: Todas las historias del usuario de negocio deben estar completamente funcionales y ser comprobables de forma independiente.
+
+---
+
+## Fase 14: Historia de Usuario 12 - Configurar el ciclo de vida de estados de documentos (Prioridad: P2)
+
+**Objetivo**: Aplicar los estados y transiciones configurados en los documentos manteniendo el estado de texto libre cuando no hay configuración.
+
+**Prueba Independiente**: Con cotización→pedido→facturado configurado, solo se ofrecen los estados siguientes válidos, los inválidos se rechazan con explicaciones, y el estado es visible de un vistazo; sin configuración, el estado permanece como texto libre.
+
+### Pruebas para la Historia de Usuario 12
+
+- [X] T056 [P] [US12] Añadir pruebas unitarias para la aplicación de transiciones de estado en tests/unit/storage.test.js
+
+### Implementación de la Historia de Usuario 12
+
+- [X] T057 [US12] Restringir las opciones de estado de documento a las transiciones permitidas y aplicarlas al guardar en src/components/document-form.js y src/storage.js
+
+**Punto de control**: La cadena de personalización (HU5 → HU6/HU7/HU12) está completa de extremo a extremo.
+
+---
+
+## Fase 15: Pulido y Preocupaciones Transversales
+
+**Propósito**: Mejorar la calidad, accesibilidad, fiabilidad y el comportamiento con conjuntos de datos grandes en todas las historias.
+
+- [X] T058 [P] Añadir refinamientos de accesibilidad para etiquetas, foco de teclado y estructura semántica
+- [X] T059 [P] Añadir pulido final de UX para estados vacíos, mensajes de validación y diseño responsivo
+- [X] T060 Verificar que el renderizado de listas y la búsqueda permanecen responsivos y correctos con 500 registros (FR-032, SC-004)
+- [X] T061 Ejecutar la suite completa de pruebas y probar manualmente los flujos principales de usuario
+- [X] T062 [P] Añadir estilos para la pantalla de bienvenida y la navegación de vistas en src/styles.css
+- [X] T063 Ejecutar la suite completa de pruebas y la compilación de producción para verificar que no hay regresiones
+
+---
+
+## Fase 16: Historia de Usuario 13 - Marco de espacio de trabajo ERP con marca (Prioridad: P1)
+
+**Objetivo**: Envolver cada pantalla en un marco ERP persistente: una barra superior con logotipo derivado y nombre del módulo, más una barra lateral de botones de módulo con resaltado de módulo activo y contracción responsiva.
+
+**Prueba Independiente**: En cada pantalla la barra superior y la barra lateral son visibles, el módulo activo está resaltado, la navegación entre módulos preserva los datos, y la barra lateral se contrae a una columna de iconos en ventanas gráficas estrechas.
+
+### Pruebas para la Historia de Usuario 13
+
+- [X] T064 [P] [US13] Añadir pruebas unitarias para validación del color de acento en tests/unit/module-config.test.js
+- [X] T065 [P] [US13] Añadir pruebas de integración que afirmen que el marco (logotipo, nombre del módulo, botones de barra lateral, resaltado activo) aparece en todas las pantallas en tests/integration/workspace-shell.test.js
+
+### Implementación de la Historia de Usuario 13
+
+- [X] T066 [P] [US13] Añadir el marcado del marco del espacio de trabajo (barra superior, montaje de logotipo SVG en línea, botones de módulo en barra lateral, región de contenido principal) a index.html
+- [X] T067 [P] [US13] Crear src/components/shell.js para renderizar el logotipo monograma SVG a partir del nombre del módulo, aplicar las etiquetas configuradas a los botones de módulo, gestionar el resaltado de módulo activo y exponer eventos de navegación
+- [X] T068 [US13] Reemplazar las pestañas horizontales de gestión y la navegación independiente hacia atrás por enrutamiento de módulos mediante la barra lateral en src/app.js
+- [X] T069 [P] [US13] Construir la hoja de estilos de tokens de diseño ERP (variables de color, escala de espaciado, tipografía) más estilos de barra superior, barra lateral y tarjetas en src/styles.css
+- [X] T070 [US13] Soportar un theme.accentColor opcional en la validación de src/module-config.js y aplicarlo como propiedad personalizada de CSS en src/app.js
+- [X] T071 [US13] Contraer la barra lateral a una columna de iconos en ventanas gráficas estrechas en src/styles.css
+- [X] T072 [P] [US13] Actualizar las pruebas de integración existentes (manage-tabs.test.js, relabeling.test.js) para apuntar al marco de barra lateral en lugar de los botones de pestañas/bienvenida
+
+**Punto de control**: Todas las pantallas se renderizan dentro del marco con marca con navegación por barra lateral funcional y sin pérdida de datos.
+
+---
+
+## Fase 17: Historia de Usuario 3 (revisada) - Panel de inicio con acciones rápidas y estadísticas (Prioridad: P1)
+
+**Objetivo**: Reemplazar la vista de bienvenida de dos botones por un panel ERP que ofrece múltiples botones de acción rápida y estadísticas de registros en vivo.
+
+**Prueba Independiente**: La aplicación abre en un panel con acciones rápidas para nueva entidad, nuevo documento, gestión de entidades y buscar registros; activarlas aterriza en el lugar correcto listo para introducir datos, y las tarjetas de estadísticas coinciden con los registros almacenados.
+
+### Pruebas para la Historia de Usuario 3
+
+- [X] T073 [P] [US3] Añadir pruebas de integración para las acciones rápidas del panel y las estadísticas en vivo en tests/integration/dashboard.test.js
+
+### Implementación de la Historia de Usuario 3
+
+- [X] T074 [P] [US3] Añadir el marcado del panel (encabezado, cuadrícula de acciones rápidas, tarjetas de estadísticas) a index.html reemplazando la vista de bienvenida de dos botones
+- [X] T075 [US3] Conectar los botones de acción rápida para abrir la gestión de entidades, la gestión de documentos (formularios limpiados) y la búsqueda (entrada enfocada) en src/app.js
+- [X] T076 [US3] Renderizar y refrescar los recuentos de entidades/documentos desde el almacenamiento cada vez que se muestra el panel en src/components/dashboard.js
+- [X] T077 [P] [US3] Dar estilo al encabezado del panel, las tarjetas de acción rápida y los mosaicos de estadísticas en src/styles.css
+
+**Punto de control**: La aplicación abre en un panel funcional; cada tarea ERP clave está a un clic.
+
+---
+
+## Fase 18: Pulido y Regresión (Aspecto ERP)
+
+**Propósito**: Unificar el estilo visual en toda la aplicación rediseñada y protegerse contra regresiones.
+
+- [X] T078 [P] Rediseñar formularios, listas, insignias, mensajes de error y estados vacíos según el sistema de tokens de diseño en src/styles.css
+- [X] T079 [P] Verificar el orden de foco del teclado y aria-current en los botones de módulo de la barra lateral (pase de accesibilidad del nuevo marco)
+- [X] T080 Actualizar README.md con las secciones del marco del espacio de trabajo, panel y tematización
+- [X] T081 Ejecutar la suite completa de pruebas y la compilación de producción para verificar que no hay regresiones (FR-032, SC-004)
 
 ---
 
 ## Dependencias y Orden de Ejecución
 
-### Dependencias entre fases
+### Dependencias entre Fases
 
-- **Fase 1 (Setup)**: sin dependencias.
-- **Fase 2 (Fundacional)**: depende de Fase 1 y bloquea todas las historias.
-- **Fase 3 (HU1, P1)**: depende de Fase 2.
-- **Fase 4 (HU2, P1)**: depende de Fase 2 y de HU1 para contar con proveedores.
-- **Fase 5 (HU3, P1)**: depende de HU1 y HU2 para calcular recuentos y atrasos.
-- **Fase 6 (HU6, P1)**: depende de Fase 2 y de las pantallas de HU1–HU3 para aplicar etiquetas y ciclo de vida en toda la interfaz.
-- **Fase 7 (HU4, P2)**: depende de HU1, HU2 y HU3; debe iniciarse después de completar todas las fases P1 (3–6) porque amplía la búsqueda básica.
-- **Fase 8 (HU5, P2)**: depende de HU2 y HU6; debe iniciarse después de completar todas las fases P1 (3–6).
-- **Fase 9 (Pulido)**: depende de que las 6 historias estén completas.
+- Configuración (Fase 1): Sin dependencias
+- Fundacional (Fase 2): Depende de completar Configuración
+- Historia de Usuario 1 (Fase 3): Depende de completar Fundacional
+- Historia de Usuario 2 (Fase 4): Depende de completar la implementación de la Historia de Usuario 1
+- Historia de Usuario 3 (Fase 5): Depende de completar Fundacional
+- Historia de Usuario 4 (Fase 6): Depende de completar la Historia de Usuario 3 y se beneficia de que los formularios de las Historias de Usuario 1-2 estén disponibles
+- Historia de Usuario 5 (Fase 7): Depende de completar Fundacional; desbloquea HU6, HU7, HU12
+- Historia de Usuario 6 (Fase 8): Depende de completar la Historia de Usuario 5
+- Historia de Usuario 7 (Fase 9): Depende de completar la Historia de Usuario 5
+- Historia de Usuario 8 (Fase 10): Depende de completar Fundacional y puede proceder después de la Historia de Usuario 1
+- Historia de Usuario 9 (Fase 11): Depende de completar Fundacional y puede proceder después de la Historia de Usuario 1
+- Historia de Usuario 10 (Fase 12): Depende de completar la implementación de la Historia de Usuario 1 y del campo entity_id
+- Historia de Usuario 11 (Fase 13): Depende de la Historia de Usuario 8 (lógica de búsqueda) y la Historia de Usuario 3 (navegación)
+- Historia de Usuario 12 (Fase 14): Depende de la Historia de Usuario 5 (configuración) y la Historia de Usuario 10 (documentos)
+- Pulido (Fase 15): Depende de que todas las historias de usuario deseadas estén completas
+- Historia de Usuario 13 (Fase 16): Depende de que las Fases 1-15 estén completas; reestructura la navegación entregada por HU3/HU4 dentro del marco
+- Historia de Usuario 3 revisada (Fase 17): Depende de la Fase 16 (el enrutamiento por barra lateral debe existir antes de que las acciones del panel lo usen)
+- Pulido Aspecto ERP (Fase 18): Depende de que las Fases 16 y 17 estén completas
 
-### Dependencias entre historias
+### Oportunidades Paralelas
 
-- **HU1 → HU2**: la orden requiere un proveedor existente.
-- **HU1/HU2 → HU3**: el panel lee proveedores, órdenes y estados.
-- **HU2/HU6 → HU5**: la recepción usa órdenes y el ciclo de vida configurado.
-- **HU1/HU2/HU3 → HU4**: la búsqueda por categoría y fecha amplía la búsqueda básica por nombre/RUT de HU3.
-- **HU6 → todas**: las etiquetas y el color se aplican en todas las pantallas.
-
-### Dentro de cada historia
-
-- Las pruebas se escriben primero y deben fallar antes de la implementación.
-- Los modelos y reglas de dominio van antes de formularios y pantallas.
-- Los formularios y editores van antes de la integración en `src/app.js`.
-- La historia debe quedar funcional y probada antes de pasar a la siguiente prioridad.
-
-### Oportunidades de paralelización
-
-- T002 y T003 en Setup; T004 después de T002 porque ambos modifican `package.json`.
-- T015 (campos personalizados) y T016–T018 (pruebas) en Fundacional; T008 y T010 son secuenciales sobre `src/storage.js`.
-- T016, T017 y T018 (pruebas de almacenamiento, configuración y marco) entre sí.
-- Todas las pruebas marcadas `[P]` dentro de una misma historia.
-- T042, T043 y T044 (formularios maestros, cabecera de orden y editor de líneas) una vez completado el dominio de HU2.
-- T053 y T054 (panel de inicio e indicadores de compras) entre sí.
-- T087, T088, T089, T090 y T092 (rendimiento, accesibilidad automatizada, accesibilidad manual, pruebas XSS y documentación) antes de la validación final.
-
----
-
-## Ejemplo de Paralelización: Historia de Usuario 2
-
-```bash
-# Una vez completado el dominio de HU2, lanzar en paralelo:
-Task: "Implementar formularios de Empleado, Categoría y Producto en src/components/master-data-form.js"
-Task: "Implementar cabecera de orden en src/components/document-form.js"
-Task: "Implementar editor de líneas en src/components/purchase-order-lines.js"
-
-# Lanzar en paralelo las pruebas de HU2:
-Task: "Pruebas de folio, fechas y mínimo de líneas en tests/unit/purchasing.test.js"
-Task: "Pruebas de líneas y totales en tests/unit/purchasing.test.js"
-Task: "Pruebas de datos maestros en tests/integration/master-data.test.js"
-```
-
----
-
-## Estrategia de Implementación
-
-### MVP (todas las historias P1)
-
-1. Completar Fase 1: Setup.
-2. Completar Fase 2: Fundacional.
-3. Completar Fase 3: HU1 Proveedores.
-4. Completar Fase 4: HU2 Órdenes, líneas y datos maestros.
-5. Completar Fase 5: HU3 Panel y búsqueda básica.
-6. Completar Fase 6: HU6 Configuración.
-7. **DETENERSE Y VALIDAR**: HU1–HU3 y HU6 funcionan de forma integrada, incluida la búsqueda básica por nombre/RUT desde la acción Buscar; las P2 aún no son necesarias.
-
-### Entrega incremental
-
-1. Setup + Fundacional → base lista.
-2. HU1 → proveedores operativos.
-3. HU2 → órdenes con líneas y totales.
-4. HU3 → visibilidad del área de compras y búsqueda básica por nombre/RUT.
-5. HU6 → terminología, identidad y ciclo de vida configurables.
-6. HU4 → búsqueda avanzada.
-7. HU5 → gobernanza de estados y recepción de stock.
-8. Pulido → accesibilidad, seguridad, rendimiento y documentación.
-
-Cada historia agrega valor sin romper las anteriores y puede validarse de forma independiente en su checkpoint.
-
----
-
-## Cobertura de Requisitos Funcionales
-
-| FR | Tareas que lo cubren |
-|---|---|
-| FR-001 | T023, T026, T027, T029 |
-| FR-002 | T023, T027, T029 |
-| FR-003 | T019, T024, T029 |
-| FR-004 | T021, T025, T027 |
-| FR-005 | T020, T025 |
-| FR-006 | T022, T026 |
-| FR-007 | T021, T025, T027, T028, T030 |
-| FR-008 | T023, T028 |
-| FR-009 | T031, T038, T043, T046 |
-| FR-010 | T032, T039 |
-| FR-011 | T032, T039 |
-| FR-012 | T032, T038, T044 |
-| FR-013 | T033, T040, T044 |
-| FR-014 | T034, T040 |
-| FR-015 | T034, T040 |
-| FR-016 | T034, T036, T046 |
-| FR-017 | T019, T036, T046 |
-| FR-018 | T033, T038, T044 |
-| FR-019 | T035, T037, T042, T047 |
-| FR-020 | T035, T037, T042, T047 |
-| FR-021 | T035, T037, T042, T047 |
-| FR-022 | T035, T041, T047 |
-| FR-023 | T031, T036, T043, T045, T048 |
-| FR-024 | T049, T053, T056 |
-| FR-025 | T050, T054 |
-| FR-026 | T050, T054 |
-| FR-027 | T050, T052, T054 |
-| FR-028 | T050, T054, T057 |
-| FR-029 | T051, T056 |
-| FR-030 | T049, T053, T056, T075 |
-| FR-031 | T049, T055, T056, T068, T073, T074 |
-| FR-032 | T070, T073, T074 |
-| FR-033 | T010, T069, T073 |
-| FR-034 | T071, T074, T075, T076 |
-| FR-035 | T072, T073, T087, T091 |
-| FR-036 | T070, T074 |
-| FR-037 | T077, T081, T084 |
-| FR-038 | T077, T081, T084 |
-| FR-039 | T077, T081, T084 |
-| FR-040 | T077, T081 |
-| FR-041 | T078, T080, T082, T085 |
-| FR-042 | T078, T080, T082 |
-| FR-043 | T079, T084, T085, T086 |
-| FR-044 | T079, T083, T085, T086 |
-| FR-045 | T078, T082 |
-| FR-046 | T060, T062, T065 |
-| FR-047 | T059, T064, T098 |
-| FR-048 | T009, T061, T063, T066 |
-| FR-049 | T009, T061, T062 |
-| FR-050 | T058, T061, T063 |
-| FR-051 | T059, T064 |
-| FR-052 | T013, T018 |
-| FR-053 | T013, T018 |
-| FR-054 | T006, T007, T018 |
-| FR-055 | T006, T007, T008, T016 |
-| FR-056 | T009, T012, T017 |
-| FR-057 | T011, T015, T017 |
-| FR-058 | T010, T012, T017, T090 |
-| FR-059 | T014, T018, T089 |
-| FR-060 | T088, T089 |
-
-## Cobertura de Extensibilidad y Criterios de Éxito
-
-- **XR-001**: T006, T008, T011, T015, T037, T038, T040, T041.
-- **XR-002**: T009, T012, T059, T064, T067, T092, T097, T099.
-- **XR-003**: T010, T025, T026, T040, T073.
-- **XR-004**: T006, T007, T008, T016, T019, T026, T037, T038, T041, T082.
-- **XR-005**: T012, T013, T059, T064.
-- **XR-006**: T060, T062, T065.
-- **SC-001**: T023, T096.
-- **SC-002**: T031, T034, T096.
-- **SC-003**: T093, T096.
-- **SC-004**: T072, T087, T091.
-- **SC-005**: T071, T096.
-- **SC-006**: T001–T005, T016–T018, T093–T096.
-- **SC-007**: T050.
-- **SC-008**: T001, T005, T062, T067, T097.
-- **SC-009**: T080, T082.
-- **SC-010**: T051, T056.
-- **SC-011**: T050, T052, T054.
-- **SC-012**: T059, T064, T098.
-- **SC-013**: T088, T089, T096.
-
----
-
-## Decisiones de Alineación
-
-Estas decisiones resuelven las diferencias entre `spec.md`, `plan.md` y `data-model.md`; `spec.md` es la fuente de verdad para estas tareas.
-
-1. **Proveedor**: el campo base `code` almacena el RUT normalizado y se etiqueta "RUT"; se usan además `name`, `category` y `paymentTerms`; no se usa un campo fiscal separado.
-2. **Orden de compra**: `fecha_emision` se persiste en `startDate` y `fecha_entrega` en `endDate`; el folio es único global y debe ser entero positivo.
-3. **Líneas**: se persisten en `erp_purchasing:purchase-order-lines` con clave compuesta orden+producto; el subtotal es derivado y no se persiste.
-4. **Importes**: neto = suma de subtotales; IVA = 19 % del neto; total = neto + IVA; todo redondeado a dos decimales.
-5. **Ciclo de vida estándar**: `borrador → pendiente → aprobado → recibido`; cancelación solo desde `borrador` o `pendiente`; `recibido` y `cancelado` son terminales.
-6. **Recepción**: se persiste `stock_aplicado` en la orden para garantizar una sola aplicación de stock.
-7. **Configuración**: las etiquetas de Empleado, Categoría, Producto y Detalle de compra amplían `labels` en `ModuleConfig`; no se declaran `customFields` concretos para Compras, pero la capacidad base de campos personalizados se implementa y prueba en Fundacional.
-8. **Archivos centrales**: las tareas de Compras se concentran en `src/module-config.js`, `src/domain/purchasing.js`, componentes nuevos y `src/app.js`; cualquier cambio en archivos centrales debe limitarse a puntos de extensión y validarse contra SC-008.
-9. **Configuración**: la configuración válida de Compras tiene precedencia; si falta o es inválida se usan los defaults integrados de Compras y se muestra un aviso visible. “Entidad/Documento” solo existen en el módulo base sin instancia de Compras.
-10. **Búsqueda MVP**: HU3/P1 incluye búsqueda básica por nombre y RUT desde la acción Buscar; HU4/P2 agrega categoría, fecha, comparación sin tildes y rendimiento.
-11. **Criterios medibles**: con 500 proveedores y 2.000 órdenes, búsqueda ≤300 ms, panel ≤500 ms y listas ≤1 s, medidos con `performance.now()`; accesibilidad WCAG 2.1 AA según FR-060 y SC-013.
+- T003 puede ejecutarse en paralelo con las tareas de configuración
+- T007 puede completarse junto al trabajo de almacenamiento y esqueleto de la aplicación
+- Las pruebas de cada historia pueden crearse en paralelo con las tareas de implementación de la misma historia
+- Después de la Fase 7 (perfil de configuración), HU6 (Fase 8) y HU7 (Fase 9) pueden proceder en paralelo
+- HU8 (Fase 10) y HU9 (Fase 11) son independientes y pueden proceder en paralelo después de la Historia de Usuario 1
+- En la Fase 15, T058-T060 pueden ejecutarse en paralelo antes de las tareas finales de verificación T061-T063
+- En la Fase 16, T064-T067 y T069 pueden ejecutarse en paralelo; T072 aterriza junto al cambio de enrutamiento T068
+- En la Fase 17, T073/T074/T077 pueden ejecutarse en paralelo con T075/T076
+- En la Fase 18, T078 y T079 pueden ejecutarse en paralelo antes de la verificación final T080-T081
