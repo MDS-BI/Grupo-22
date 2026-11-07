@@ -33,12 +33,14 @@ afterEach(() => {
   dom.window.close();
 });
 
+function clickEntityAction(id, action) {
+  qs('entity-table-body').querySelector(`button[data-action="${action}"][data-id="${id}"]`).click();
+}
+
 describe('User Story 2 - edit and remove entities', () => {
-  it('edits an existing entity through the selector and persists the change', () => {
+  it('edits an existing entity through the table and persists the change', () => {
     qs('nav-entities').click();
-    const select = qs('edit-entity');
-    select.value = select.options[1].value;
-    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    clickEntityAction(globalThis.__firstId, 'edit');
     expect(qs('entity-id').value).toBe(globalThis.__firstId);
     expect(qs('submit-button').textContent).toBe('Actualizar');
     expect(qs('name').value).toBe('Acme');
@@ -48,12 +50,10 @@ describe('User Story 2 - edit and remove entities', () => {
     expect(loadEntities()[0].name).toBe('Acme Updated');
   });
 
-  it('deletes a selected entity so it disappears from storage', () => {
+  it('deletes an entity from the table so it disappears from storage', () => {
     qs('nav-entities').click();
-    const select = qs('edit-entity');
-    select.value = select.options[1].value;
-    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    qs('delete-entity').click();
+    clickEntityAction(globalThis.__firstId, 'delete');
+    expect(globalThis.confirm).toHaveBeenCalled();
     expect(loadEntities().length).toBe(1);
     expect(loadEntities()[0].code).toBe('GL-002');
   });
@@ -63,11 +63,9 @@ describe('User Story 2 - edit and remove entities', () => {
       addEntity({ name: `Bulk ${i}`, code: `B-${String(i).padStart(4, '0')}` });
     }
     qs('nav-entities').click();
-    const select = qs('edit-entity');
-    expect(select.options.length).toBe(303);
-    const target = [...select.options].find(o => o.textContent.includes('Bulk 150'));
-    select.value = target.value;
-    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    expect(qs('entity-table-body').querySelectorAll('tr').length).toBe(302);
+    const target = loadEntities().find(e => e.code === 'B-0150');
+    clickEntityAction(target.id, 'edit');
     expect(qs('name').value).toBe('Bulk 150');
     qs('name').value = 'Bulk 150 Renamed';
     qs('entity-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));

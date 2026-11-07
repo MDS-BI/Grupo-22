@@ -52,14 +52,17 @@ describe('User Story 6 - relabel screens from configuration', () => {
 
     qs('nav-entities').click();
     expect(qs('entity-form-heading').textContent).toBe('Agregar / Editar Proveedor');
-    expect(qs('delete-entity').textContent).toBe('Eliminar el proveedor seleccionado');
+    expect(qs('edit-entity-heading').textContent).toBe('Editar o eliminar el proveedor');
+    expect(qs('taxId')).toBeNull();
 
     qs('nav-documents').click();
+    expect(qs('series')).toBeNull();
     expect(qs('documents-view-heading').textContent).toBe('Órdenes de Compra');
     expect(qs('document-form-heading').textContent).toBe('Agregar / Editar Orden de Compra');
     expect(qs('edit-document-heading').textContent).toBe('Editar o eliminar la orden de compra');
-    expect(qs('delete-document').textContent).toBe('Eliminar la orden de compra seleccionada');
     expect(qs('document-entity-label').textContent).toBe('Proveedor');
+    expect(qs('startDate-label').textContent).toBe('Fecha de emisión');
+    expect(qs('endDate-label').textContent).toBe('Fecha de entrega');
 
     qs('nav-search').click();
     expect(qs('search-view-heading').textContent).toBe('Buscar Proveedores');
@@ -74,7 +77,7 @@ describe('User Story 6 - relabel screens from configuration', () => {
     expect(qs('action-new-entity-title').textContent).toBe('Nueva Entidad');
     qs('nav-entities').click();
     expect(qs('entity-form-heading').textContent).toBe('Agregar / Editar Entidad');
-    expect(qs('delete-entity').textContent).toBe('Eliminar la entidad seleccionada');
+    expect(qs('edit-entity-heading').textContent).toBe('Editar o eliminar la entidad');
     qs('nav-search').click();
     expect(qs('search-view-heading').textContent).toBe('Buscar Entidades');
   });
@@ -96,13 +99,11 @@ describe('User Story 6 - relabel screens from configuration', () => {
     expect(qs('entities-view-heading').textContent).toBe('Clientes');
     expect(qs('entity-form-heading').textContent).toBe('Agregar / Editar Cliente');
     expect(qs('edit-entity-heading').textContent).toBe('Editar o eliminar el cliente');
-    expect(qs('delete-entity').textContent).toBe('Eliminar el cliente seleccionado');
 
     qs('nav-documents').click();
     expect(qs('documents-view-heading').textContent).toBe('Pedidos de Venta');
     expect(qs('document-form-heading').textContent).toBe('Agregar / Editar Pedido de Venta');
     expect(qs('edit-document-heading').textContent).toBe('Editar o eliminar el pedido de venta');
-    expect(qs('delete-document').textContent).toBe('Eliminar el pedido de venta seleccionado');
 
     qs('nav-search').click();
     expect(qs('search-view-heading').textContent).toBe('Buscar Clientes');

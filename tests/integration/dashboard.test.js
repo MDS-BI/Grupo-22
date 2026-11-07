@@ -108,6 +108,22 @@ describe('User Story 3 - home dashboard with quick actions and record stats', ()
     expect(qs('stat-documents').textContent).toBe('1');
   });
 
+  it('breaks down purchase orders by configured status', async () => {
+    await bootWith(PURCHASING_CONFIG);
+    const supplier = addEntity({ name: 'Acme', code: '12.345.678-5', category: 'Insumos', paymentTerms: 'Contado' });
+    const statuses = ['borrador', 'pendiente', 'aprobado', 'recibido', 'cancelado'];
+    statuses.forEach((status, index) => {
+      addDocument({ entityId: supplier.entity_id, folio: 1000 + index, startDate: '2026-08-01', endDate: '2026-08-05', status });
+    });
+    addDocument({ entityId: supplier.entity_id, folio: 2000, startDate: '2026-08-01', endDate: '2026-08-05', status: 'pendiente' });
+
+    qs('nav-dashboard').click();
+    for (const status of statuses) {
+      const item = qs('stat-status-breakdown').querySelector(`[data-status="${status}"] strong`);
+      expect(item.textContent).toBe(status === 'pendiente' ? '2' : '1');
+    }
+  });
+
   it('refreshes statistics after creating records elsewhere in the app', async () => {
     await bootWith(undefined);
     qs('nav-entities').click();

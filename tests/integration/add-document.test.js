@@ -36,7 +36,6 @@ describe('User Story 10 - add a document to an entity', () => {
     qs('nav-entities').click();
     qs('nav-documents').click();
     qs('document-entity').value = entity.entity_id;
-    qs('series').value = 'FAC';
     qs('folio').value = '1001';
     qs('startDate').value = '2026-08-01';
     qs('endDate').value = '2026-08-05';
@@ -53,7 +52,7 @@ describe('User Story 10 - add a document to an entity', () => {
     const all = loadDocuments();
     expect(all.length).toBe(1);
     expect(all[0].entity_id).toBe(entity.entity_id);
-    expect(all[0].series).toBe('FAC');
+    expect(all[0].series).toBeUndefined();
     expect(all[0].folio).toBe(1001);
     expect(all[0].quantity).toBe(3);
     expect(all[0].subtotal).toBe(1000);

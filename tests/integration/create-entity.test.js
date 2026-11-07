@@ -31,7 +31,7 @@ afterEach(() => {
 });
 
 describe('User Story 1 - create and organize entities', () => {
-  it('creates a new entity that appears in storage and the edit selector', () => {
+  it('creates a new entity that appears in storage and the table', () => {
     qs('nav-entities').click();
     expect(qs('view-entities').hidden).toBe(false);
     qs('name').value = 'Acme';
@@ -42,15 +42,15 @@ describe('User Story 1 - create and organize entities', () => {
     expect(all[0].name).toBe('Acme');
     expect(all[0].code).toBe('AC-001');
     expect(all[0].entity_id).toBeDefined();
-    const select = qs('edit-entity');
-    expect([...select.options].map(o => o.textContent)).toContain('Acme — AC-001');
+    const row = qs('entity-table-body').querySelector('tr');
+    expect(row.textContent).toContain('Acme');
+    expect(row.textContent).toContain('AC-001');
   });
 
   it('persists ERP identity and commercial fields entered through the form', () => {
     qs('nav-entities').click();
     qs('name').value = 'Acme';
     qs('code').value = 'AC-001';
-    qs('taxId').value = 'RFC800101AB1';
     qs('email').value = 'ventas@acme.mx';
     qs('phone').value = '555-1234';
     qs('address').value = 'Av. Reforma 100';
@@ -58,7 +58,7 @@ describe('User Story 1 - create and organize entities', () => {
     qs('paymentTerms').value = 'neto 30';
     qs('entity-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     const saved = loadEntities()[0];
-    expect(saved.taxId).toBe('RFC800101AB1');
+    expect(saved.taxId).toBeUndefined();
     expect(saved.email).toBe('ventas@acme.mx');
     expect(saved.phone).toBe('555-1234');
     expect(saved.address).toBe('Av. Reforma 100');

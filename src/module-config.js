@@ -13,7 +13,8 @@ export const DEFAULT_CONFIG = {
     employee: 'Empleado', employees: 'Empleados',
     category: 'Categoría', categories: 'Categorías',
     product: 'Producto', products: 'Productos',
-    purchaseOrderLine: 'Detalle', purchaseOrderLines: 'Detalles'
+    purchaseOrderLine: 'Detalle', purchaseOrderLines: 'Detalles',
+    startDate: 'Fecha de inicio', endDate: 'Fecha de fin'
   },
   customFields: [],
   statusLifecycle: null,
@@ -28,7 +29,8 @@ export const PURCHASING_CONFIG = {
     employee: 'Empleado', employees: 'Empleados',
     category: 'Categoría', categories: 'Categorías',
     product: 'Producto', products: 'Productos',
-    purchaseOrderLine: 'Detalle de compra', purchaseOrderLines: 'Detalles de compra'
+    purchaseOrderLine: 'Detalle de compra', purchaseOrderLines: 'Detalles de compra',
+    startDate: 'Fecha de emisión', endDate: 'Fecha de entrega'
   },
   customFields: [],
   statusLifecycle: {
@@ -206,4 +208,22 @@ export function getConfig() {
 
 export function labelFor(key) {
   return getConfig().labels[key] || key;
+}
+
+function isFeminineLabel(label) {
+  const firstWord = String(label || '').trim().toLowerCase().split(/\s+/)[0];
+  if (firstWord === 'orden') return true;
+  return /(?:a|dad|ción|sión|tad|tud)$/.test(firstWord);
+}
+
+export function withArticle(label) {
+  return `${isFeminineLabel(label) ? 'la' : 'el'} ${String(label || '').toLowerCase()}`;
+}
+
+export function withIndefiniteArticle(label) {
+  return `${isFeminineLabel(label) ? 'una' : 'un'} ${String(label || '').toLowerCase()}`;
+}
+
+export function newLabelFor(label) {
+  return `${isFeminineLabel(label) ? 'Nueva' : 'Nuevo'} ${label}`;
 }

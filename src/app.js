@@ -5,7 +5,7 @@ import {
 } from './storage.js';
 import {
   DEFAULT_CONFIG, PURCHASING_CONFIG, normalizeConfig, loadModuleConfig,
-  setActiveConfig, getConfig
+  setActiveConfig, getConfig, newLabelFor, withArticle
 } from './module-config.js';
 
 let config;
@@ -26,6 +26,23 @@ function monogram(name) {
   return words.slice(0, 2).map(word => word[0]).join('').toUpperCase();
 }
 
+function formatDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ''));
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : String(value || '');
+}
+
+const clpFormatter = new Intl.NumberFormat('es-CL', {
+  style: 'currency',
+  currency: 'CLP',
+  maximumFractionDigits: 0
+});
+
+function formatCurrencyCLP(value) {
+  if (value === undefined || value === null || value === '') return '';
+  const number = Number(value);
+  return Number.isFinite(number) ? clpFormatter.format(number) : String(value);
+}
+
 function renderLogo() {
   qs('logo-mark').innerHTML = `<svg viewBox="0 0 36 36" role="img" aria-label="${escapeHtml(config.moduleName)}"><rect width="36" height="36" rx="8" fill="var(--accent)"/><text x="18" y="23" text-anchor="middle" font-size="13" font-weight="700" fill="white">${escapeHtml(monogram(config.moduleName))}</text></svg>`;
 }
@@ -38,39 +55,25 @@ function relabel() {
   qs('nav-entities-label').textContent = labels.entities;
   qs('nav-documents-label').textContent = labels.documents;
   qs('nav-search-label').textContent = 'Búsqueda';
-  qs('action-new-entity-title').textContent =
-    labels.entity === 'Entidad' ? 'Nueva Entidad' :
-    labels.entity === 'Cliente' ? 'Nuevo Cliente' :
-    labels.entity === 'Proveedor' ? 'Nuevo Proveedor' : `Nuevo ${labels.entity}`;
-  qs('action-new-document-title').textContent = labels.document === 'Orden de Compra'
-    ? 'Nueva Orden de Compra'
-    : `Nuevo ${labels.document}`;
+  qs('action-new-entity-title').textContent = newLabelFor(labels.entity);
+  qs('action-new-document-title').textContent = newLabelFor(labels.document);
   qs('action-open-entities-title').textContent = `Gestionar ${labels.entities}`;
   qs('action-find-title').textContent = 'Buscar';
   qs('stat-entities-label').textContent = labels.entities;
   qs('stat-documents-label').textContent = labels.documents;
+  qs('stat-statuses-label').textContent = `${labels.documents} por estado`;
   qs('entities-view-heading').textContent = labels.entities;
   qs('entity-form-heading').textContent = `Agregar / Editar ${labels.entity}`;
-  qs('edit-entity-heading').textContent = labels.entity === 'Entidad'
-    ? 'Editar o eliminar la entidad'
-    : `Editar o eliminar el ${labels.entity.toLowerCase()}`;
-  qs('delete-entity').textContent = labels.entity === 'Entidad'
-    ? 'Eliminar la entidad seleccionada'
-    : `Eliminar el ${labels.entity.toLowerCase()} seleccionado`;
+  qs('edit-entity-heading').textContent = `Editar o eliminar ${withArticle(labels.entity)}`;
   qs('documents-view-heading').textContent = labels.documents;
   qs('document-form-heading').textContent = `Agregar / Editar ${labels.document}`;
   qs('document-entity-label').textContent = labels.entity;
-  const documentArticle = labels.document === 'Orden de Compra' ? 'la' : 'el';
-  const documentSelectedSuffix = labels.document === 'Orden de Compra' ? 'seleccionada' : 'seleccionado';
-  qs('edit-document-heading').textContent = labels.document === 'Documento'
-    ? 'Editar o eliminar el documento'
-    : `Editar o eliminar ${documentArticle} ${labels.document.toLowerCase()}`;
-  qs('delete-document').textContent = labels.document === 'Documento'
-    ? 'Eliminar el documento seleccionado'
-    : `Eliminar ${documentArticle} ${labels.document.toLowerCase()} ${documentSelectedSuffix}`;
+  qs('edit-document-heading').textContent = `Editar o eliminar ${withArticle(labels.document)}`;
   qs('search-view-heading').textContent = `Buscar ${labels.entities}`;
   qs('submit-button').textContent = `Guardar ${labels.entity}`;
   qs('document-submit-button').textContent = `Guardar ${labels.document}`;
+  qs('startDate-label').textContent = labels.startDate;
+  qs('endDate-label').textContent = labels.endDate;
   qs('code').previousElementSibling.textContent = config.moduleName === 'Adquisiciones y Compras' ? 'RUT' : 'Código';
 }
 
@@ -83,10 +86,10 @@ function showView(name) {
     else button.removeAttribute('aria-current');
   });
   if (name === 'dashboard') renderDashboard();
-  if (name === 'entities') renderEntitySelectors();
+  if (name === 'entities') renderEntityTable();
   if (name === 'documents') {
     renderDocumentEntityOptions();
-    renderDocumentSelectors();
+    renderDocumentTable();
     renderStatusControl();
   }
   if (name === 'search') renderSearch();
@@ -94,7 +97,7 @@ function showView(name) {
 
 function clearEntityForm() {
   qs('entity-id').value = '';
-  for (const id of ['name', 'code', 'taxId', 'email', 'phone', 'address', 'category', 'creditLimit', 'paymentTerms', 'targetDate']) qs(id).value = '';
+  for (const id of ['name', 'code', 'email', 'phone', 'address', 'category', 'creditLimit', 'paymentTerms', 'targetDate']) qs(id).value = '';
   for (const field of config.customFields.filter(item => item.target === 'entity')) {
     if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = '';
   }
@@ -104,7 +107,7 @@ function clearEntityForm() {
 
 function clearDocumentForm() {
   qs('document-id').value = '';
-  for (const id of ['document-entity', 'series', 'folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'docPaymentTerms', 'notes', 'status']) qs(id).value = '';
+  for (const id of ['document-entity', 'folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'docPaymentTerms', 'notes', 'status']) qs(id).value = '';
   for (const field of config.customFields.filter(item => item.target === 'document')) {
     if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = '';
   }
@@ -112,10 +115,19 @@ function clearDocumentForm() {
   renderStatusControl();
 }
 
-function renderEntitySelectors() {
+function renderEntityTable() {
   const entities = loadEntities();
-  const options = entities.map(entity => `<option value="${escapeHtml(entity.id)}">${escapeHtml(entity.name)} — ${escapeHtml(entity.code)}</option>`).join('');
-  qs('edit-entity').innerHTML = `<option value="">Seleccionar...</option>${options}`;
+  qs('entity-table-body').innerHTML = entities.length
+    ? entities.map(entity => `<tr>
+        <td>${escapeHtml(entity.name)}</td>
+        <td>${escapeHtml(entity.code)}</td>
+        <td>${escapeHtml(entity.category ?? '')}</td>
+        <td class="table-actions">
+          <button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(entity.id)}">Editar</button>
+          <button type="button" class="danger" data-action="delete" data-id="${escapeHtml(entity.id)}">Eliminar</button>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="empty-row">Sin registros.</td></tr>';
 }
 
 function renderDocumentEntityOptions() {
@@ -123,13 +135,22 @@ function renderDocumentEntityOptions() {
     loadEntities().map(entity => `<option value="${escapeHtml(entity.entity_id)}">${escapeHtml(entity.name)}</option>`).join('');
 }
 
-function renderDocumentSelectors() {
+function renderDocumentTable() {
   const documents = loadDocuments();
-  qs('edit-document').innerHTML = `<option value="">Seleccionar...</option>` +
-    documents.map(document => `<option value="${escapeHtml(document.id)}">Folio ${escapeHtml(document.folio)}${document.status ? ` — ${escapeHtml(document.status)}` : ''}</option>`).join('');
-  qs('document-list').innerHTML = documents.length
-    ? documents.map(document => `<article class="document-item"><strong>Folio ${escapeHtml(document.folio)}</strong>${document.status ? ` · <span class="status-badge">${escapeHtml(document.status)}</span>` : ''}</article>`).join('')
-    : '<p>Sin registros.</p>';
+  const entityNames = new Map(loadEntities().map(entity => [entity.entity_id, entity.name]));
+  qs('document-table-body').innerHTML = documents.length
+    ? documents.map(document => `<tr>
+        <td>${escapeHtml(document.folio)}</td>
+        <td>${escapeHtml(entityNames.get(document.entity_id) ?? '')}</td>
+        <td>${escapeHtml(formatDate(document.endDate))}</td>
+        <td>${escapeHtml(formatCurrencyCLP(document.totalAmount))}</td>
+        <td>${document.status ? `<span class="status-badge">${escapeHtml(document.status)}</span>` : ''}</td>
+        <td class="table-actions">
+          <button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(document.id)}">Editar</button>
+          <button type="button" class="danger" data-action="delete" data-id="${escapeHtml(document.id)}">Eliminar</button>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="empty-row">Sin registros.</td></tr>';
 }
 
 function replaceStatusControl(tagName, options = []) {
@@ -184,7 +205,10 @@ function renderDashboard() {
   const documents = loadDocuments();
   qs('stat-entities').textContent = String(entities.length);
   qs('stat-documents').textContent = String(documents.length);
-  qs('stat-statuses').textContent = String(documents.filter(document => document.status).length);
+  const statuses = config.statusLifecycle?.statuses || [];
+  qs('stat-status-breakdown').innerHTML = statuses.length
+    ? statuses.map(status => `<li data-status="${escapeHtml(status)}"><span>${escapeHtml(status)}</span><strong>${documents.filter(document => document.status === status).length}</strong></li>`).join('')
+    : '<li class="empty-row">Sin estados configurados.</li>';
   const today = new Date();
   const overdue = documents.filter(document => {
     if (!document.endDate || ['recibido', 'cancelado'].includes(document.status)) return false;
@@ -199,8 +223,11 @@ function renderSearch() {
   const results = searchEntities(query);
   const customLabels = config.customFields.filter(field => field.target === 'entity');
   qs('search-results-list').innerHTML = results.map(entity => {
-    const custom = customLabels.map(field => entity[field.key] !== undefined && entity[field.key] !== ''
-      ? `${escapeHtml(field.label)}: ${escapeHtml(entity[field.key])}` : '').filter(Boolean).join(' · ');
+    const custom = customLabels.map(field => {
+      if (entity[field.key] === undefined || entity[field.key] === '') return '';
+      const value = field.type === 'date' ? formatDate(entity[field.key]) : entity[field.key];
+      return `${escapeHtml(field.label)}: ${escapeHtml(value)}`;
+    }).filter(Boolean).join(' · ');
     const linkedDocument = loadDocuments().find(document => document.entity_id === entity.entity_id);
     return `<article class="entity-item">${escapeHtml(entity.name)} · ${escapeHtml(entity.code)}${custom ? ` · ${custom}` : ''}${linkedDocument?.status ? ` <span class="status-badge">${escapeHtml(linkedDocument.status)}</span>` : ''}</article>`;
   }).join('');
@@ -215,7 +242,7 @@ function renderSearch() {
 
 function collectEntity() {
   const data = {
-    name: qs('name').value, code: qs('code').value, taxId: qs('taxId').value,
+    name: qs('name').value, code: qs('code').value,
     email: qs('email').value, phone: qs('phone').value, address: qs('address').value,
     category: qs('category').value, creditLimit: qs('creditLimit').value,
     paymentTerms: qs('paymentTerms').value, targetDate: qs('targetDate').value
@@ -226,7 +253,7 @@ function collectEntity() {
 
 function collectDocument() {
   const data = {
-    entityId: qs('document-entity').value, series: qs('series').value, folio: qs('folio').value,
+    entityId: qs('document-entity').value, folio: qs('folio').value,
     startDate: qs('startDate').value, endDate: qs('endDate').value, quantity: qs('quantity').value,
     subtotal: qs('subtotal').value, discount: qs('discount').value, taxAmount: qs('taxAmount').value,
     totalAmount: qs('totalAmount').value, currency: qs('currency').value,
@@ -242,6 +269,34 @@ function showEntityErrors(errors) {
     const element = qs(`error-${key}`) || qs(`error-cf-${key}`) || qs(`error-${key === 'entity_id' ? 'document-entity' : key}`);
     if (element) element.textContent = message;
   }
+}
+
+function loadEntityIntoForm(entity) {
+  qs('entity-id').value = entity.id;
+  for (const key of ['name', 'code', 'email', 'phone', 'address', 'category', 'creditLimit', 'paymentTerms', 'targetDate']) {
+    qs(key).value = entity[key] ?? '';
+  }
+  for (const field of config.customFields.filter(item => item.target === 'entity')) {
+    if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = entity[field.key] ?? '';
+  }
+  qs('submit-button').textContent = 'Actualizar';
+  qs('entity-feedback').textContent = '';
+}
+
+function loadDocumentIntoForm(document) {
+  qs('document-id').value = document.id;
+  renderStatusControl(document.id);
+  for (const key of ['folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'notes']) {
+    qs(key).value = document[key] ?? '';
+  }
+  qs('document-entity').value = document.entity_id || '';
+  qs('docPaymentTerms').value = document.paymentTerms ?? '';
+  qs('status').value = document.status ?? '';
+  for (const field of config.customFields.filter(item => item.target === 'document')) {
+    if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = document[field.key] ?? '';
+  }
+  qs('document-submit-button').textContent = `Actualizar ${config.labels.document}`;
+  qs('document-feedback').textContent = '';
 }
 
 function bindEvents() {
@@ -270,34 +325,32 @@ function bindEvents() {
       }
       else addEntity(data);
       clearEntityForm();
-      renderEntitySelectors();
-      if (id) qs('edit-entity').value = id;
+      qs('entity-feedback').textContent = '';
+      renderEntityTable();
       renderDocumentEntityOptions();
+      renderDocumentTable();
       renderDashboard();
     } catch (error) {
       qs('entity-feedback').textContent = error.message;
     }
   });
 
-  qs('edit-entity').addEventListener('change', () => {
-    const entity = loadEntities().find(item => item.id === qs('edit-entity').value);
+  qs('entity-table-body').addEventListener('click', event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const entity = loadEntities().find(item => item.id === button.dataset.id);
     if (!entity) return;
-    qs('entity-id').value = entity.id;
-    for (const key of ['name', 'code', 'taxId', 'email', 'phone', 'address', 'category', 'creditLimit', 'paymentTerms', 'targetDate']) qs(key).value = entity[key] ?? '';
-    for (const field of config.customFields.filter(item => item.target === 'entity')) {
-      if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = entity[field.key] ?? '';
+    if (button.dataset.action === 'edit') {
+      loadEntityIntoForm(entity);
+      qs('name').focus();
+      return;
     }
-    qs('submit-button').textContent = 'Actualizar';
-  });
-
-  qs('delete-entity').addEventListener('click', () => {
-    const id = qs('edit-entity').value || qs('entity-id').value;
-    if (!id || !globalThis.confirm('¿Eliminar el registro seleccionado?')) return;
-    deleteEntity(id);
+    if (!globalThis.confirm(`¿Eliminar ${withArticle(config.labels.entity)} ${entity.name}?`)) return;
+    deleteEntity(entity.id);
     clearEntityForm();
-    renderEntitySelectors();
+    renderEntityTable();
     renderDocumentEntityOptions();
-    renderDocumentSelectors();
+    renderDocumentTable();
     renderDashboard();
   });
 
@@ -312,36 +365,28 @@ function bindEvents() {
       if (id) updateDocument(id, data);
       else addDocument(data);
       clearDocumentForm();
-      renderDocumentSelectors();
+      qs('document-feedback').textContent = '';
+      renderDocumentTable();
       renderDashboard();
     } catch (error) {
       qs('document-feedback').textContent = error.message;
     }
   });
 
-  qs('edit-document').addEventListener('change', () => {
-    const document = loadDocuments().find(item => item.id === qs('edit-document').value);
-    if (!document) { clearDocumentForm(); return; }
-    qs('document-id').value = document.id;
-    renderStatusControl(document.id);
-    for (const key of ['document-entity', 'series', 'folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'notes']) {
-      if (key === 'document-entity') qs(key).value = document.entity_id || '';
-      else qs(key).value = document[key] ?? '';
+  qs('document-table-body').addEventListener('click', event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const document = loadDocuments().find(item => item.id === button.dataset.id);
+    if (!document) return;
+    if (button.dataset.action === 'edit') {
+      loadDocumentIntoForm(document);
+      qs('folio').focus();
+      return;
     }
-    qs('docPaymentTerms').value = document.paymentTerms ?? '';
-    qs('status').value = document.status ?? '';
-    for (const field of config.customFields.filter(item => item.target === 'document')) {
-      if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = document[field.key] ?? '';
-    }
-    qs('document-submit-button').textContent = `Actualizar ${config.labels.document}`;
-  });
-
-  qs('delete-document').addEventListener('click', () => {
-    const id = qs('edit-document').value;
-    if (!id || !globalThis.confirm('¿Eliminar el documento seleccionado?')) return;
-    deleteDocument(id);
+    if (!globalThis.confirm(`¿Eliminar ${withArticle(config.labels.document)} folio ${document.folio}?`)) return;
+    deleteDocument(document.id);
     clearDocumentForm();
-    renderDocumentSelectors();
+    renderDocumentTable();
     renderDashboard();
   });
 }
@@ -366,8 +411,8 @@ export async function initApp(normalizedConfig, options = {}) {
   renderDocumentEntityOptions();
   renderStatusControl();
   bindEvents();
-  renderEntitySelectors();
-  renderDocumentSelectors();
+  renderEntityTable();
+  renderDocumentTable();
   renderDashboard();
   showView('dashboard');
   if (configErrors.length) {

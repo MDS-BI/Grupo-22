@@ -106,6 +106,8 @@ describe('module-config', () => {
     expect(config.labels.entities).toBe('Proveedores');
     expect(config.labels.document).toBe('Orden de Compra');
     expect(config.labels.documents).toBe('Órdenes de Compra');
+    expect(config.labels.startDate).toBe('Fecha de emisión');
+    expect(config.labels.endDate).toBe('Fecha de entrega');
   });
 
   it('exposes active config and label helpers after setActiveConfig', () => {

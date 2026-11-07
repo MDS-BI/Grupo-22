@@ -1,4 +1,4 @@
-import { getConfig, BASE_FIELDS } from './module-config.js';
+import { getConfig, BASE_FIELDS, withArticle, withIndefiniteArticle } from './module-config.js';
 
 const ENTITY_KEY = 'erp_base_module:entities';
 const DOCUMENT_KEY = 'erp_base_module:documents';
@@ -118,7 +118,6 @@ export function addEntity(input) {
     entity_id: uid('ent'),
     name: text(input.name),
     code: purchasing ? normalizeRut(input.code) : text(input.code),
-    ...(input.taxId !== undefined ? { taxId: text(input.taxId) } : {}),
     ...(input.email !== undefined ? { email: text(input.email) } : {}),
     ...(input.phone !== undefined ? { phone: text(input.phone) } : {}),
     ...(input.address !== undefined ? { address: text(input.address) } : {}),
@@ -143,10 +142,10 @@ export function addEntity(input) {
 export function updateEntity(id, updates) {
   const entities = loadEntities();
   const index = entities.findIndex(entity => entity.id === id);
-  if (index < 0) throw new Error('Entidad no encontrada');
+  if (index < 0) throw new Error(`No se encontró ${withArticle(getConfig().labels.entity)}`);
   const next = { ...entities[index], ...updates, id: entities[index].id, entity_id: entities[index].entity_id, updatedAt: now() };
   const config = getConfig();
-  const allowed = new Set([...BASE_FIELDS.entity, 'taxId', ...config.customFields.filter(field => field.target === 'entity').map(field => field.key)]);
+  const allowed = new Set([...BASE_FIELDS.entity, ...config.customFields.filter(field => field.target === 'entity').map(field => field.key)]);
   for (const key of Object.keys(next)) {
     if (!allowed.has(key)) delete next[key];
   }
@@ -194,26 +193,30 @@ export function saveDocuments(documents) {
 
 export function validateDocument(input = {}) {
   const errors = {};
+  const config = getConfig();
+  const labels = config.labels;
   const entityId = input.entityId || input.entity_id;
   if (!loadEntities().some(entity => entity.entity_id === entityId)) {
-    errors.entity_id = 'Debe seleccionar una entidad existente';
+    errors.entity_id = `Debe seleccionar ${withIndefiniteArticle(labels.entity)} existente`;
   }
   if (input.folio === undefined || input.folio === null || text(input.folio) === '') {
     errors.folio = 'El folio es obligatorio';
   } else {
     const folio = Number(input.folio);
     if (!Number.isInteger(folio) || folio <= 0) errors.folio = 'El folio debe ser un entero positivo';
+    else if (config.moduleName === 'Adquisiciones y Compras' && loadDocuments().some(document => document.id !== input.id && Number(document.folio) === folio)) {
+      errors.folio = 'El folio ya existe';
+    }
   }
-  if (!validDate(text(input.startDate))) errors.startDate = 'La fecha de inicio debe ser una fecha válida';
-  if (!validDate(text(input.endDate))) errors.endDate = 'La fecha de fin debe ser una fecha válida';
-  else if (validDate(text(input.startDate)) && text(input.endDate) < text(input.startDate)) errors.endDate = 'La fecha de fin debe ser igual o posterior a la fecha de inicio';
+  if (!validDate(text(input.startDate))) errors.startDate = `La ${labels.startDate.toLowerCase()} debe ser una fecha válida`;
+  if (!validDate(text(input.endDate))) errors.endDate = `La ${labels.endDate.toLowerCase()} debe ser una fecha válida`;
+  else if (validDate(text(input.startDate)) && text(input.endDate) < text(input.startDate)) errors.endDate = `La ${labels.endDate.toLowerCase()} debe ser igual o posterior a la ${labels.startDate.toLowerCase()}`;
   if (input.quantity !== undefined && input.quantity !== '' && (!Number.isInteger(Number(input.quantity)) || Number(input.quantity) <= 0)) errors.quantity = 'La cantidad debe ser un entero positivo';
   for (const key of ['subtotal', 'discount', 'taxAmount', 'totalAmount']) {
     if (input[key] !== undefined && input[key] !== '' && (!Number.isFinite(Number(input[key])) || Number(input[key]) < 0)) errors[key] = `${key} debe ser un número no negativo`;
   }
   if (input.discount !== undefined && input.subtotal !== undefined && Number(input.discount) > Number(input.subtotal)) errors.discount = 'El descuento no puede superar el subtotal';
 
-  const config = getConfig();
   for (const field of config.customFields.filter(item => item.target === 'document')) {
     const value = input[field.key];
     if (field.required && (value === undefined || value === null || String(value).trim() === '')) errors[field.key] = `${field.label} es obligatorio`;
@@ -259,7 +262,7 @@ export function addDocument(input) {
 export function updateDocument(id, updates) {
   const documents = loadDocuments();
   const index = documents.findIndex(document => document.id === id);
-  if (index < 0) throw new Error('Documento no encontrado');
+  if (index < 0) throw new Error(`No se encontró ${withArticle(getConfig().labels.document)}`);
   const current = documents[index];
   const next = { ...current, id: current.id, entity_id: updates.entityId || updates.entity_id || current.entity_id, updatedAt: now() };
   for (const key of ['series', 'folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'paymentTerms', 'notes', 'status']) {

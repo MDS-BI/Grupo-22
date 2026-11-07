@@ -54,9 +54,9 @@ describe('entity storage', () => {
   });
 
   it('persists ERP identity and contact fields', () => {
-    const e = addEntity({name:'Acme', code:'AC-001', taxId:'RFC800101AB1', email:'ventas@acme.mx', phone:'555-1234', address:'Av. Reforma 100'});
+    const e = addEntity({name:'Acme', code:'AC-001', email:'ventas@acme.mx', phone:'555-1234', address:'Av. Reforma 100'});
     const saved = loadEntities()[0];
-    expect(saved.taxId).toBe('RFC800101AB1');
+    expect(saved.taxId).toBeUndefined();
     expect(saved.email).toBe('ventas@acme.mx');
     expect(saved.phone).toBe('555-1234');
     expect(saved.address).toBe('Av. Reforma 100');
@@ -111,10 +111,10 @@ describe('entity storage', () => {
     expect(results[0].name).toBe('Acme');
   });
 
-  it('searches by tax id and email', () => {
-    addEntity({name:'Acme', code:'AC-001', taxId:'RFC800101AB1', email:'ventas@acme.mx'});
-    addEntity({name:'Globex', code:'GL-002', taxId:'RFC991231CD2', email:'hola@globex.mx'});
-    expect(searchEntities('RFC800101AB1').length).toBe(1);
+  it('searches by code and email', () => {
+    addEntity({name:'Acme', code:'AC-001', email:'ventas@acme.mx'});
+    addEntity({name:'Globex', code:'GL-002', email:'hola@globex.mx'});
+    expect(searchEntities('AC-001').length).toBe(1);
     expect(searchEntities('ventas@acme.mx').length).toBe(1);
     expect(searchEntities('globex.mx').length).toBe(1);
   });
@@ -191,6 +191,15 @@ describe('document storage', () => {
     expect(validateDocument({...base, folio:0}).errors.folio).toContain('entero positivo');
     expect(validateDocument({...base, folio:2.5}).errors.folio).toContain('entero positivo');
     expect(validateDocument({...base, folio:'1001'}).valid).toBe(true);
+  });
+
+  it('rejects duplicate folios in purchasing regardless of series', () => {
+    setActiveConfig({ moduleName: 'Adquisiciones y Compras' });
+    const supplier = addEntity({ name: 'Proveedor Uno', code: '12.345.678-5', category: 'Insumos', paymentTerms: 'Contado' });
+    addDocument({ entityId: supplier.entity_id, series: 'A', folio: 1001, startDate: '2026-08-01', endDate: '2026-08-05' });
+    const result = validateDocument({ entityId: supplier.entity_id, series: 'B', folio: 1001, startDate: '2026-08-01', endDate: '2026-08-05' });
+    expect(result.valid).toBe(false);
+    expect(result.errors.folio).toContain('ya existe');
   });
 
   it('validates subtotal, discount, tax and their relationship', () => {

@@ -116,9 +116,8 @@ describe('User Story 7 - declare custom fields for records', () => {
     qs('cf-ingresosAnuales').value = '750';
     qs('entity-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
 
-    const select = qs('edit-entity');
-    select.value = select.options[1].value;
-    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    const id = loadEntities()[0].id;
+    qs('entity-table-body').querySelector(`button[data-action="edit"][data-id="${id}"]`).click();
     expect(qs('cf-ingresosAnuales').value).toBe('750');
 
     qs('cf-ingresosAnuales').value = '900';

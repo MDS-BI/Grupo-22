@@ -1,49 +1,48 @@
 <!doctype html>
-<html lang="es">
+<html lang="es-CL">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Módulo Base ERP</title>
+  <title>Adquisiciones y Compras</title>
   <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand"><div id="logo-mark"></div><strong id="brand-name">Módulo Base ERP</strong></div>
+      <div class="brand"><div id="logo-mark"></div><strong id="brand-name">Adquisiciones y Compras</strong></div>
       <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Contraer navegación">☰</button>
     </header>
     <aside class="sidebar" id="sidebar">
       <button class="nav-module" data-module="dashboard" id="nav-dashboard" aria-current="page"><span>▦</span><span class="nav-label" id="nav-dashboard-label">Panel</span></button>
-      <button class="nav-module" data-module="entities" id="nav-entities"><span>◉</span><span class="nav-label" id="nav-entities-label">Entidades</span></button>
-      <button class="nav-module" data-module="documents" id="nav-documents"><span>▤</span><span class="nav-label" id="nav-documents-label">Documentos</span></button>
+      <button class="nav-module" data-module="entities" id="nav-entities"><span>◉</span><span class="nav-label" id="nav-entities-label">Proveedores</span></button>
+      <button class="nav-module" data-module="documents" id="nav-documents"><span>▤</span><span class="nav-label" id="nav-documents-label">Órdenes de Compra</span></button>
       <button class="nav-module" data-module="search" id="nav-search"><span>⌕</span><span class="nav-label" id="nav-search-label">Búsqueda</span></button>
     </aside>
     <main class="main-content">
       <section id="view-dashboard" class="view">
-        <div class="page-heading"><div><span class="eyebrow">Espacio de trabajo</span><h1 id="dashboard-heading">Módulo Base ERP</h1></div></div>
+        <div class="page-heading"><div><span class="eyebrow">Espacio de trabajo</span><h1 id="dashboard-heading">Adquisiciones y Compras</h1></div></div>
         <div class="quick-actions">
-          <button id="action-new-entity"><span class="action-icon">＋</span><strong id="action-new-entity-title">Nueva Entidad</strong></button>
-          <button id="action-new-document"><span class="action-icon">＋</span><strong id="action-new-document-title">Nuevo Documento</strong></button>
-          <button id="action-open-entities"><span class="action-icon">◉</span><strong id="action-open-entities-title">Entidades</strong></button>
-          <button id="action-find"><span class="action-icon">⌕</span><strong id="action-find-title">Buscar registros</strong></button>
+          <button id="action-new-entity"><span class="action-icon">＋</span><strong id="action-new-entity-title">Nuevo Proveedor</strong></button>
+          <button id="action-new-document"><span class="action-icon">＋</span><strong id="action-new-document-title">Nueva Orden de Compra</strong></button>
+          <button id="action-open-entities"><span class="action-icon">◉</span><strong id="action-open-entities-title">Gestionar Proveedores</strong></button>
+          <button id="action-find"><span class="action-icon">⌕</span><strong id="action-find-title">Buscar</strong></button>
         </div>
         <div class="stats-grid">
-          <article class="stat-card"><span id="stat-entities-label">Entidades</span><strong id="stat-entities">0</strong></article>
-          <article class="stat-card"><span id="stat-documents-label">Documentos</span><strong id="stat-documents">0</strong></article>
-          <article class="stat-card"><span>Estado</span><strong id="stat-statuses">0</strong></article>
+          <article class="stat-card"><span id="stat-entities-label">Proveedores</span><strong id="stat-entities">0</strong></article>
+          <article class="stat-card"><span id="stat-documents-label">Órdenes de Compra</span><strong id="stat-documents">0</strong></article>
+          <article class="stat-card stat-statuses"><span id="stat-statuses-label">Órdenes por estado</span><ul id="stat-status-breakdown" class="status-breakdown"></ul></article>
           <article class="stat-card"><span>Atrasadas</span><strong id="stat-overdue">0</strong></article>
         </div>
       </section>
 
       <section id="view-entities" class="view" hidden>
-        <h1 id="entities-view-heading">Entidades</h1>
+        <h1 id="entities-view-heading">Proveedores</h1>
         <div class="two-column">
           <form id="entity-form" novalidate>
-            <h2 id="entity-form-heading">Agregar / Editar Entidad</h2>
+            <h2 id="entity-form-heading">Agregar / Editar Proveedor</h2>
             <input type="hidden" id="entity-id">
             <div class="field"><label for="name">Nombre</label><input id="name"><small class="field-error" id="error-name"></small></div>
-            <div class="field"><label for="code">Código</label><input id="code"><small class="field-error" id="error-code"></small></div>
-            <div class="field"><label for="taxId">Identificación fiscal</label><input id="taxId"></div>
+            <div class="field"><label for="code">RUT</label><input id="code"><small class="field-error" id="error-code"></small></div>
             <div class="field"><label for="email">Correo electrónico</label><input id="email" type="email"><small class="field-error" id="error-email"></small></div>
             <div class="field"><label for="phone">Teléfono</label><input id="phone"></div>
             <div class="field"><label for="address">Dirección</label><input id="address"></div>
@@ -52,28 +51,31 @@
             <div class="field"><label for="paymentTerms">Condiciones de pago</label><input id="paymentTerms"><small class="field-error" id="error-paymentTerms"></small></div>
             <div class="field"><label for="targetDate">Fecha objetivo</label><input id="targetDate" type="date"><small class="field-error" id="error-targetDate"></small></div>
             <div id="entity-custom-fields"></div>
-            <button class="primary" type="submit" id="entity-submit-button"><span id="submit-button">Guardar Entidad</span></button>
+            <button class="primary" type="submit" id="entity-submit-button"><span id="submit-button">Guardar Proveedor</span></button>
             <div class="entity-feedback" id="entity-feedback"></div>
           </form>
           <section>
-            <h2 id="edit-entity-heading">Editar o eliminar la entidad</h2>
-            <select id="edit-entity"></select>
-            <button id="delete-entity">Eliminar la entidad seleccionada</button>
+            <h2 id="edit-entity-heading">Editar o eliminar el proveedor</h2>
+            <div class="table-wrapper">
+              <table class="data-table" id="entity-table">
+                <thead><tr><th>Nombre</th><th>RUT</th><th>Categoría</th><th>Acciones</th></tr></thead>
+                <tbody id="entity-table-body"></tbody>
+              </table>
+            </div>
           </section>
         </div>
       </section>
 
       <section id="view-documents" class="view" hidden>
-        <h1 id="documents-view-heading">Documentos</h1>
+        <h1 id="documents-view-heading">Órdenes de Compra</h1>
         <div class="two-column">
           <form id="document-form" novalidate>
-            <h2 id="document-form-heading">Agregar / Editar Documento</h2>
+            <h2 id="document-form-heading">Agregar / Editar Orden de Compra</h2>
             <input type="hidden" id="document-id">
-            <div class="field"><label for="document-entity" id="document-entity-label">Entidad</label><select id="document-entity"></select><small class="field-error" id="error-document-entity"></small></div>
-            <div class="field"><label for="series">Serie</label><input id="series"></div>
+            <div class="field"><label for="document-entity" id="document-entity-label">Proveedor</label><select id="document-entity"></select><small class="field-error" id="error-document-entity"></small></div>
             <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" id="error-folio"></small></div>
-            <div class="field"><label for="startDate">Fecha de inicio</label><input id="startDate" type="date"><small class="field-error" id="error-startDate"></small></div>
-            <div class="field"><label for="endDate">Fecha de fin</label><input id="endDate" type="date"><small class="field-error" id="error-endDate"></small></div>
+            <div class="field"><label for="startDate" id="startDate-label">Fecha de emisión</label><input id="startDate" type="date"><small class="field-error" id="error-startDate"></small></div>
+            <div class="field"><label for="endDate" id="endDate-label">Fecha de entrega</label><input id="endDate" type="date"><small class="field-error" id="error-endDate"></small></div>
             <div class="field"><label for="quantity">Cantidad</label><input id="quantity" type="number"><small class="field-error" id="error-quantity"></small></div>
             <div class="field"><label for="subtotal">Subtotal</label><input id="subtotal" type="number"><small class="field-error" id="error-subtotal"></small></div>
             <div class="field"><label for="discount">Descuento</label><input id="discount" type="number"><small class="field-error" id="error-discount"></small></div>
@@ -84,20 +86,23 @@
             <div class="field"><label for="notes">Notas</label><input id="notes"></div>
             <div class="field"><label for="status">Estado</label><select id="status"><option value=""></option></select></div>
             <div id="document-custom-fields"></div>
-            <button class="primary" type="submit" id="document-submit-button">Guardar Documento</button>
+            <button class="primary" type="submit" id="document-submit-button">Guardar Orden de Compra</button>
             <div class="document-feedback" id="document-feedback"></div>
           </form>
           <section>
-            <h2 id="edit-document-heading">Editar o eliminar el documento</h2>
-            <select id="edit-document"></select>
-            <button id="delete-document">Eliminar el documento seleccionado</button>
-            <div id="document-list"></div>
+            <h2 id="edit-document-heading">Editar o eliminar la orden de compra</h2>
+            <div class="table-wrapper">
+              <table class="data-table" id="document-table">
+                <thead><tr><th>Folio</th><th>Proveedor</th><th>Fecha de entrega</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <tbody id="document-table-body"></tbody>
+              </table>
+            </div>
           </section>
         </div>
       </section>
 
       <section id="view-search" class="view" hidden>
-        <h1 id="search-view-heading">Buscar Entidades</h1>
+        <h1 id="search-view-heading">Buscar Proveedores</h1>
         <div class="field"><label for="search-input">Buscar</label><input id="search-input" type="search"></div>
         <div id="search-results-list"></div>
         <div id="search-empty" hidden>No se encontraron coincidencias.</div>

@@ -67,15 +67,14 @@ describe('User Story 4 - manage entities and documents via the workspace sidebar
     qs('entity-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     expect(loadEntities().length).toBe(1);
 
-    const editSelect = qs('edit-entity');
-    editSelect.value = editSelect.options[1].value;
-    editSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    const id = loadEntities()[0].id;
+    qs('entity-table-body').querySelector(`button[data-action="edit"][data-id="${id}"]`).click();
     expect(qs('submit-button').textContent).toBe('Actualizar');
     qs('name').value = 'Acme Updated';
     qs('entity-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     expect(loadEntities()[0].name).toBe('Acme Updated');
 
-    qs('delete-entity').click();
+    qs('entity-table-body').querySelector(`button[data-action="delete"][data-id="${id}"]`).click();
     expect(loadEntities().length).toBe(0);
   });
 
@@ -83,18 +82,17 @@ describe('User Story 4 - manage entities and documents via the workspace sidebar
     const entity = addEntity({ name: 'Acme', code: 'AC-001' });
     qs('nav-documents').click();
     qs('document-entity').value = entity.entity_id;
-    qs('series').value = 'FAC';
     qs('folio').value = '1001';
     qs('startDate').value = '2026-08-01';
     qs('endDate').value = '2026-08-05';
     qs('document-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     expect(loadDocuments().length).toBe(1);
 
-    qs('edit-document').value = qs('edit-document').options[1].value;
-    qs('edit-document').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    expect(qs('document-id').value).toBe(loadDocuments()[0].id);
+    const id = loadDocuments()[0].id;
+    qs('document-table-body').querySelector(`button[data-action="edit"][data-id="${id}"]`).click();
+    expect(qs('document-id').value).toBe(id);
 
-    qs('delete-document').click();
+    qs('document-table-body').querySelector(`button[data-action="delete"][data-id="${id}"]`).click();
     expect(loadDocuments().length).toBe(0);
   });
 
