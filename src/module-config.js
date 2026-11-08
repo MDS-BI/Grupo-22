@@ -170,24 +170,33 @@ export function normalizeConfig(input) {
     }
   }
 
-  if (errors.length) {
-    return { config, errors };
+  if (config.moduleName === 'Adquisiciones y Compras' && !isCanonicalPurchasingLifecycle(config.statusLifecycle)) {
+    if (input.statusLifecycle !== undefined && input.statusLifecycle !== null) {
+      errors.push('El ciclo de estados de Compras debe ser el ciclo canónico; se aplicó el ciclo canónico.');
+    }
+    config.statusLifecycle = clone(PURCHASING_CONFIG.statusLifecycle);
   }
+
   return { config, errors };
+}
+
+function isCanonicalPurchasingLifecycle(lifecycle) {
+  if (!lifecycle) return false;
+  const canonical = PURCHASING_CONFIG.statusLifecycle;
+  if (JSON.stringify(lifecycle.statuses) !== JSON.stringify(canonical.statuses)) return false;
+  for (const status of canonical.statuses) {
+    if (JSON.stringify(lifecycle.transitions?.[status] || []) !== JSON.stringify(canonical.transitions[status])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export async function loadModuleConfig() {
   if (!userConfig) {
     return normalizeConfig(PURCHASING_CONFIG);
   }
-  const result = normalizeConfig(userConfig);
-  if (result.errors.length) {
-    return {
-      config: normalizeConfig(PURCHASING_CONFIG).config,
-      errors: result.errors
-    };
-  }
-  return result;
+  return normalizeConfig(userConfig);
 }
 
 export function setActiveConfig(configOrResult) {

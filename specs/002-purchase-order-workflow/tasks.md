@@ -27,12 +27,12 @@
 
 **Purpose**: Preparar los puntos de extensión de la SPA y los módulos nuevos sin implementar comportamiento.
 
-- [ ] T001 Crear esqueletos exportables con funciones `init` vacías en `src/purchase-order-lines.js`, `src/purchase-order-detail.js`, `src/purchase-order-print.js` y `src/product-catalog.js`.
-- [ ] T001a Instalar y configurar ESLint en `eslint.config.js` y agregar el script `lint` en `package.json`.
-- [ ] T001b Instalar y configurar Prettier en `.prettierrc.json` y agregar el script `format` en `package.json`.
-- [ ] T002 [P] Agregar en `index.html` los contenedores `order-detail-view`, `order-lines-table`, `order-totals`, `order-actions`, `order-history`, `print-order-view`, `products-view` y los accesos de navegación necesarios.
-- [ ] T003 [P] Agregar en `src/styles.css` secciones base para detalle, líneas, historial, catálogo y `@media print`, sin estilos definitivos todavía.
-- [ ] T004 Ejecutar la línea base de `npm test -- --run` y `npm run build` definidos en `package.json` y confirmar que las 116 pruebas existentes y el build siguen pasando.
+- [x] T001 Crear esqueletos exportables con funciones `init` vacías en `src/purchase-order-lines.js`, `src/purchase-order-detail.js`, `src/purchase-order-print.js` y `src/product-catalog.js`.
+- [x] T001a Instalar y configurar ESLint en `eslint.config.js` y agregar el script `lint` en `package.json`.
+- [x] T001b Instalar y configurar Prettier en `.prettierrc.json` y agregar el script `format` en `package.json`.
+- [x] T002 [P] Agregar en `index.html` los contenedores `order-detail-view`, `order-lines-table`, `order-totals`, `order-actions`, `order-history`, `print-order-view`, `products-view` y los accesos de navegación necesarios.
+- [x] T003 [P] Agregar en `src/styles.css` secciones base para detalle, líneas, historial, catálogo y `@media print`, sin estilos definitivos todavía.
+- [x] T004 Ejecutar la línea base de `npm test -- --run` y `npm run build` definidos en `package.json` y confirmar que las 116 pruebas existentes y el build siguen pasando.
 
 ---
 
@@ -42,14 +42,14 @@
 
 **⚠️ CRITICAL**: Ninguna historia de usuario puede considerarse completa hasta terminar esta fase.
 
-- [ ] T005 [P] Escribir pruebas fallidas para claves nuevas, metadatos, legado, carga agregada y cascada en `tests/integration/purchase-order-persistence.test.js`.
-- [ ] T006 [P] Escribir pruebas fallidas para fases del diario y recuperación de transacciones en `tests/unit/purchase-order-transactions.test.js`.
-- [ ] T007 Extender `KEYS` y los helpers seguros de lectura/escritura en `src/purchasing-storage.js` con `order-metadata`, `status-history`, `transactions` y operaciones CRUD de metadatos.
-- [ ] T008 Implementar en `src/purchasing-storage.js` `getPurchaseOrderDetail` y `listPurchaseOrdersWithActions`, combinando documento base, metadatos, líneas e historial; tratar órdenes sin metadatos como legado.
-- [ ] T009 Implementar en `src/purchasing-storage.js` `beginTransaction`, `markTransactionApplied`, `clearTransaction` y `recoverTransactions` con fases `prepared`/`applied` e instantáneas `before`/`after`.
-- [ ] T010 Agregar en `src/domain/purchasing.js` el mapa `PURCHASING_ERRORS` y un helper que convierta códigos del contrato en mensajes orientados al usuario.
-- [ ] T011 Invocar la recuperación de transacciones antes de renderizar la aplicación en `src/main.js` y exponer el resultado para mostrar errores de recuperación.
-- [ ] T012 Implementar el shell de detalle y la acción de cierre en `src/purchase-order-detail.js`, y conectarlo desde `src/app.js` mediante `showOrderDetail` y delegación de `data-action`.
+- [x] T005 [P] Escribir pruebas fallidas para claves nuevas, metadatos, legado, carga agregada y cascada en `tests/integration/purchase-order-persistence.test.js`.
+- [x] T006 [P] Escribir pruebas fallidas para fases del diario y recuperación de transacciones en `tests/unit/purchase-order-transactions.test.js`.
+- [x] T007 Extender `KEYS` y los helpers seguros de lectura/escritura en `src/purchasing-storage.js` con `order-metadata`, `status-history`, `transactions` y operaciones CRUD de metadatos.
+- [x] T008 Implementar en `src/purchasing-storage.js` `getPurchaseOrderDetail` y `listPurchaseOrdersWithActions`, combinando documento base, metadatos, líneas e historial; tratar órdenes sin metadatos como legado.
+- [x] T009 Implementar en `src/purchasing-storage.js` `beginTransaction`, `markTransactionApplied`, `clearTransaction` y `recoverTransactions` con fases `prepared`/`applied` e instantáneas `before`/`after`.
+- [x] T010 Agregar en `src/domain/purchasing.js` el mapa `PURCHASING_ERRORS` y un helper que convierta códigos del contrato en mensajes orientados al usuario.
+- [x] T011 Invocar la recuperación de transacciones antes de renderizar la aplicación en `src/main.js` y exponer el resultado para mostrar errores de recuperación.
+- [x] T012 Implementar el shell de detalle y la acción de cierre en `src/purchase-order-detail.js`, y conectarlo desde `src/app.js` mediante `showOrderDetail` y delegación de `data-action`.
 
 **Checkpoint**: La base de persistencia, recuperación y navegación está lista; las historias pueden comenzar.
 
@@ -63,25 +63,25 @@
 
 ### Tests for User Story 1
 
-- [ ] T013 [P] [US1] Escribir pruebas unitarias fallidas para validación de líneas, duplicados, subtotales, redondeo y totales en `tests/unit/purchasing-workflow.test.js`.
-- [ ] T014 [P] [US1] Escribir pruebas de integración fallidas para agregar, editar y eliminar líneas, recálculo inmediato, duplicado y bloqueo sin líneas en `tests/integration/purchase-order-lines.test.js`.
-- [ ] T014a [P] [US1] Escribir pruebas de integración fallidas para el selector de empleado obligatorio, la validación con mensaje claro y la visualización del empleado en el detalle en `tests/integration/purchase-order-employee.test.js`.
-- [ ] T015 [P] [US1] Escribir pruebas de integración fallidas para mantenimiento de productos, stock visible y bloqueo de eliminación de producto referenciado en `tests/integration/product-catalog.test.js`.
+- [x] T013 [P] [US1] Escribir pruebas unitarias fallidas para validación de líneas, duplicados, subtotales, redondeo y totales en `tests/unit/purchasing-workflow.test.js`.
+- [x] T014 [P] [US1] Escribir pruebas de integración fallidas para agregar, editar y eliminar líneas, recálculo inmediato, duplicado y bloqueo sin líneas en `tests/integration/purchase-order-lines.test.js`.
+- [x] T014a [P] [US1] Escribir pruebas de integración fallidas para el selector de empleado obligatorio, la validación con mensaje claro y la visualización del empleado en el detalle en `tests/integration/purchase-order-employee.test.js`.
+- [x] T015 [P] [US1] Escribir pruebas de integración fallidas para mantenimiento de productos, stock visible y bloqueo de eliminación de producto referenciado en `tests/integration/product-catalog.test.js`.
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Extender `src/domain/purchasing.js` con validación de líneas, detección de duplicados, subtotales, totales persistibles y regla de orden terminal.
-- [ ] T017 [US1] Implementar en `src/purchasing-storage.js` el guardado/actualización de líneas por orden, total persistido y guardado de orden con metadatos, rechazando órdenes sin líneas.
-- [ ] T018 [US1] Implementar en `src/purchasing-storage.js` actualización, eliminación y ajuste de stock de productos, bloqueando la eliminación de productos referenciados.
-- [ ] T019 [P] [US1] Implementar la vista de catálogo mínimo en `src/product-catalog.js` con alta, edición, eliminación y stock, usando los patrones visuales existentes.
-- [ ] T019a [US1] Implementar el selector de empleado y la validación obligatoria con mensaje claro en `src/app.js`, persistiendo `id_empleado` en `src/purchasing-storage.js`.
-- [ ] T020 [P] [US1] Implementar el editor de líneas en `src/purchase-order-lines.js` con selector de producto, cantidad, costo, subtotal calculado, errores por campo y bloqueo de edición terminal.
-- [ ] T021 [US1] Conectar catálogo y editor de líneas en `src/app.js`, incluyendo guardar orden, recalcular totales, refrescar la tabla y bloquear guardado sin líneas.
-- [ ] T021a [P] [US1] Escribir pruebas fallidas para el rechazo de `updateDocument` y de líneas en órdenes `recibido`/`cancelado`, y para el formulario en solo lectura, en `tests/integration/purchase-order-terminal.test.js`.
-- [ ] T021b [US1] Implementar en `src/storage.js` y `src/purchasing-storage.js` el rechazo de cualquier cambio de cabecera o de líneas en órdenes con estado `recibido` o `cancelado`.
-- [ ] T021c [US1] Implementar en `src/app.js` y `src/purchase-order-lines.js` el formulario en modo solo lectura para órdenes con estado `recibido` o `cancelado`.
-- [ ] T022 [US1] Agregar estilos accesibles para editor de líneas, totales y catálogo en `src/styles.css`.
-- [ ] T022a [US1] Mostrar el empleado solicitante en la vista de detalle en `src/purchase-order-detail.js`.
+- [x] T016 [US1] Extender `src/domain/purchasing.js` con validación de líneas, detección de duplicados, subtotales, totales persistibles y regla de orden terminal.
+- [x] T017 [US1] Implementar en `src/purchasing-storage.js` el guardado/actualización de líneas por orden, total persistido y guardado de orden con metadatos, rechazando órdenes sin líneas.
+- [x] T018 [US1] Implementar en `src/purchasing-storage.js` actualización, eliminación y ajuste de stock de productos, bloqueando la eliminación de productos referenciados.
+- [x] T019 [P] [US1] Implementar la vista de catálogo mínimo en `src/product-catalog.js` con alta, edición, eliminación y stock, usando los patrones visuales existentes.
+- [x] T019a [US1] Implementar el selector de empleado y la validación obligatoria con mensaje claro en `src/app.js`, persistiendo `id_empleado` en `src/purchasing-storage.js`.
+- [x] T020 [P] [US1] Implementar el editor de líneas en `src/purchase-order-lines.js` con selector de producto, cantidad, costo, subtotal calculado, errores por campo y bloqueo de edición terminal.
+- [x] T021 [US1] Conectar catálogo y editor de líneas en `src/app.js`, incluyendo guardar orden, recalcular totales, refrescar la tabla y bloquear guardado sin líneas.
+- [x] T021a [P] [US1] Escribir pruebas fallidas para el rechazo de `updateDocument` y de líneas en órdenes `recibido`/`cancelado`, y para el formulario en solo lectura, en `tests/integration/purchase-order-terminal.test.js`.
+- [x] T021b [US1] Implementar en `src/storage.js` y `src/purchasing-storage.js` el rechazo de cualquier cambio de cabecera o de líneas en órdenes con estado `recibido` o `cancelado`.
+- [x] T021c [US1] Implementar en `src/app.js` y `src/purchase-order-lines.js` el formulario en modo solo lectura para órdenes con estado `recibido` o `cancelado`.
+- [x] T022 [US1] Agregar estilos accesibles para editor de líneas, totales y catálogo en `src/styles.css`.
+- [x] T022a [US1] Mostrar el empleado solicitante en la vista de detalle en `src/purchase-order-detail.js`.
 
 **Checkpoint**: User Story 1 funciona de forma independiente y constituye el MVP.
 
@@ -95,18 +95,18 @@
 
 ### Tests for User Story 2
 
-- [ ] T023 [P] [US2] Escribir pruebas unitarias fallidas para acciones disponibles, transiciones inválidas, estados terminales y registro de historial en `tests/unit/purchasing-workflow.test.js`; agregar aserciones para `borrador → pendiente` sin líneas (rechazado con `NO_LINES`) y con una línea válida (aceptado).
-- [ ] T024 [P] [US2] Escribir pruebas de integración fallidas para la matriz de acciones, cambio de estado visible y rechazo sin mutación en `tests/integration/purchase-order-status.test.js`; agregar aserciones para `borrador → pendiente` sin líneas (rechazado con `NO_LINES`) y con una línea válida (aceptado).
+- [x] T023 [P] [US2] Escribir pruebas unitarias fallidas para acciones disponibles, transiciones inválidas, estados terminales y registro de historial en `tests/unit/purchasing-workflow.test.js`; agregar aserciones para `borrador → pendiente` sin líneas (rechazado con `NO_LINES`) y con una línea válida (aceptado).
+- [x] T024 [P] [US2] Escribir pruebas de integración fallidas para la matriz de acciones, cambio de estado visible y rechazo sin mutación en `tests/integration/purchase-order-status.test.js`; agregar aserciones para `borrador → pendiente` sin líneas (rechazado con `NO_LINES`) y con una línea válida (aceptado).
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Extender `src/domain/purchasing.js` con `getAvailableActions`, `assertTransition`, `isTerminalStatus` y creación del registro de cambio de estado, derivando las acciones únicamente del ciclo canónico.
-- [ ] T025a [P] [US2] Escribir una prueba fallida para una configuración de Compras con una transición no canónica, que debe ser rechazada con aviso y debe usar el ciclo canónico, en `tests/unit/module-config.test.js`.
-- [ ] T025b [US2] Implementar en `src/module-config.js` el rechazo de estados o transiciones no canónicas de Compras con aviso, y mostrar el aviso en `src/app.js`, aplicando el ciclo canónico.
-- [ ] T026 [US2] Implementar `changeOrderStatus` en `src/purchasing-storage.js` usando el diario de transacciones, actualizando el documento y agregando exactamente un registro de historial; rechazar `borrador → pendiente` con `NO_LINES` si no hay al menos una línea válida y aceptar la transición con una línea válida.
-- [ ] T027 [US2] Renderizar estado actual y acciones contextuales en `src/purchase-order-detail.js`, incluyendo estados terminales sin transiciones.
-- [ ] T028 [US2] Conectar acciones `data-action="transition"` con confirmación, refresco de detalle y manejo de errores en `src/app.js`.
-- [ ] T029 [US2] Agregar estilos de acciones y estados en `src/styles.css`.
+- [x] T025 [US2] Extender `src/domain/purchasing.js` con `getAvailableActions`, `assertTransition`, `isTerminalStatus` y creación del registro de cambio de estado, derivando las acciones únicamente del ciclo canónico.
+- [x] T025a [P] [US2] Escribir una prueba fallida para una configuración de Compras con una transición no canónica, que debe ser rechazada con aviso y debe usar el ciclo canónico, en `tests/unit/module-config.test.js`.
+- [x] T025b [US2] Implementar en `src/module-config.js` el rechazo de estados o transiciones no canónicas de Compras con aviso, y mostrar el aviso en `src/app.js`, aplicando el ciclo canónico.
+- [x] T026 [US2] Implementar `changeOrderStatus` en `src/purchasing-storage.js` usando el diario de transacciones, actualizando el documento y agregando exactamente un registro de historial; rechazar `borrador → pendiente` con `NO_LINES` si no hay al menos una línea válida y aceptar la transición con una línea válida.
+- [x] T027 [US2] Renderizar estado actual y acciones contextuales en `src/purchase-order-detail.js`, incluyendo estados terminales sin transiciones.
+- [x] T028 [US2] Conectar acciones `data-action="transition"` con confirmación, refresco de detalle y manejo de errores en `src/app.js`.
+- [x] T029 [US2] Agregar estilos de acciones y estados en `src/styles.css`.
 
 **Checkpoint**: User Story 2 funciona de forma independiente con datos sembrados y se integra con US1 para el flujo completo.
 
@@ -120,15 +120,15 @@
 
 ### Tests for User Story 3
 
-- [ ] T030 [P] [US3] Escribir pruebas unitarias fallidas para planificación de recepción, idempotencia, rollback y recuperación en `tests/unit/purchase-order-transactions.test.js`.
-- [ ] T031 [P] [US3] Escribir pruebas de integración fallidas para recibir, repetir recepción, cancelar sin stock y ausencia de cambios parciales en `tests/integration/purchase-order-receipt.test.js`.
+- [x] T030 [P] [US3] Escribir pruebas unitarias fallidas para planificación de recepción, idempotencia, rollback y recuperación en `tests/unit/purchase-order-transactions.test.js`.
+- [x] T031 [P] [US3] Escribir pruebas de integración fallidas para recibir, repetir recepción, cancelar sin stock y ausencia de cambios parciales en `tests/integration/purchase-order-receipt.test.js`.
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Extender `src/domain/purchasing.js` con `planReceipt`, validación de líneas recibibles y cálculo de stock esperado.
-- [ ] T033 [US3] Implementar `receivePurchaseOrder` en `src/purchasing-storage.js` con diario `prepared`/`applied`, stock, metadatos, estado, historial, rollback y recuperación.
-- [ ] T034 [US3] Mostrar la acción de recepción y la marca de stock aplicado en `src/purchase-order-detail.js` e `index.html`.
-- [ ] T035 [US3] Conectar la recepción con confirmación, mensajes de error y refresco de stock/estado en `src/app.js`.
+- [x] T032 [US3] Extender `src/domain/purchasing.js` con `planReceipt`, validación de líneas recibibles y cálculo de stock esperado.
+- [x] T033 [US3] Implementar `receivePurchaseOrder` en `src/purchasing-storage.js` con diario `prepared`/`applied`, stock, metadatos, estado, historial, rollback y recuperación.
+- [x] T034 [US3] Mostrar la acción de recepción y la marca de stock aplicado en `src/purchase-order-detail.js` e `index.html`.
+- [x] T035 [US3] Conectar la recepción con confirmación, mensajes de error y refresco de stock/estado en `src/app.js`.
 
 **Checkpoint**: User Story 3 funciona de forma independiente con órdenes aprobadas sembradas y productos existentes.
 
@@ -142,15 +142,15 @@
 
 ### Tests for User Story 4
 
-- [ ] T036 [P] [US4] Escribir pruebas unitarias fallidas para lectura cronológica, inmutabilidad y cascada del historial en `tests/unit/purchase-order-history.test.js`.
-- [ ] T037 [P] [US4] Escribir pruebas de integración fallidas para visualización, estado vacío y persistencia del historial en `tests/integration/purchase-order-history.test.js`.
+- [x] T036 [P] [US4] Escribir pruebas unitarias fallidas para lectura cronológica, inmutabilidad y cascada del historial en `tests/unit/purchase-order-history.test.js`.
+- [x] T037 [P] [US4] Escribir pruebas de integración fallidas para visualización, estado vacío y persistencia del historial en `tests/integration/purchase-order-history.test.js`.
 
 ### Implementation for User Story 4
 
-- [ ] T038 [US4] Implementar `loadOrderHistory` con orden cronológico y eliminación en cascada en `src/purchasing-storage.js`.
-- [ ] T039 [US4] Renderizar el historial y el estado vacío en `src/purchase-order-detail.js`, formateando `changedAt` como `dd-mm-aaaa HH:mm` en America/Santiago.
-- [ ] T040 [US4] Agregar estilos de historial y estado vacío en `src/styles.css`.
-- [ ] T041 [US4] Conectar la eliminación de una orden con la limpieza de líneas, metadatos, historial y transacciones en `src/app.js` y `src/purchasing-storage.js`.
+- [x] T038 [US4] Implementar `loadOrderHistory` con orden cronológico y eliminación en cascada en `src/purchasing-storage.js`.
+- [x] T039 [US4] Renderizar el historial y el estado vacío en `src/purchase-order-detail.js`, formateando `changedAt` como `dd-mm-aaaa HH:mm` en America/Santiago.
+- [x] T040 [US4] Agregar estilos de historial y estado vacío en `src/styles.css`.
+- [x] T041 [US4] Conectar la eliminación de una orden con la limpieza de líneas, metadatos, historial y transacciones en `src/app.js` y `src/purchasing-storage.js`.
 
 **Checkpoint**: User Story 4 funciona de forma independiente con historial sembrado y conserva datos al recargar.
 
@@ -164,16 +164,16 @@
 
 ### Tests for User Story 5
 
-- [ ] T042 [P] [US5] Escribir pruebas de integración fallidas para contenido imprimible, historial, totales, ocultamiento de navegación y reglas de paginación en `tests/integration/purchase-order-print.test.js`.
-- [ ] T042a [P] [US5] Agregar una aserción fallida para el empleado solicitante en la vista imprimible en `tests/integration/purchase-order-print.test.js`.
+- [x] T042 [P] [US5] Escribir pruebas de integración fallidas para contenido imprimible, historial, totales, ocultamiento de navegación y reglas de paginación en `tests/integration/purchase-order-print.test.js`.
+- [x] T042a [P] [US5] Agregar una aserción fallida para el empleado solicitante en la vista imprimible en `tests/integration/purchase-order-print.test.js`.
 
 ### Implementation for User Story 5
 
-- [ ] T043 [US5] Implementar la construcción de la vista imprimible desde el detalle de orden en `src/purchase-order-print.js`, incluyendo proveedor, empleado, fechas, estado, líneas y totales.
-- [ ] T044 [US5] Agregar la sección de impresión, encabezado, tabla y acceso de impresión en `index.html`.
-- [ ] T045 [US5] Conectar `data-action="print-order"` y la impresión nativa con limpieza posterior en `src/app.js`.
-- [ ] T046 [US5] Implementar reglas `@media print`, ocultamiento de navegación/acciones, repetición de encabezados y saltos de página en `src/styles.css`.
-- [ ] T047 [US5] Agregar al documento imprimible el historial con fecha/hora y la indicación de recepción con stock aplicado en `src/purchase-order-print.js`.
+- [x] T043 [US5] Implementar la construcción de la vista imprimible desde el detalle de orden en `src/purchase-order-print.js`, incluyendo proveedor, empleado, fechas, estado, líneas y totales.
+- [x] T044 [US5] Agregar la sección de impresión, encabezado, tabla y acceso de impresión en `index.html`.
+- [x] T045 [US5] Conectar `data-action="print-order"` y la impresión nativa con limpieza posterior en `src/app.js`.
+- [x] T046 [US5] Implementar reglas `@media print`, ocultamiento de navegación/acciones, repetición de encabezados y saltos de página en `src/styles.css`.
+- [x] T047 [US5] Agregar al documento imprimible el historial con fecha/hora y la indicación de recepción con stock aplicado en `src/purchase-order-print.js`.
 
 **Checkpoint**: User Story 5 funciona de forma independiente con datos sembrados y completa el flujo de impresión.
 
@@ -183,13 +183,13 @@
 
 **Purpose**: Cerrar casos transversales de legado, accesibilidad, rendimiento, documentación y verificación final.
 
-- [ ] T048 [P] Implementar el tratamiento visual de órdenes históricas sin metadatos en `src/purchase-order-detail.js`, mostrando empleado desconocido y bloqueando acciones que dependan de la extensión.
-- [ ] T049 [P] Revisar accesibilidad en `index.html` y `src/styles.css`: foco visible, contraste, etiquetas, `aria-live` para errores y operabilidad por teclado.
-- [ ] T050 [P] Agregar pruebas de rendimiento para lista, detalle, recálculo, recepción e impresión en `tests/integration/purchase-order-performance.test.js`.
-- [ ] T051 [P] Revisar mensajes de error, sanitización y escape de contenido en `src/purchase-order-lines.js` y `src/purchase-order-print.js`.
-- [ ] T052 [P] Actualizar `README.md` con el flujo de órdenes de compra, recepción, historial, impresión y comandos de validación.
-- [ ] T053 Ejecutar `npm test -- --run`, `npm run build` y los escenarios manuales de `specs/002-purchase-order-workflow/quickstart.md`; corregir cualquier regresión antes de cerrar.
-- [ ] T053a Ejecutar `npm run lint` sin errores.
+- [x] T048 [P] Implementar el tratamiento visual de órdenes históricas sin metadatos en `src/purchase-order-detail.js`, mostrando empleado desconocido y bloqueando acciones que dependan de la extensión.
+- [x] T049 [P] Revisar accesibilidad en `index.html` y `src/styles.css`: foco visible, contraste, etiquetas, `aria-live` para errores y operabilidad por teclado.
+- [x] T050 [P] Agregar pruebas de rendimiento para lista, detalle, recálculo, recepción e impresión en `tests/integration/purchase-order-performance.test.js`.
+- [x] T051 [P] Revisar mensajes de error, sanitización y escape de contenido en `src/purchase-order-lines.js` y `src/purchase-order-print.js`.
+- [x] T052 [P] Actualizar `README.md` con el flujo de órdenes de compra, recepción, historial, impresión y comandos de validación.
+- [x] T053 Ejecutar `npm test -- --run`, `npm run build` y los escenarios manuales de `specs/002-purchase-order-workflow/quickstart.md`; corregir cualquier regresión antes de cerrar.
+- [x] T053a Ejecutar `npm run lint` sin errores.
 
 ---
 

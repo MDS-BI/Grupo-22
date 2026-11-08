@@ -41,18 +41,18 @@
           <form id="entity-form" novalidate>
             <h2 id="entity-form-heading">Agregar / Editar Proveedor</h2>
             <input type="hidden" id="entity-id">
-            <div class="field"><label for="name">Nombre</label><input id="name"><small class="field-error" id="error-name"></small></div>
-            <div class="field"><label for="code">RUT</label><input id="code"><small class="field-error" id="error-code"></small></div>
-            <div class="field"><label for="email">Correo electrónico</label><input id="email" type="email"><small class="field-error" id="error-email"></small></div>
+            <div class="field"><label for="name">Nombre</label><input id="name"><small class="field-error" aria-live="polite" id="error-name"></small></div>
+            <div class="field"><label for="code">RUT</label><input id="code"><small class="field-error" aria-live="polite" id="error-code"></small></div>
+            <div class="field"><label for="email">Correo electrónico</label><input id="email" type="email"><small class="field-error" aria-live="polite" id="error-email"></small></div>
             <div class="field"><label for="phone">Teléfono</label><input id="phone"></div>
             <div class="field"><label for="address">Dirección</label><input id="address"></div>
-            <div class="field"><label for="category">Categoría</label><input id="category"><small class="field-error" id="error-category"></small></div>
-            <div class="field"><label for="creditLimit">Límite de crédito</label><input id="creditLimit" type="number"><small class="field-error" id="error-creditLimit"></small></div>
-            <div class="field"><label for="paymentTerms">Condiciones de pago</label><input id="paymentTerms"><small class="field-error" id="error-paymentTerms"></small></div>
-            <div class="field"><label for="targetDate">Fecha objetivo</label><input id="targetDate" type="date"><small class="field-error" id="error-targetDate"></small></div>
+            <div class="field"><label for="category">Categoría</label><input id="category"><small class="field-error" aria-live="polite" id="error-category"></small></div>
+            <div class="field"><label for="creditLimit">Límite de crédito</label><input id="creditLimit" type="number"><small class="field-error" aria-live="polite" id="error-creditLimit"></small></div>
+            <div class="field"><label for="paymentTerms">Condiciones de pago</label><input id="paymentTerms"><small class="field-error" aria-live="polite" id="error-paymentTerms"></small></div>
+            <div class="field"><label for="targetDate">Fecha objetivo</label><input id="targetDate" type="date"><small class="field-error" aria-live="polite" id="error-targetDate"></small></div>
             <div id="entity-custom-fields"></div>
             <button class="primary" type="submit" id="entity-submit-button"><span id="submit-button">Guardar Proveedor</span></button>
-            <div class="entity-feedback" id="entity-feedback"></div>
+            <div class="entity-feedback" id="entity-feedback" aria-live="polite"></div>
           </form>
           <section>
             <h2 id="edit-entity-heading">Editar o eliminar el proveedor</h2>
@@ -72,13 +72,14 @@
           <form id="document-form" novalidate>
             <h2 id="document-form-heading">Agregar / Editar Orden de Compra</h2>
             <input type="hidden" id="document-id">
-            <div class="field"><label for="document-entity" id="document-entity-label">Proveedor</label><select id="document-entity"></select><small class="field-error" id="error-document-entity"></small></div>
-            <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" id="error-folio"></small></div>
-            <div class="field"><label for="startDate" id="startDate-label">Fecha de emisión</label><input id="startDate" type="date"><small class="field-error" id="error-startDate"></small></div>
-            <div class="field"><label for="endDate" id="endDate-label">Fecha de entrega</label><input id="endDate" type="date"><small class="field-error" id="error-endDate"></small></div>
-            <div class="field"><label for="quantity">Cantidad</label><input id="quantity" type="number"><small class="field-error" id="error-quantity"></small></div>
-            <div class="field"><label for="subtotal">Subtotal</label><input id="subtotal" type="number"><small class="field-error" id="error-subtotal"></small></div>
-            <div class="field"><label for="discount">Descuento</label><input id="discount" type="number"><small class="field-error" id="error-discount"></small></div>
+            <div class="field"><label for="document-entity" id="document-entity-label">Proveedor</label><select id="document-entity"></select><small class="field-error" aria-live="polite" id="error-document-entity"></small></div>
+            <div class="field"><label for="document-employee" id="document-employee-label">Empleado solicitante</label><select id="document-employee"></select><small class="field-error" aria-live="polite" id="error-document-employee"></small></div>
+            <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" aria-live="polite" id="error-folio"></small></div>
+            <div class="field"><label for="startDate" id="startDate-label">Fecha de emisión</label><input id="startDate" type="date"><small class="field-error" aria-live="polite" id="error-startDate"></small></div>
+            <div class="field"><label for="endDate" id="endDate-label">Fecha de entrega</label><input id="endDate" type="date"><small class="field-error" aria-live="polite" id="error-endDate"></small></div>
+            <div class="field"><label for="quantity">Cantidad</label><input id="quantity" type="number"><small class="field-error" aria-live="polite" id="error-quantity"></small></div>
+            <div class="field"><label for="subtotal">Subtotal</label><input id="subtotal" type="number"><small class="field-error" aria-live="polite" id="error-subtotal"></small></div>
+            <div class="field"><label for="discount">Descuento</label><input id="discount" type="number"><small class="field-error" aria-live="polite" id="error-discount"></small></div>
             <div class="field"><label for="taxAmount">Impuesto</label><input id="taxAmount" type="number"></div>
             <div class="field"><label for="totalAmount">Importe total</label><input id="totalAmount" type="number"></div>
             <div class="field"><label for="currency">Moneda</label><input id="currency"></div>
@@ -86,8 +87,24 @@
             <div class="field"><label for="notes">Notas</label><input id="notes"></div>
             <div class="field"><label for="status">Estado</label><select id="status"><option value=""></option></select></div>
             <div id="document-custom-fields"></div>
+            <section class="order-line-editor" aria-labelledby="document-lines-heading">
+              <h2 id="document-lines-heading">Detalles de compra</h2>
+              <div class="line-editor-controls">
+                <div class="field"><label for="line-product">Producto</label><select id="line-product"></select><small class="field-error" aria-live="polite" id="error-line-product"></small></div>
+                <div class="field"><label for="line-quantity">Cantidad</label><input id="line-quantity" type="number" min="1" step="1"><small class="field-error" aria-live="polite" id="error-line-quantity"></small></div>
+                <div class="field"><label for="line-cost">Costo unitario</label><input id="line-cost" type="number" min="0" step="0.01"><small class="field-error" aria-live="polite" id="error-line-cost"></small></div>
+                <button type="button" class="secondary" id="add-line-button" data-action="add-line">Agregar línea</button>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table" id="document-lines-table">
+                  <thead><tr><th>Producto</th><th>Unidad</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th><th>Acciones</th></tr></thead>
+                  <tbody id="document-lines-body"></tbody>
+                </table>
+              </div>
+              <div id="document-totals" class="order-totals" aria-live="polite"></div>
+            </section>
             <button class="primary" type="submit" id="document-submit-button">Guardar Orden de Compra</button>
-            <div class="document-feedback" id="document-feedback"></div>
+            <div class="document-feedback" id="document-feedback" aria-live="polite"></div>
           </form>
           <section>
             <h2 id="edit-document-heading">Editar o eliminar la orden de compra</h2>
@@ -99,6 +116,23 @@
             </div>
           </section>
         </div>
+      </section>
+
+      <section id="view-products" class="view" hidden>
+        <h1 id="products-view-heading">Productos</h1>
+        <div id="products-view"></div>
+      </section>
+
+      <section id="view-order-detail" class="view order-detail" hidden>
+        <div id="order-detail-view"></div>
+        <div id="order-lines-table"></div>
+        <div id="order-totals" class="order-totals" aria-live="polite"></div>
+        <div id="order-actions" class="order-actions" aria-live="polite"></div>
+        <div id="order-history" class="order-history"></div>
+      </section>
+
+      <section id="view-print" class="view print-view" hidden>
+        <div id="print-order-view"></div>
       </section>
 
       <section id="view-search" class="view" hidden>

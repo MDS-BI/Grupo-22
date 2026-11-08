@@ -1,15 +1,39 @@
 import {
-  loadEntities, saveEntities, validateEntity, addEntity, updateEntity, deleteEntity,
+  loadEntities, validateEntity, addEntity, updateEntity, deleteEntity,
   loadDocuments, validateDocument, addDocument, updateDocument, deleteDocument,
   searchEntities
 } from './storage.js';
 import {
-  DEFAULT_CONFIG, PURCHASING_CONFIG, normalizeConfig, loadModuleConfig,
-  setActiveConfig, getConfig, newLabelFor, withArticle
+  loadModuleConfig, setActiveConfig, newLabelFor, withArticle
 } from './module-config.js';
+import {
+  loadEmployees,
+  loadProducts,
+  getLinesForOrder,
+  getOrderMetadata,
+  savePurchaseOrder,
+  deletePurchaseOrder,
+  changeOrderStatus,
+  recoverTransactions,
+  getPurchaseOrderDetail,
+  addOrUpdatePurchaseOrderLine,
+  deletePurchaseOrderLine
+} from './purchasing-storage.js';
+import {
+  validatePurchaseOrderLine,
+  isTerminalStatus,
+  purchasingErrorMessage
+} from './domain/purchasing.js';
+import { init as initProductCatalog } from './product-catalog.js';
+import { renderDetail } from './purchase-order-detail.js';
+import { renderPrintable } from './purchase-order-print.js';
+import { renderLineEditor } from './purchase-order-lines.js';
 
 let config;
 let configErrors = [];
+let draftLines = [];
+let currentOrderId = null;
+let recoveryResult = null;
 
 function qs(id) {
   return document.getElementById(id);
@@ -54,6 +78,7 @@ function relabel() {
   qs('dashboard-heading').textContent = config.moduleName;
   qs('nav-entities-label').textContent = labels.entities;
   qs('nav-documents-label').textContent = labels.documents;
+  if (qs('nav-products-label')) qs('nav-products-label').textContent = labels.products;
   qs('nav-search-label').textContent = 'Búsqueda';
   qs('action-new-entity-title').textContent = newLabelFor(labels.entity);
   qs('action-new-document-title').textContent = newLabelFor(labels.document);
@@ -68,7 +93,10 @@ function relabel() {
   qs('documents-view-heading').textContent = labels.documents;
   qs('document-form-heading').textContent = `Agregar / Editar ${labels.document}`;
   qs('document-entity-label').textContent = labels.entity;
+  qs('document-employee-label').textContent = `Empleado solicitante`;
   qs('edit-document-heading').textContent = `Editar o eliminar ${withArticle(labels.document)}`;
+  qs('document-lines-heading').textContent = `Detalles de ${labels.purchaseOrderLines?.toLowerCase() || 'compra'}`;
+  qs('products-view-heading').textContent = labels.products;
   qs('search-view-heading').textContent = `Buscar ${labels.entities}`;
   qs('submit-button').textContent = `Guardar ${labels.entity}`;
   qs('document-submit-button').textContent = `Guardar ${labels.document}`;
@@ -77,9 +105,27 @@ function relabel() {
   qs('code').previousElementSibling.textContent = config.moduleName === 'Adquisiciones y Compras' ? 'RUT' : 'Código';
 }
 
+function ensureProductsNav() {
+  const existing = qs('nav-products');
+  if (!isPurchasing()) {
+    existing?.remove();
+    return;
+  }
+  if (existing) return;
+  const button = document.createElement('button');
+  button.className = 'nav-module';
+  button.dataset.module = 'products';
+  button.id = 'nav-products';
+  button.innerHTML = '<span>▦</span><span class="nav-label" id="nav-products-label"></span>';
+  const searchButton = qs('nav-search');
+  searchButton.parentNode.insertBefore(button, searchButton);
+  button.querySelector('.nav-label').textContent = config.labels.products;
+}
+
 function showView(name) {
-  for (const view of ['dashboard', 'entities', 'documents', 'search']) {
-    qs(`view-${view}`).hidden = view !== name;
+  for (const view of ['dashboard', 'entities', 'documents', 'products', 'search', 'order-detail', 'print']) {
+    const element = qs(`view-${view}`);
+    if (element) element.hidden = view !== name;
   }
   document.querySelectorAll('.nav-module').forEach(button => {
     if (button.dataset.module === name) button.setAttribute('aria-current', 'page');
@@ -92,6 +138,7 @@ function showView(name) {
     renderDocumentTable();
     renderStatusControl();
   }
+  if (name === 'products') renderProductCatalog();
   if (name === 'search') renderSearch();
 }
 
@@ -107,10 +154,15 @@ function clearEntityForm() {
 
 function clearDocumentForm() {
   qs('document-id').value = '';
-  for (const id of ['document-entity', 'folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'docPaymentTerms', 'notes', 'status']) qs(id).value = '';
+  for (const id of ['document-entity', 'document-employee', 'folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'docPaymentTerms', 'notes', 'status']) qs(id).value = '';
   for (const field of config.customFields.filter(item => item.target === 'document')) {
     if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = '';
   }
+  draftLines = [];
+  currentOrderId = null;
+  setDocumentFormReadOnly(false);
+  clearLineInputs();
+  renderDraftLines();
   qs('document-submit-button').textContent = `Guardar ${config.labels.document}`;
   renderStatusControl();
 }
@@ -131,8 +183,24 @@ function renderEntityTable() {
 }
 
 function renderDocumentEntityOptions() {
+  const selectedEntity = qs('document-entity').value;
+  const selectedEmployee = qs('document-employee').value;
   qs('document-entity').innerHTML = `<option value="">Seleccionar ${config.labels.entity}</option>` +
     loadEntities().map(entity => `<option value="${escapeHtml(entity.entity_id)}">${escapeHtml(entity.name)}</option>`).join('');
+  qs('document-employee').innerHTML = `<option value="">Seleccionar empleado</option>` +
+    loadEmployees().map(employee => `<option value="${escapeHtml(employee.id_empleado || employee.id)}">${escapeHtml(employee.nombre || employee.name || '')}</option>`).join('');
+  qs('document-entity').value = selectedEntity;
+  qs('document-employee').value = selectedEmployee;
+  renderLineProductOptions();
+}
+
+function renderLineProductOptions() {
+  const select = qs('line-product');
+  if (!select) return;
+  const selected = select.value;
+  select.innerHTML = '<option value="">Seleccionar producto</option>' +
+    loadProducts().map(product => `<option value="${escapeHtml(product.id_producto || product.id)}">${escapeHtml(product.nombre || product.name || '')}</option>`).join('');
+  select.value = selected;
 }
 
 function renderDocumentTable() {
@@ -146,6 +214,7 @@ function renderDocumentTable() {
         <td>${escapeHtml(formatCurrencyCLP(document.totalAmount))}</td>
         <td>${document.status ? `<span class="status-badge">${escapeHtml(document.status)}</span>` : ''}</td>
         <td class="table-actions">
+          <button type="button" class="secondary" data-action="view-order" data-id="${escapeHtml(document.id)}">Ver detalle</button>
           <button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(document.id)}">Editar</button>
           <button type="button" class="danger" data-action="delete" data-id="${escapeHtml(document.id)}">Eliminar</button>
         </td>
@@ -198,6 +267,156 @@ function renderCustomFields(target, containerId) {
     }
     return `<div class="field custom-field">${label}<input id="${escapeHtml(id)}" type="${field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}"><small class="field-error" id="error-cf-${escapeHtml(field.key)}"></small></div>`;
   }).join('');
+}
+
+function isPurchasing() {
+  return config?.moduleName === 'Adquisiciones y Compras';
+}
+
+function clearLineInputs() {
+  for (const id of ['line-product', 'line-quantity', 'line-cost']) {
+    const element = qs(id);
+    if (element) element.value = '';
+  }
+  for (const id of ['error-line-product', 'error-line-quantity', 'error-line-cost']) {
+    const element = qs(id);
+    if (element) element.textContent = '';
+  }
+}
+
+function setDocumentFormReadOnly(readOnly) {
+  const form = qs('document-form');
+  if (!form) return;
+  form.classList.toggle('read-only', readOnly);
+  for (const element of form.querySelectorAll('input,select,textarea,button')) {
+    element.disabled = readOnly;
+  }
+  if (!readOnly) {
+    qs('document-submit-button').disabled = false;
+    qs('add-line-button').disabled = false;
+  }
+}
+
+function renderDraftLines() {
+  renderLineEditor({
+    body: qs('document-lines-body'),
+    totals: qs('document-totals'),
+    lines: draftLines,
+    escapeHtml,
+    formatCurrencyCLP
+  });
+}
+
+function showLineErrors(errors) {
+  for (const id of ['error-line-product', 'error-line-quantity', 'error-line-cost']) {
+    const element = qs(id);
+    if (element) element.textContent = '';
+  }
+  if (errors.id_producto) qs('error-line-product').textContent = errors.id_producto;
+  if (errors.cantidad) qs('error-line-quantity').textContent = errors.cantidad;
+  if (errors.costo_unitario) qs('error-line-cost').textContent = errors.costo_unitario;
+}
+
+function addDraftLine() {
+  const line = {
+    id_producto: qs('line-product').value,
+    cantidad: qs('line-quantity').value,
+    costo_unitario: qs('line-cost').value
+  };
+  const validation = validatePurchaseOrderLine(line, { existingLines: draftLines });
+  if (line.id_producto && !loadProducts().some(product => (product.id_producto || product.id) === line.id_producto)) {
+    validation.errors.id_producto = purchasingErrorMessage('PRODUCT_NOT_FOUND');
+    validation.valid = false;
+  }
+  showLineErrors(validation.errors);
+  if (!validation.valid) return;
+  const normalized = {
+    id_orden_compra: currentOrderId || '',
+    id_producto: line.id_producto,
+    cantidad: Number(line.cantidad),
+    costo_unitario: Number(line.costo_unitario)
+  };
+  if (currentOrderId) {
+    try {
+      addOrUpdatePurchaseOrderLine(currentOrderId, normalized);
+      draftLines = getLinesForOrder(currentOrderId);
+      renderDocumentTable();
+      renderDashboard();
+    } catch (error) {
+      qs('document-feedback').textContent = purchasingErrorMessage(error);
+      return;
+    }
+  } else {
+    draftLines.push(normalized);
+  }
+  clearLineInputs();
+  renderDraftLines();
+  qs('document-feedback').textContent = '';
+}
+
+function editDraftLine(index) {
+  const line = draftLines[index];
+  if (!line) return;
+  qs('line-product').value = line.id_producto;
+  qs('line-quantity').value = line.cantidad;
+  qs('line-cost').value = line.costo_unitario;
+  if (currentOrderId) {
+    draftLines = draftLines.filter((_, lineIndex) => lineIndex !== index);
+  } else {
+    draftLines.splice(index, 1);
+  }
+  renderDraftLines();
+  qs('line-quantity').focus();
+}
+
+function removeDraftLine(index) {
+  const line = draftLines[index];
+  if (!line) return;
+  if (currentOrderId) {
+    try {
+      deletePurchaseOrderLine(currentOrderId, line.id_producto);
+      draftLines = getLinesForOrder(currentOrderId);
+      renderDocumentTable();
+      renderDashboard();
+    } catch (error) {
+      qs('document-feedback').textContent = purchasingErrorMessage(error);
+      return;
+    }
+  } else {
+    draftLines.splice(index, 1);
+  }
+  renderDraftLines();
+  qs('document-feedback').textContent = '';
+}
+
+function renderProductCatalog() {
+  initProductCatalog({
+    escapeHtml,
+    formatCurrencyCLP,
+    onChanged: () => {
+      renderDocumentEntityOptions();
+      renderDashboard();
+    }
+  });
+}
+
+function openOrderDetail(orderId) {
+  currentOrderId = orderId;
+  const detail = getPurchaseOrderDetail(orderId);
+  renderDetail(detail, { escapeHtml, formatCurrencyCLP, formatDate });
+  showView('order-detail');
+  qs('order-detail-view').scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+}
+
+function printOrder(orderId) {
+  const detail = getPurchaseOrderDetail(orderId);
+  renderPrintable(detail, { escapeHtml, formatCurrencyCLP, formatDate });
+  showView('print');
+  try {
+    globalThis.print?.();
+  } catch {
+    // jsdom and some browsers do not implement print; the printable view remains available.
+  }
 }
 
 function renderDashboard() {
@@ -253,7 +472,8 @@ function collectEntity() {
 
 function collectDocument() {
   const data = {
-    entityId: qs('document-entity').value, folio: qs('folio').value,
+    entityId: qs('document-entity').value, id_empleado: qs('document-employee').value,
+    folio: qs('folio').value,
     startDate: qs('startDate').value, endDate: qs('endDate').value, quantity: qs('quantity').value,
     subtotal: qs('subtotal').value, discount: qs('discount').value, taxAmount: qs('taxAmount').value,
     totalAmount: qs('totalAmount').value, currency: qs('currency').value,
@@ -266,7 +486,8 @@ function collectDocument() {
 function showEntityErrors(errors) {
   document.querySelectorAll('[id^="error-"]').forEach(element => element.textContent = '');
   for (const [key, message] of Object.entries(errors)) {
-    const element = qs(`error-${key}`) || qs(`error-cf-${key}`) || qs(`error-${key === 'entity_id' ? 'document-entity' : key}`);
+    const mappedKey = key === 'entity_id' ? 'document-entity' : key === 'id_empleado' ? 'document-employee' : key;
+    const element = qs(`error-${key}`) || qs(`error-cf-${key}`) || qs(`error-${mappedKey}`);
     if (element) element.textContent = message;
   }
 }
@@ -285,24 +506,35 @@ function loadEntityIntoForm(entity) {
 
 function loadDocumentIntoForm(document) {
   qs('document-id').value = document.id;
+  currentOrderId = document.id;
   renderStatusControl(document.id);
   for (const key of ['folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'notes']) {
     qs(key).value = document[key] ?? '';
   }
   qs('document-entity').value = document.entity_id || '';
+  const metadata = getOrderMetadata(document.id);
+  qs('document-employee').value = metadata?.id_empleado || '';
   qs('docPaymentTerms').value = document.paymentTerms ?? '';
   qs('status').value = document.status ?? '';
   for (const field of config.customFields.filter(item => item.target === 'document')) {
     if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = document[field.key] ?? '';
   }
+  draftLines = getLinesForOrder(document.id);
+  renderLineProductOptions();
+  renderDraftLines();
+  clearLineInputs();
+  setDocumentFormReadOnly(isTerminalStatus(document.status));
   qs('document-submit-button').textContent = `Actualizar ${config.labels.document}`;
-  qs('document-feedback').textContent = '';
+  qs('document-feedback').textContent = isTerminalStatus(document.status)
+    ? purchasingErrorMessage('ORDER_TERMINAL')
+    : metadata ? '' : 'Orden histórica sin empleado solicitante; selecciona un empleado para volver a guardarla.';
 }
 
 function bindEvents() {
   qs('nav-dashboard').addEventListener('click', () => showView('dashboard'));
   qs('nav-entities').addEventListener('click', () => showView('entities'));
   qs('nav-documents').addEventListener('click', () => showView('documents'));
+  if (qs('nav-products')) qs('nav-products').addEventListener('click', () => showView('products'));
   qs('nav-search').addEventListener('click', () => showView('search'));
   qs('action-new-entity').addEventListener('click', () => { clearEntityForm(); showView('entities'); qs('name').focus(); });
   qs('action-open-entities').addEventListener('click', () => showView('entities'));
@@ -354,22 +586,46 @@ function bindEvents() {
     renderDashboard();
   });
 
+  qs('add-line-button').addEventListener('click', addDraftLine);
+  qs('document-lines-body').addEventListener('click', event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const index = Number(button.dataset.index);
+    if (button.dataset.action === 'edit-line') editDraftLine(index);
+    if (button.dataset.action === 'delete-line') removeDraftLine(index);
+  });
+
   qs('document-form').addEventListener('submit', event => {
     event.preventDefault();
     const data = collectDocument();
     const id = qs('document-id').value;
     const validation = validateDocument(data);
+    if (isPurchasing()) {
+      if (!data.id_empleado) {
+        validation.errors.id_empleado = 'Debe seleccionar un empleado solicitante.';
+        validation.valid = false;
+      }
+      if (!draftLines.length) {
+        qs('document-feedback').textContent = purchasingErrorMessage('NO_LINES');
+        validation.valid = false;
+      }
+    }
     showEntityErrors(validation.errors);
     if (!validation.valid) return;
     try {
-      if (id) updateDocument(id, data);
-      else addDocument(data);
+      if (isPurchasing()) {
+        savePurchaseOrder({ ...data, ...(id ? { id } : {}), lines: draftLines });
+      } else if (id) {
+        updateDocument(id, data);
+      } else {
+        addDocument(data);
+      }
       clearDocumentForm();
       qs('document-feedback').textContent = '';
       renderDocumentTable();
       renderDashboard();
     } catch (error) {
-      qs('document-feedback').textContent = error.message;
+      qs('document-feedback').textContent = error.message || purchasingErrorMessage(error);
     }
   });
 
@@ -378,16 +634,64 @@ function bindEvents() {
     if (!button) return;
     const document = loadDocuments().find(item => item.id === button.dataset.id);
     if (!document) return;
+    if (button.dataset.action === 'view-order') {
+      openOrderDetail(document.id);
+      return;
+    }
     if (button.dataset.action === 'edit') {
       loadDocumentIntoForm(document);
       qs('folio').focus();
       return;
     }
     if (!globalThis.confirm(`¿Eliminar ${withArticle(config.labels.document)} folio ${document.folio}?`)) return;
-    deleteDocument(document.id);
+    if (isPurchasing()) deletePurchaseOrder(document.id);
+    else deleteDocument(document.id);
     clearDocumentForm();
     renderDocumentTable();
     renderDashboard();
+  });
+
+  qs('order-actions').addEventListener('click', event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const action = button.dataset.action;
+    if (action === 'close-order-detail') {
+      showView('documents');
+      return;
+    }
+    if (action === 'print-order') {
+      printOrder(currentOrderId);
+      return;
+    }
+    if (action === 'transition') {
+      const nextStatus = button.dataset.nextStatus;
+      if (!globalThis.confirm(`¿Confirmar el cambio de estado a "${nextStatus}"?`)) return;
+      try {
+        const detail = changeOrderStatus(currentOrderId, nextStatus);
+        renderDetail(detail, { escapeHtml, formatCurrencyCLP, formatDate });
+        renderDocumentTable();
+        renderDashboard();
+        qs('order-actions').querySelector('.feedback').textContent = 'Estado actualizado correctamente.';
+      } catch (error) {
+        const feedback = qs('order-actions').querySelector('.feedback');
+        if (feedback) feedback.textContent = error.message || purchasingErrorMessage(error);
+      }
+    }
+  });
+
+  qs('order-lines-table').addEventListener('click', event => {
+    const button = event.target.closest('button[data-action="delete-line"]');
+    if (!button) return;
+    if (!globalThis.confirm('¿Eliminar esta línea de detalle?')) return;
+    try {
+      deletePurchaseOrderLine(currentOrderId, button.dataset.productId);
+      const detail = getPurchaseOrderDetail(currentOrderId);
+      renderDetail(detail, { escapeHtml, formatCurrencyCLP, formatDate });
+      renderDocumentTable();
+      renderDashboard();
+    } catch (error) {
+      qs('order-actions').querySelector('.feedback').textContent = error.message || purchasingErrorMessage(error);
+    }
   });
 }
 
@@ -403,6 +707,15 @@ export async function initApp(normalizedConfig, options = {}) {
     configErrors = loaded.errors;
   }
   setActiveConfig(config);
+  ensureProductsNav();
+  if (options.recoverTransactions !== false) {
+    try {
+      recoveryResult = recoverTransactions();
+      globalThis.purchasingRecoveryResult = recoveryResult;
+    } catch (error) {
+      recoveryResult = { recovered: 0, cleared: 0, errors: [error.message], total: 0 };
+    }
+  }
   document.documentElement.style.setProperty('--accent', config.theme.accentColor);
   relabel();
   renderLogo();
@@ -410,17 +723,23 @@ export async function initApp(normalizedConfig, options = {}) {
   renderCustomFields('document', 'document-custom-fields');
   renderDocumentEntityOptions();
   renderStatusControl();
+  renderDraftLines();
   bindEvents();
   renderEntityTable();
   renderDocumentTable();
   renderDashboard();
   showView('dashboard');
-  if (configErrors.length) {
+  const warnings = [...configErrors, ...(recoveryResult?.errors || [])];
+  if (warnings.length) {
     qs('config-warning').hidden = false;
-    qs('config-warning').textContent = `Problemas de configuración: ${configErrors.join('. ')}`;
+    qs('config-warning').textContent = `Problemas de configuración: ${warnings.join('. ')}`;
   } else {
     qs('config-warning').hidden = true;
   }
+}
+
+export function getRecoveryResult() {
+  return recoveryResult;
 }
 
 export async function boot() {
