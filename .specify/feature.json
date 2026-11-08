@@ -1,1 +1,7 @@
+<<<<<<< HEAD
 {"feature_directory":"specs/003-authentication-rbac"}
+=======
+{
+  "feature_directory": "specs/003-purchasing-ux-improvements"
+}
+>>>>>>> f6d005af1100850dbcf761545c9268201002cb7c
