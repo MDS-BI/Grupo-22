@@ -8,7 +8,7 @@ Las entidades incluyen campos estándar de datos maestros ERP (nombre, código, 
 
 La aplicación se presenta como un espacio de trabajo ERP coherente:
 
-- **Marco del espacio de trabajo**: cada pantalla vive dentro de un marco con marca: una barra superior con un logotipo (un monograma SVG derivado del nombre del módulo) y el nombre del módulo, más una barra lateral persistente con botones de módulo (Panel, Entidades, Documentos, Búsqueda). El módulo activo se resalta (`aria-current="page"`), y la barra lateral se contrae a una columna de iconos en ventanas estrechas.
+- **Marco del espacio de trabajo**: cada pantalla vive dentro de un marco con marca: una barra superior con un logotipo (un monograma SVG derivado del nombre del módulo) y el nombre del módulo, más una barra lateral persistente con botones de módulo (Panel, Entidades, Documentos, Búsqueda y, en Adquisiciones y Compras, Productos). El módulo activo se resalta (`aria-current="page"`), y la barra lateral se contrae a una columna de iconos en ventanas estrechas.
 - **Panel de inicio**: la pantalla de entrada ofrece botones de acción rápida para las tareas ERP clave (nueva entidad, nuevo documento, abrir las áreas de gestión, buscar registros) y tarjetas de estadísticas en vivo con el número de registros.
 - **Tokens de diseño**: el estilo se controla mediante propiedades personalizadas de CSS en `src/styles.css`, de modo que los cambios de marca se aplican globalmente.
 
@@ -35,6 +35,14 @@ O una ejecución única, sin modo watch:
 
 ```bash
 npx vitest run
+```
+
+Validación completa antes de cerrar un cambio:
+
+```bash
+npm test -- --run
+npm run build
+npm run lint
 ```
 
 ## Construcción de módulos personalizados
@@ -146,11 +154,12 @@ El módulo base ofrece además campos opcionales que este MER no modela, pero qu
 1. **Se configura el módulo**: en `userConfig` se define el nombre del módulo, se renombran Entidad → Proveedor y Documento → Orden de Compra, y se declara el ciclo de vida de estados.
 2. **Se registran los datos maestros**: proveedores (con nombre y código obligatorios), empleados, y las categorías y productos del catálogo.
 3. **Se crea una orden de compra**: se elige el proveedor, se indica qué empleado la registra, el folio, la fecha de emisión y la fecha de entrega esperada. El sistema impide guardar si falta el proveedor, el folio o las fechas, o si la fecha de entrega es anterior a la de emisión.
-4. **Se agregan las líneas de detalle**: por cada producto se indica la cantidad y el costo unitario. El costo se guarda en la propia línea, de modo que el precio pagado queda como registro histórico aunque después cambie.
-5. **Se calcula el total**: es la suma de cantidad × costo unitario de las líneas. El módulo base valida cada importe por separado, pero no calcula el total automáticamente; esa regla es un punto de extensión que este módulo debe implementar. Si se incorporan `subtotal`, `discount` y `taxAmount`, el total sería `subtotal − descuento + impuesto`.
-6. **La orden avanza de estado**: con un ciclo de vida configurado, solo se ofrecen las transiciones permitidas y cualquier transición inválida se rechaza con una explicación.
-7. **Al recibir la mercadería**, el `stock` de cada producto de la orden aumenta según la cantidad recibida (regla de la extensión).
-8. **Integridad de los datos**: si se elimina un proveedor, el módulo base elimina en cascada todas sus órdenes de compra.
+4. **Se agregan las líneas de detalle**: por cada producto se indica la cantidad entera positiva y el costo unitario no negativo. El costo se guarda en la propia línea, de modo que el precio pagado queda como registro histórico aunque después cambie. No se permite repetir un producto dentro de la misma orden.
+5. **Se calculan los importes**: el subtotal de cada línea es `cantidad × costo unitario`; el neto es la suma de subtotales, el IVA es el 19 % del neto y el total es `neto + IVA`. Los valores se recalculan al agregar, editar o eliminar una línea y se redondean según el formato monetario CLP.
+6. **La orden avanza de estado**: el ciclo canónico es `borrador → pendiente → aprobado → recibido`, con cancelación permitida desde `borrador` o `pendiente`. Solo se muestran las acciones válidas y una transición inválida se rechaza sin modificar la orden ni agregar historial. Una orden sin líneas no puede guardarse ni enviarse a revisión.
+7. **Al recibir la mercadería**, el `stock` de cada producto aumenta exactamente una vez según la cantidad de su línea. La recepción es idempotente: un segundo intento informa que el stock ya fue aplicado y no lo duplica. La operación es atómica y registra una transacción recuperable.
+8. **Historial e impresión**: cada transición exitosa agrega un registro inmutable con estado anterior, estado nuevo y fecha/hora en `America/Santiago`. La vista de detalle permite imprimir la orden con proveedor, empleado, fechas, estado, líneas, totales e historial, sin navegación ni controles de edición.
+9. **Integridad de los datos**: si se elimina un proveedor, el módulo base elimina en cascada sus órdenes de compra y los registros de extensión asociados. La eliminación de productos, empleados o categorías referenciados se bloquea. Eliminar una orden recibida no revierte el stock ya aplicado.
 
 ### Configuración sugerida
 
@@ -170,7 +179,7 @@ export const userConfig = {
     transitions: {
       borrador: ["pendiente", "cancelado"],
       pendiente: ["aprobado", "cancelado"],
-      aprobado: ["recibido", "cancelado"],
+      aprobado: ["recibido"],
       recibido: [],
       cancelado: [],
     },
@@ -183,11 +192,12 @@ Este ejemplo no declara `customFields`, porque todos los campos del MER son camp
 
 ### Decisiones de diseño
 
-- **El total es un dato derivado**: debe coincidir siempre con la suma de las líneas de la orden.
-- **El costo unitario vive en el detalle**: conserva el precio histórico de cada compra.
-- **Empleado es una extensión**: el módulo base no gestiona empleados, por lo que se trata como un dato maestro adicional del módulo, igual que productos y categorías.
+- **El total es un dato derivado**: neto = suma de subtotales; IVA = 19 % del neto; total = neto + IVA. Siempre debe coincidir con las líneas de la orden.
+- **El costo unitario vive en el detalle**: conserva el precio histórico de cada compra y no se recalcula desde el catálogo.
+- **Empleado es una extensión**: el módulo base no gestiona empleados, por lo que se trata como un dato maestro adicional del módulo, igual que productos y categorías. Su vínculo con la orden se guarda en `erp_purchasing:order-metadata`.
 - **Producto es compartido con otros módulos**: el módulo de ventas también necesitará productos, por lo que conviene reutilizar una sola definición.
-- **Unicidad de folio por serie**: el módulo base no la garantiza; es un punto de extensión si se requiere.
+- **Unicidad de folio**: la valida el módulo base; el folio debe ser un entero positivo y único a nivel global.
+- **Historial y stock aplicado son datos de extensión**: se guardan en `erp_purchasing:status-history` y `erp_purchasing:order-metadata`, sin modificar el esquema base de documentos.
 
 ### Página de visualización del módulo
 

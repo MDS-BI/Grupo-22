@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_CONFIG, BASE_FIELDS, FIELD_TYPES, normalizeConfig, loadModuleConfig, setActiveConfig, getConfig, labelFor } from '../../src/module-config.js';
+import { DEFAULT_CONFIG, PURCHASING_CONFIG, BASE_FIELDS, FIELD_TYPES, normalizeConfig, loadModuleConfig, setActiveConfig, getConfig, labelFor } from '../../src/module-config.js';
 
 const salesConfig = {
   moduleName: 'Ventas',
@@ -108,6 +108,24 @@ describe('module-config', () => {
     expect(config.labels.documents).toBe('Órdenes de Compra');
     expect(config.labels.startDate).toBe('Fecha de emisión');
     expect(config.labels.endDate).toBe('Fecha de entrega');
+  });
+
+  it('forces the canonical Compras lifecycle when a non-canonical transition is configured', () => {
+    const { config, errors } = normalizeConfig({
+      moduleName: 'Adquisiciones y Compras',
+      statusLifecycle: {
+        statuses: ['borrador', 'pendiente', 'aprobado', 'recibido', 'cancelado'],
+        transitions: {
+          borrador: ['pendiente', 'cancelado'],
+          pendiente: ['aprobado', 'cancelado'],
+          aprobado: ['recibido', 'cancelado'],
+          recibido: [],
+          cancelado: []
+        }
+      }
+    });
+    expect(errors.some(error => error.includes('ciclo canónico'))).toBe(true);
+    expect(config.statusLifecycle).toEqual(PURCHASING_CONFIG.statusLifecycle);
   });
 
   it('exposes active config and label helpers after setActiveConfig', () => {

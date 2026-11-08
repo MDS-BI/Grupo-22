@@ -2,6 +2,12 @@ import { getConfig, BASE_FIELDS, withArticle, withIndefiniteArticle } from './mo
 
 const ENTITY_KEY = 'erp_base_module:entities';
 const DOCUMENT_KEY = 'erp_base_module:documents';
+const EXTENSION_KEYS = [
+  'erp_purchasing:purchase-order-lines',
+  'erp_purchasing:order-metadata',
+  'erp_purchasing:status-history',
+  'erp_purchasing:transactions'
+];
 
 function now() {
   return new Date().toISOString();
@@ -264,6 +270,11 @@ export function updateDocument(id, updates) {
   const index = documents.findIndex(document => document.id === id);
   if (index < 0) throw new Error(`No se encontró ${withArticle(getConfig().labels.document)}`);
   const current = documents[index];
+  if (['recibido', 'cancelado'].includes(current.status)) {
+    const error = new Error('La orden recibida o cancelada no puede modificarse.');
+    error.code = 'ORDER_TERMINAL';
+    throw error;
+  }
   const next = { ...current, id: current.id, entity_id: updates.entityId || updates.entity_id || current.entity_id, updatedAt: now() };
   for (const key of ['series', 'folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'paymentTerms', 'notes', 'status']) {
     if (updates[key] !== undefined) next[key] = updates[key];
@@ -293,12 +304,34 @@ export function updateDocument(id, updates) {
   return next;
 }
 
+function removeExtensionRecords(orderIds) {
+  if (!orderIds.size) return;
+  for (const key of EXTENSION_KEYS) {
+    try {
+      const value = globalThis.localStorage?.getItem(key);
+      if (!value) continue;
+      const records = JSON.parse(value);
+      if (!Array.isArray(records)) continue;
+      const filtered = records.filter(record => !orderIds.has(record.id_orden_compra));
+      globalThis.localStorage?.setItem(key, JSON.stringify(filtered));
+    } catch {
+      // Extension records are best-effort cleanup; the base document deletion still succeeds.
+    }
+  }
+}
+
 export function deleteDocument(id) {
-  saveDocuments(loadDocuments().filter(document => document.id !== id));
+  const documents = loadDocuments();
+  const target = documents.find(document => document.id === id);
+  saveDocuments(documents.filter(document => document.id !== id));
+  if (target) removeExtensionRecords(new Set([target.id]));
 }
 
 export function deleteDocumentsForEntity(entityId) {
-  saveDocuments(loadDocuments().filter(document => document.entity_id !== entityId));
+  const documents = loadDocuments();
+  const removed = documents.filter(document => document.entity_id === entityId);
+  saveDocuments(documents.filter(document => document.entity_id !== entityId));
+  removeExtensionRecords(new Set(removed.map(document => document.id)));
 }
 
 export function clearAll() {
