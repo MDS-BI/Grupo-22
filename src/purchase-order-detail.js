@@ -1,5 +1,6 @@
 import { getPurchaseOrderDetail } from './purchasing-storage.js';
 import { calculateLineSubtotal, calculateOrderTotals, getAvailableActionItems, actionLabel } from './domain/purchasing.js';
+import { icon } from './ui-icons.js';
 
 function qs(id) {
   return document.getElementById(id);
@@ -103,7 +104,7 @@ export function renderDetail(detailOrId, options = {}) {
                     <td>${escape(line.cantidad)}</td>
                     <td>${escape(currency(line.costo_unitario))}</td>
                     <td>${escape(currency(calculateLineSubtotal(line)))}</td>
-                    ${editable ? `<td class="table-actions"><button type="button" class="danger" data-action="delete-line" data-product-id="${escape(line.id_producto)}">Eliminar</button></td>` : ''}
+                    ${editable ? `<td class="table-actions"><button type="button" class="danger" data-action="delete-line" data-product-id="${escape(line.id_producto)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button></td>` : ''}
                   </tr>`;
                 }).join('')
               : `<tr><td colspan="${editable ? 6 : 5}" class="empty-row">Sin líneas de detalle.</td></tr>`}
@@ -123,11 +124,11 @@ export function renderDetail(detailOrId, options = {}) {
   const actionsContainer = qs('order-actions');
   if (actionsContainer) {
     actionsContainer.innerHTML = `
-      ${options.canPrint === false ? '' : '<button type="button" class="primary" data-action="print-order">Imprimir orden</button>'}
+      ${options.canPrint === false ? '' : `<button type="button" class="primary" data-action="print-order">${icon('print', { className: 'ui-icon' })}Imprimir orden</button>`}
       ${actions
-        .map(action => `<button type="button" class="secondary" data-action="transition" data-next-status="${escape(action.nextStatus)}">${escape(action.label || actionLabel(action.nextStatus))}</button>`)
+        .map(action => `<button type="button" class="secondary" data-action="transition" data-next-status="${escape(action.nextStatus)}">${icon('check', { className: 'ui-icon' })}${escape(action.label || actionLabel(action.nextStatus))}</button>`)
         .join('')}
-      <button type="button" class="secondary" data-action="close-order-detail">Volver a la lista</button>
+      <button type="button" class="secondary" data-action="close-order-detail">${icon('back', { className: 'ui-icon' })}Volver a la lista</button>
       <span class="feedback" aria-live="polite"></span>`;
   }
 

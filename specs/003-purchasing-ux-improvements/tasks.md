@@ -25,11 +25,11 @@
 
 **Purpose**: Verificar la base y preparar infraestructura compartida sin cambiar reglas ni modelo.
 
-- [ ] T001 Verificar la línea base ejecutando `npm test -- --run`, `npm run build` y `npm run lint` desde `package.json`; registrar el total de pruebas de 001/002 antes de empezar.
-- [ ] T002 [P] Agregar contenedores globales vacíos `#side-panel`, `#toast-region` y `#confirm-dialog` en `index.html`, sin lógica todavía.
-- [ ] T003 [P] Crear `src/ui-icons.js` con un registro de iconos SVG inline reutilizables (`currentColor`, `aria-hidden` por defecto).
-- [ ] T003a Reemplazar los íconos actuales de la barra lateral y de las acciones (Nuevo, Editar, Eliminar, Buscar y flujo de OC) por los de `src/ui-icons.js` en `index.html`, `src/app.js`, `src/product-catalog.js` y `src/purchase-order-detail.js`.
-- [ ] T003b Agregar prueba de accesibilidad de iconos en `tests/integration/purchasing-accessibility.test.js`: cada ícono de acción o navegación tiene nombre accesible (`aria-label` o texto visible asociado) y los decorativos usan `aria-hidden="true"`.
+- [x] T001 Verificar la línea base ejecutando `npm test -- --run`, `npm run build` y `npm run lint` desde `package.json`; registrar el total de pruebas de 001/002 antes de empezar.
+- [x] T002 [P] Agregar contenedores globales vacíos `#side-panel`, `#toast-region` y `#confirm-dialog` en `index.html`, sin lógica todavía.
+- [x] T003 [P] Crear `src/ui-icons.js` con un registro de iconos SVG inline reutilizables (`currentColor`, `aria-hidden` por defecto).
+- [x] T003a Reemplazar los íconos actuales de la barra lateral y de las acciones (Nuevo, Editar, Eliminar, Buscar y flujo de OC) por los de `src/ui-icons.js` en `index.html`, `src/app.js`, `src/product-catalog.js` y `src/purchase-order-detail.js`.
+- [x] T003b Agregar prueba de accesibilidad de iconos en `tests/integration/purchasing-accessibility.test.js`: cada ícono de acción o navegación tiene nombre accesible (`aria-label` o texto visible asociado) y los decorativos usan `aria-hidden="true"`.
 
 ---
 

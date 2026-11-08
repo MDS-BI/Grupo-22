@@ -1,6 +1,6 @@
 # Plan de Implementación: Autenticación por User ID y RBAC
 
-**Rama**: `003-authentication-rbac` | **Fecha**: 2026-11-08 | **Especificación**: [spec.md](spec.md)
+**Rama**: `004-authentication-rbac` | **Fecha**: 2026-11-08 | **Especificación**: [spec.md](spec.md)
 
 **Entrada**: Extensión del módulo de Compras para incorporar inicio de sesión por User ID, directorio local de usuarios, resolución de roles y permisos, y control de acceso a vistas, acciones, catálogo y transiciones de estado, conservando la arquitectura SPA, la persistencia en `localStorage` y el comportamiento de los módulos `001` y `002`.
 
@@ -135,7 +135,7 @@ La guía de validación está en [quickstart.md](quickstart.md). Incluye comando
 ### Documentación (esta funcionalidad)
 
 ```text
-specs/003-authentication-rbac/
+specs/004-authentication-rbac/
 ├── plan.md
 ├── research.md
 ├── data-model.md

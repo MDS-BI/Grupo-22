@@ -6,6 +6,7 @@ import {
   updateProduct,
   deleteProduct
 } from './purchasing-storage.js';
+import { icon } from './ui-icons.js';
 
 let catalogOptions = {};
 let editingProductId = '';
@@ -51,8 +52,8 @@ function renderTable() {
         <td>${escape(categories.get(product.id_categoria)?.nombre || categories.get(product.id_categoria)?.name || '')}</td>
         <td>${escape(Number(product.stock || 0))}</td>
         ${canManage ? `<td class="table-actions">
-          <button type="button" class="secondary" data-action="edit-product" data-id="${escape(productId(product))}">Editar</button>
-          <button type="button" class="danger" data-action="delete-product" data-id="${escape(productId(product))}">Eliminar</button>
+          <button type="button" class="secondary" data-action="edit-product" data-id="${escape(productId(product))}">${icon('edit', { className: 'ui-icon' })}Editar</button>
+          <button type="button" class="danger" data-action="delete-product" data-id="${escape(productId(product))}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>
         </td>` : ''}
       </tr>`).join('')
     : `<tr><td colspan="${canManage ? 5 : 4}" class="empty-row">Sin productos registrados.</td></tr>`;
@@ -169,7 +170,7 @@ export function init(options = {}) {
         <div class="field"><label for="product-unidad">Unidad de medida</label><input id="product-unidad"><small class="field-error" aria-live="polite" id="error-product-unidad"></small></div>
         <div class="field"><label for="product-stock">Stock</label><input id="product-stock" type="number" min="0" step="1" value="0"><small class="field-error" aria-live="polite" id="error-product-stock"></small></div>
         <div class="field"><label for="product-categoria">Categoría</label><select id="product-categoria"></select><small class="field-error" aria-live="polite" id="error-product-categoria"></small></div>
-        <div class="field"><label for="new-category-name">Nueva categoría</label><div class="inline-control"><input id="new-category-name" placeholder="Nombre de la categoría"><button type="button" class="secondary" id="add-category-button">Agregar</button></div></div>
+        <div class="field"><label for="new-category-name">Nueva categoría</label><div class="inline-control"><input id="new-category-name" placeholder="Nombre de la categoría"><button type="button" class="secondary" id="add-category-button">${icon('plus', { className: 'ui-icon' })}Agregar</button></div></div>
         <button class="primary" type="submit" id="product-submit-button">Guardar producto</button>
         <div id="product-feedback" class="feedback" aria-live="polite"></div>
       </form>`;

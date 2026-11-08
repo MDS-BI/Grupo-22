@@ -10,18 +10,14 @@
   <div class="app-shell" id="app-shell" hidden>
     <header class="topbar">
       <div class="brand"><div id="logo-mark"></div><strong id="brand-name">Adquisiciones y Compras</strong></div>
-<<<<<<< HEAD
       <div class="topbar-actions">
         <div class="session-info" id="session-info" hidden>
           <span class="session-user" id="session-user"></span>
           <span class="session-role" id="session-role"></span>
           <button type="button" class="secondary" id="logout-button">Cerrar sesión</button>
         </div>
-        <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Contraer navegación">☰</button>
+        <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Contraer navegación"><span data-icon="menu"></span></button>
       </div>
-=======
-      <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Contraer navegación"><span data-icon="menu"></span></button>
->>>>>>> f6d005af1100850dbcf761545c9268201002cb7c
     </header>
     <aside class="sidebar" id="sidebar">
       <button class="nav-module" data-module="dashboard" id="nav-dashboard" aria-current="page"><span data-icon="dashboard"></span><span class="nav-label" id="nav-dashboard-label">Panel</span></button>
@@ -33,10 +29,10 @@
       <section id="view-dashboard" class="view">
         <div class="page-heading"><div><span class="eyebrow">Espacio de trabajo</span><h1 id="dashboard-heading">Adquisiciones y Compras</h1></div></div>
         <div class="quick-actions">
-          <button id="action-new-entity"><span class="action-icon">＋</span><strong id="action-new-entity-title">Nuevo Proveedor</strong></button>
-          <button id="action-new-document"><span class="action-icon">＋</span><strong id="action-new-document-title">Nueva Orden de Compra</strong></button>
-          <button id="action-open-entities"><span class="action-icon">◉</span><strong id="action-open-entities-title">Gestionar Proveedores</strong></button>
-          <button id="action-find"><span class="action-icon">⌕</span><strong id="action-find-title">Buscar</strong></button>
+          <button id="action-new-entity"><span class="action-icon" data-icon="plus"></span><strong id="action-new-entity-title">Nuevo Proveedor</strong></button>
+          <button id="action-new-document"><span class="action-icon" data-icon="plus"></span><strong id="action-new-document-title">Nueva Orden de Compra</strong></button>
+          <button id="action-open-entities"><span class="action-icon" data-icon="suppliers"></span><strong id="action-open-entities-title">Gestionar Proveedores</strong></button>
+          <button id="action-find"><span class="action-icon" data-icon="search"></span><strong id="action-find-title">Buscar</strong></button>
         </div>
         <div class="stats-grid">
           <article class="stat-card"><span id="stat-entities-label">Proveedores</span><strong id="stat-entities">0</strong></article>
@@ -173,6 +169,9 @@
       </div>
     </div>
   </section>
+  <div id="side-panel"></div>
+  <div id="toast-region"></div>
+  <div id="confirm-dialog"></div>
   <div id="config-warning" class="config-warning" hidden></div>
   <script type="module" src="/src/main.js"></script>
 </body>

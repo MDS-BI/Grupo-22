@@ -1,6 +1,6 @@
 # Tasks: Autenticación por User ID y RBAC
 
-**Input**: Documentos de diseño en `specs/003-authentication-rbac/`
+**Input**: Documentos de diseño en `specs/004-authentication-rbac/`
 
 **Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/auth-rbac.md`, `quickstart.md`, `.specify/memory/constitution.md`
 
@@ -17,7 +17,7 @@
 ## Path Conventions
 
 - Proyecto único: `src/` y `tests/` en la raíz.
-- Documentación de la funcionalidad: `specs/003-authentication-rbac/`.
+- Documentación de la funcionalidad: `specs/004-authentication-rbac/`.
 - Pruebas unitarias: `tests/unit/`.
 - Pruebas de integración: `tests/integration/`.
 
@@ -175,7 +175,7 @@
 - [x] T048 Ejecutar `npm test -- --run` y confirmar que las 205 pruebas pasan, incluidas las 24 de autenticación y RBAC.
 - [x] T049 Ejecutar `npm run build` y confirmar que termina sin errores.
 - [x] T050 Ejecutar `npm run lint` y confirmar que no reporta errores.
-- [x] T051 Recorrer los escenarios manuales de `specs/003-authentication-rbac/quickstart.md` con los cinco usuarios de demostración.
+- [x] T051 Recorrer los escenarios manuales de `specs/004-authentication-rbac/quickstart.md` con los cinco usuarios de demostración.
 
 ---
 

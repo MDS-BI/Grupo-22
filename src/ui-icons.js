@@ -35,7 +35,7 @@ export function icon(name, options = {}) {
   const label = options.label
     ? ` role="img" aria-label="${escapeAttribute(options.label)}"`
     : ' aria-hidden="true"';
-  return `<svg${className} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"${label}>${path}</svg>`;
+  return `<svg${className} width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"${label}>${path}</svg>`;
 }
 
 export function hydrateIcons(root = document) {

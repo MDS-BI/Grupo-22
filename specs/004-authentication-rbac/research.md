@@ -1,6 +1,6 @@
 # Investigación de Implementación: Autenticación por User ID y RBAC
 
-**Rama**: `003-authentication-rbac`
+**Rama**: `004-authentication-rbac`
 **Fecha**: 2026-11-08
 **Especificación**: [spec.md](spec.md)
 

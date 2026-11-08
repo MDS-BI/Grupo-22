@@ -1,6 +1,6 @@
 # Especificación de la Funcionalidad: Autenticación por User ID y Control de Acceso por Roles (RBAC)
 
-**Rama de la funcionalidad**: `003-authentication-rbac`
+**Rama de la funcionalidad**: `004-authentication-rbac`
 
 **Creada**: 2026-11-08
 

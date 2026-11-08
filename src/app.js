@@ -40,6 +40,7 @@ import { init as initProductCatalog } from './product-catalog.js';
 import { renderDetail } from './purchase-order-detail.js';
 import { renderPrintable } from './purchase-order-print.js';
 import { renderLineEditor } from './purchase-order-lines.js';
+import { hydrateIcons, icon } from './ui-icons.js';
 
 let config;
 let configErrors = [];
@@ -260,10 +261,11 @@ function ensureProductsNav() {
   button.className = 'nav-module';
   button.dataset.module = 'products';
   button.id = 'nav-products';
-  button.innerHTML = '<span>▦</span><span class="nav-label" id="nav-products-label"></span>';
+  button.innerHTML = '<span data-icon="products"></span><span class="nav-label" id="nav-products-label"></span>';
   const searchButton = qs('nav-search');
   searchButton.parentNode.insertBefore(button, searchButton);
   button.querySelector('.nav-label').textContent = config.labels.products;
+  hydrateIcons(button);
 }
 
 function showView(name) {
@@ -323,8 +325,8 @@ function renderEntityTable() {
         <td>${escapeHtml(entity.code)}</td>
         <td>${escapeHtml(entity.category ?? '')}</td>
         <td class="table-actions">
-          ${canEdit ? `<button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(entity.id)}">Editar</button>` : ''}
-          ${canDelete ? `<button type="button" class="danger" data-action="delete" data-id="${escapeHtml(entity.id)}">Eliminar</button>` : ''}
+          ${canEdit ? `<button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(entity.id)}">${icon('edit', { className: 'ui-icon' })}Editar</button>` : ''}
+          ${canDelete ? `<button type="button" class="danger" data-action="delete" data-id="${escapeHtml(entity.id)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>` : ''}
         </td>
       </tr>`).join('')
     : '<tr><td colspan="4" class="empty-row">Sin registros.</td></tr>';
@@ -364,9 +366,9 @@ function renderDocumentTable() {
         <td>${escapeHtml(formatCurrencyCLP(document.totalAmount))}</td>
         <td>${document.status ? `<span class="status-badge">${escapeHtml(document.status)}</span>` : ''}</td>
         <td class="table-actions">
-          <button type="button" class="secondary" data-action="view-order" data-id="${escapeHtml(document.id)}">Ver detalle</button>
-          ${canEdit ? `<button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(document.id)}">Editar</button>` : ''}
-          ${canDelete ? `<button type="button" class="danger" data-action="delete" data-id="${escapeHtml(document.id)}">Eliminar</button>` : ''}
+          <button type="button" class="secondary" data-action="view-order" data-id="${escapeHtml(document.id)}">${icon('view', { className: 'ui-icon' })}Ver detalle</button>
+          ${canEdit ? `<button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(document.id)}">${icon('edit', { className: 'ui-icon' })}Editar</button>` : ''}
+          ${canDelete ? `<button type="button" class="danger" data-action="delete" data-id="${escapeHtml(document.id)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>` : ''}
         </td>
       </tr>`).join('')
     : '<tr><td colspan="6" class="empty-row">Sin registros.</td></tr>';
@@ -941,6 +943,7 @@ export async function initApp(normalizedConfig, options = {}) {
   activeSession = getSession();
   setActiveConfig(config);
   ensureProductsNav();
+  hydrateIcons();
   if (options.recoverTransactions !== false) {
     try {
       recoveryResult = recoverTransactions();

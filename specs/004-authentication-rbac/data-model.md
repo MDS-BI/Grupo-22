@@ -1,6 +1,6 @@
 # Modelo de Datos: Autenticación por User ID y RBAC
 
-**Rama**: `003-authentication-rbac`
+**Rama**: `004-authentication-rbac`
 **Fecha**: 2026-11-08
 **Especificación**: [spec.md](spec.md)
 **Contexto base**: [Modelo de datos del módulo base](../001-erp-base-module/data-model.md) y [Modelo de datos de órdenes de compra](../002-purchase-order-workflow/data-model.md)

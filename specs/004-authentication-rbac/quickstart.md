@@ -1,6 +1,6 @@
 # Quickstart de Validación: Autenticación por User ID y RBAC
 
-**Rama**: `003-authentication-rbac`
+**Rama**: `004-authentication-rbac`
 **Fecha**: 2026-11-08
 **Especificación**: [spec.md](spec.md)
 **Modelo de datos**: [data-model.md](data-model.md)
