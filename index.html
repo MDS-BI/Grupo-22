@@ -7,10 +7,17 @@
   <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
-  <div class="app-shell">
+  <div class="app-shell" id="app-shell" hidden>
     <header class="topbar">
       <div class="brand"><div id="logo-mark"></div><strong id="brand-name">Adquisiciones y Compras</strong></div>
-      <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Contraer navegación">☰</button>
+      <div class="topbar-actions">
+        <div class="session-info" id="session-info" hidden>
+          <span class="session-user" id="session-user"></span>
+          <span class="session-role" id="session-role"></span>
+          <button type="button" class="secondary" id="logout-button">Cerrar sesión</button>
+        </div>
+        <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Contraer navegación">☰</button>
+      </div>
     </header>
     <aside class="sidebar" id="sidebar">
       <button class="nav-module" data-module="dashboard" id="nav-dashboard" aria-current="page"><span>▦</span><span class="nav-label" id="nav-dashboard-label">Panel</span></button>
@@ -143,6 +150,25 @@
       </section>
     </main>
   </div>
+  <section class="auth-gate" id="auth-gate" hidden>
+    <div class="auth-card">
+      <span class="eyebrow">Acceso al sistema</span>
+      <h1>Adquisiciones y Compras</h1>
+      <p>Ingresa tu identificador único (User ID). El sistema determinará tu rol y habilitará las vistas y permisos correspondientes.</p>
+      <form id="login-form" novalidate>
+        <div class="field">
+          <label for="login-user-id">User ID</label>
+          <input id="login-user-id" autocomplete="username" autocapitalize="characters" placeholder="Ej: ADMIN-001">
+        </div>
+        <small class="field-error" id="login-error" aria-live="polite"></small>
+        <button class="primary" type="submit" id="login-submit">Ingresar</button>
+      </form>
+      <div class="auth-hints">
+        <strong>Usuarios de demostración</strong>
+        <ul id="login-user-hints"></ul>
+      </div>
+    </div>
+  </section>
   <div id="config-warning" class="config-warning" hidden></div>
   <script type="module" src="/src/main.js"></script>
 </body>

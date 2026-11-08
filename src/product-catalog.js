@@ -41,6 +41,7 @@ function renderCategoryOptions(selected = '') {
 function renderTable() {
   const body = qs('product-table-body');
   if (!body) return;
+  const canManage = catalogOptions.canManage !== false;
   const categories = new Map(loadCategories().map(category => [category.id_categoria || category.id, category]));
   const products = loadProducts();
   body.innerHTML = products.length
@@ -49,12 +50,12 @@ function renderTable() {
         <td>${escape(product.unidad_medida || product.unit || '')}</td>
         <td>${escape(categories.get(product.id_categoria)?.nombre || categories.get(product.id_categoria)?.name || '')}</td>
         <td>${escape(Number(product.stock || 0))}</td>
-        <td class="table-actions">
+        ${canManage ? `<td class="table-actions">
           <button type="button" class="secondary" data-action="edit-product" data-id="${escape(productId(product))}">Editar</button>
           <button type="button" class="danger" data-action="delete-product" data-id="${escape(productId(product))}">Eliminar</button>
-        </td>
+        </td>` : ''}
       </tr>`).join('')
-    : '<tr><td colspan="5" class="empty-row">Sin productos registrados.</td></tr>';
+    : `<tr><td colspan="${canManage ? 5 : 4}" class="empty-row">Sin productos registrados.</td></tr>`;
 }
 
 function clearForm() {
@@ -82,6 +83,7 @@ function showErrors(errors) {
 }
 
 function submitProduct() {
+  if (catalogOptions.canManage === false) return;
   const data = {
     nombre: qs('product-nombre').value,
     unidad_medida: qs('product-unidad').value,
@@ -116,6 +118,7 @@ function submitProduct() {
 }
 
 function editProduct(id) {
+  if (catalogOptions.canManage === false) return;
   const product = loadProducts().find(item => productId(item) === id);
   if (!product) return;
   editingProductId = id;
@@ -129,6 +132,7 @@ function editProduct(id) {
 }
 
 function removeProduct(id) {
+  if (catalogOptions.canManage === false) return;
   if (!globalThis.confirm('¿Eliminar este producto del catálogo?')) return;
   try {
     deleteProduct(id);
@@ -141,6 +145,7 @@ function removeProduct(id) {
 }
 
 function addCategoryFromForm() {
+  if (catalogOptions.canManage === false) return;
   const input = qs('new-category-name');
   const name = String(input?.value || '').trim();
   if (!name) return;
@@ -155,8 +160,8 @@ export function init(options = {}) {
   catalogOptions = options;
   const container = qs('products-view');
   if (!container) return;
-  container.innerHTML = `
-    <div class="product-grid">
+  const canManage = catalogOptions.canManage !== false;
+  const form = `
       <form id="product-form" class="catalog-form" novalidate>
         <h2>Agregar / Editar producto</h2>
         <input type="hidden" id="product-id">
@@ -167,12 +172,15 @@ export function init(options = {}) {
         <div class="field"><label for="new-category-name">Nueva categoría</label><div class="inline-control"><input id="new-category-name" placeholder="Nombre de la categoría"><button type="button" class="secondary" id="add-category-button">Agregar</button></div></div>
         <button class="primary" type="submit" id="product-submit-button">Guardar producto</button>
         <div id="product-feedback" class="feedback" aria-live="polite"></div>
-      </form>
+      </form>`;
+  container.innerHTML = `
+    <div class="product-grid${canManage ? '' : ' single-column'}">
+      ${canManage ? form : ''}
       <section>
         <h2>Catálogo y stock</h2>
         <div class="table-wrapper">
           <table class="data-table" id="product-table">
-            <thead><tr><th>Producto</th><th>Unidad</th><th>Categoría</th><th>Stock</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>Producto</th><th>Unidad</th><th>Categoría</th><th>Stock</th>${canManage ? '<th>Acciones</th>' : ''}</tr></thead>
             <tbody id="product-table-body"></tbody>
           </table>
         </div>
@@ -181,11 +189,11 @@ export function init(options = {}) {
   renderCategoryOptions();
   renderTable();
   clearForm();
-  qs('product-form').addEventListener('submit', event => {
+  qs('product-form')?.addEventListener('submit', event => {
     event.preventDefault();
     submitProduct();
   });
-  qs('add-category-button').addEventListener('click', addCategoryFromForm);
+  qs('add-category-button')?.addEventListener('click', addCategoryFromForm);
   if (boundContainer !== container) {
     boundContainer = container;
     container.addEventListener('click', event => {

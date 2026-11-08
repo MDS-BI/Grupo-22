@@ -212,6 +212,32 @@ Consideraciones técnicas:
 - El panel y las listas deben seguir siendo ágiles con al menos 500 registros de entidad.
 - Las estadísticas deben coincidir siempre con los datos almacenados.
 
+## Autenticación y control de acceso basado en roles (RBAC)
+
+El acceso a la aplicación comienza en una pantalla de inicio de sesión por **User ID**. Al autenticar un identificador registrado, el sistema resuelve el rol del usuario desde el directorio local y despliega únicamente las vistas, acciones y transiciones permitidas para ese perfil.
+
+### Roles incluidos
+
+| Rol | Alcance principal |
+|---|---|
+| Administrador | Acceso completo a todos los módulos y acciones. |
+| Gerente de Compras | Gestión completa de proveedores, órdenes y productos; aprueba, recibe y cancela órdenes. |
+| Comprador | Crea y edita proveedores y órdenes, envía a revisión y cancela; no aprueba ni recibe. |
+| Bodeguero | Consulta órdenes, recibe mercancía y administra productos y stock; no crea ni edita órdenes. |
+| Consulta | Acceso de solo lectura al panel, proveedores, órdenes, productos y búsqueda; puede imprimir órdenes. |
+
+### Usuarios de demostración
+
+| User ID | Nombre | Rol |
+|---|---|---|
+| `ADMIN-001` | Valentina Ríos | Administrador |
+| `GER-001` | Martín Soto | Gerente de Compras |
+| `COMP-001` | Camila Vega | Comprador |
+| `BOD-001` | Diego Fuentes | Bodeguero |
+| `CONS-001` | Ana Pérez | Consulta |
+
+El directorio se guarda en `erp_auth:users` y la sesión activa en `erp_auth:session`, ambos en `localStorage`. La pantalla de acceso muestra los usuarios disponibles y mantiene la sesión entre recargas. Al cerrar sesión se elimina la sesión y se vuelve a la pantalla de acceso.
+
 ## Notas
 
 - Los datos se persisten en `localStorage` bajo las claves `erp_base_module:entities` y `erp_base_module:documents`.

@@ -59,7 +59,10 @@ export function renderDetail(detailOrId, options = {}) {
   const supplier = detail.supplier || {};
   const supplierName = supplier.name || supplier.nombre || '';
   const supplierCode = supplier.code || supplier.rut || '';
-  const actions = detail.isLegacy ? [] : getAvailableActionItems(order.status);
+  const availableActions = detail.isLegacy ? [] : getAvailableActionItems(order.status);
+  const actions = options.allowedNextStatuses
+    ? availableActions.filter(action => options.allowedNextStatuses.includes(action.nextStatus))
+    : availableActions;
   const stockApplied = Boolean(detail.stockApplied || detail.metadata?.stock_aplicado);
 
   const header = qs('order-detail-view');
@@ -84,7 +87,7 @@ export function renderDetail(detailOrId, options = {}) {
 
   const linesContainer = qs('order-lines-table');
   if (linesContainer) {
-    const editable = !['recibido', 'cancelado'].includes(order.status);
+    const editable = !['recibido', 'cancelado'].includes(order.status) && options.canEditLines !== false;
     linesContainer.innerHTML = `
       <h2>Líneas de detalle</h2>
       <div class="table-wrapper">
@@ -120,7 +123,7 @@ export function renderDetail(detailOrId, options = {}) {
   const actionsContainer = qs('order-actions');
   if (actionsContainer) {
     actionsContainer.innerHTML = `
-      <button type="button" class="primary" data-action="print-order">Imprimir orden</button>
+      ${options.canPrint === false ? '' : '<button type="button" class="primary" data-action="print-order">Imprimir orden</button>'}
       ${actions
         .map(action => `<button type="button" class="secondary" data-action="transition" data-next-status="${escape(action.nextStatus)}">${escape(action.label || actionLabel(action.nextStatus))}</button>`)
         .join('')}

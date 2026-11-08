@@ -22,8 +22,20 @@ import {
 import {
   validatePurchaseOrderLine,
   isTerminalStatus,
-  purchasingErrorMessage
+  purchasingErrorMessage,
+  getAvailableActionItems
 } from './domain/purchasing.js';
+import {
+  PERMISSIONS,
+  can,
+  clearSession,
+  ensureDefaultUsers,
+  getSession,
+  loadUsers,
+  login,
+  roleLabel,
+  transitionPermission
+} from './auth.js';
 import { init as initProductCatalog } from './product-catalog.js';
 import { renderDetail } from './purchase-order-detail.js';
 import { renderPrintable } from './purchase-order-print.js';
@@ -34,6 +46,20 @@ let configErrors = [];
 let draftLines = [];
 let currentOrderId = null;
 let recoveryResult = null;
+let activeSession = null;
+let currentViewName = 'dashboard';
+let appEventsBound = false;
+let authEventsBound = false;
+
+const PERMISSION_DENIED = 'No tienes permisos para ejecutar esta acción.';
+
+const VIEW_PERMISSIONS = {
+  dashboard: PERMISSIONS.DASHBOARD_VIEW,
+  entities: PERMISSIONS.ENTITIES_VIEW,
+  documents: PERMISSIONS.DOCUMENTS_VIEW,
+  products: PERMISSIONS.PRODUCTS_VIEW,
+  search: PERMISSIONS.SEARCH_VIEW
+};
 
 function qs(id) {
   return document.getElementById(id);
@@ -65,6 +91,124 @@ function formatCurrencyCLP(value) {
   if (value === undefined || value === null || value === '') return '';
   const number = Number(value);
   return Number.isFinite(number) ? clpFormatter.format(number) : String(value);
+}
+
+function canUse(permission) {
+  if (!activeSession) return true;
+  return can(permission, activeSession);
+}
+
+function allowedNextStatuses(status) {
+  return getAvailableActionItems(status)
+    .map(action => action.nextStatus)
+    .filter(nextStatus => canUse(transitionPermission(nextStatus)));
+}
+
+function canAccessView(name) {
+  if (name === 'order-detail' || name === 'print') return canUse(PERMISSIONS.DOCUMENTS_VIEW);
+  const permission = VIEW_PERMISSIONS[name];
+  return permission ? canUse(permission) : true;
+}
+
+function firstAllowedView() {
+  for (const view of ['dashboard', 'entities', 'documents', 'products', 'search']) {
+    if (canAccessView(view)) return view;
+  }
+  return 'dashboard';
+}
+
+function renderSessionInfo() {
+  const info = qs('session-info');
+  if (!info) return;
+  if (activeSession) {
+    info.hidden = false;
+    qs('session-user').textContent = `${activeSession.nombre} · ${activeSession.userId}`;
+    qs('session-role').textContent = roleLabel(activeSession.role);
+  } else {
+    info.hidden = true;
+  }
+}
+
+function applyAccessControl() {
+  const shell = qs('app-shell');
+  if (shell) shell.hidden = false;
+  renderSessionInfo();
+  for (const [view, permission] of Object.entries(VIEW_PERMISSIONS)) {
+    const button = qs(`nav-${view}`);
+    if (button) button.hidden = !canUse(permission);
+  }
+  for (const [id, permission] of [
+    ['action-new-entity', PERMISSIONS.ENTITIES_CREATE],
+    ['action-new-document', PERMISSIONS.DOCUMENTS_CREATE],
+    ['action-open-entities', PERMISSIONS.ENTITIES_VIEW],
+    ['action-find', PERMISSIONS.SEARCH_VIEW]
+  ]) {
+    const button = qs(id);
+    if (button) button.hidden = !canUse(permission);
+  }
+  const entityForm = qs('entity-form');
+  if (entityForm) {
+    entityForm.hidden = !(canUse(PERMISSIONS.ENTITIES_CREATE) || canUse(PERMISSIONS.ENTITIES_UPDATE));
+  }
+  const documentForm = qs('document-form');
+  if (documentForm) {
+    documentForm.hidden = !(canUse(PERMISSIONS.DOCUMENTS_CREATE) || canUse(PERMISSIONS.DOCUMENTS_UPDATE));
+  }
+  if (!canAccessView(currentViewName)) showView(firstAllowedView());
+}
+
+function renderLoginHints() {
+  const list = qs('login-user-hints');
+  if (!list) return;
+  ensureDefaultUsers();
+  list.innerHTML = loadUsers()
+    .filter(user => user.activo)
+    .map(user => `<li><span><code>${escapeHtml(user.userId)}</code> · ${escapeHtml(user.nombre)}</span><span class="hint-role">${escapeHtml(roleLabel(user.role))}</span></li>`)
+    .join('');
+}
+
+function revealLoginGate() {
+  const gate = qs('auth-gate');
+  if (gate) gate.hidden = false;
+  const shell = qs('app-shell');
+  if (shell) shell.hidden = true;
+  renderLoginHints();
+  qs('login-user-id')?.focus();
+}
+
+function hideLoginGate() {
+  const gate = qs('auth-gate');
+  if (gate) gate.hidden = true;
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  const input = qs('login-user-id');
+  const error = qs('login-error');
+  if (error) error.textContent = '';
+  try {
+    login(input?.value);
+    hideLoginGate();
+    await initApp();
+  } catch (loginError) {
+    if (error) error.textContent = loginError.message;
+    input?.focus();
+  }
+}
+
+function handleLogout() {
+  clearSession();
+  activeSession = null;
+  revealLoginGate();
+}
+
+function bindAuthEvents() {
+  if (authEventsBound) return;
+  authEventsBound = true;
+  ensureDefaultUsers();
+  renderLoginHints();
+  qs('login-form')?.addEventListener('submit', handleLogin);
+  qs('logout-button')?.addEventListener('click', handleLogout);
 }
 
 function renderLogo() {
@@ -123,6 +267,8 @@ function ensureProductsNav() {
 }
 
 function showView(name) {
+  if (!canAccessView(name)) name = firstAllowedView();
+  currentViewName = name;
   for (const view of ['dashboard', 'entities', 'documents', 'products', 'search', 'order-detail', 'print']) {
     const element = qs(`view-${view}`);
     if (element) element.hidden = view !== name;
@@ -169,14 +315,16 @@ function clearDocumentForm() {
 
 function renderEntityTable() {
   const entities = loadEntities();
+  const canEdit = canUse(PERMISSIONS.ENTITIES_UPDATE);
+  const canDelete = canUse(PERMISSIONS.ENTITIES_DELETE);
   qs('entity-table-body').innerHTML = entities.length
     ? entities.map(entity => `<tr>
         <td>${escapeHtml(entity.name)}</td>
         <td>${escapeHtml(entity.code)}</td>
         <td>${escapeHtml(entity.category ?? '')}</td>
         <td class="table-actions">
-          <button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(entity.id)}">Editar</button>
-          <button type="button" class="danger" data-action="delete" data-id="${escapeHtml(entity.id)}">Eliminar</button>
+          ${canEdit ? `<button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(entity.id)}">Editar</button>` : ''}
+          ${canDelete ? `<button type="button" class="danger" data-action="delete" data-id="${escapeHtml(entity.id)}">Eliminar</button>` : ''}
         </td>
       </tr>`).join('')
     : '<tr><td colspan="4" class="empty-row">Sin registros.</td></tr>';
@@ -206,6 +354,8 @@ function renderLineProductOptions() {
 function renderDocumentTable() {
   const documents = loadDocuments();
   const entityNames = new Map(loadEntities().map(entity => [entity.entity_id, entity.name]));
+  const canEdit = canUse(PERMISSIONS.DOCUMENTS_UPDATE);
+  const canDelete = canUse(PERMISSIONS.DOCUMENTS_DELETE);
   qs('document-table-body').innerHTML = documents.length
     ? documents.map(document => `<tr>
         <td>${escapeHtml(document.folio)}</td>
@@ -215,8 +365,8 @@ function renderDocumentTable() {
         <td>${document.status ? `<span class="status-badge">${escapeHtml(document.status)}</span>` : ''}</td>
         <td class="table-actions">
           <button type="button" class="secondary" data-action="view-order" data-id="${escapeHtml(document.id)}">Ver detalle</button>
-          <button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(document.id)}">Editar</button>
-          <button type="button" class="danger" data-action="delete" data-id="${escapeHtml(document.id)}">Eliminar</button>
+          ${canEdit ? `<button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(document.id)}">Editar</button>` : ''}
+          ${canDelete ? `<button type="button" class="danger" data-action="delete" data-id="${escapeHtml(document.id)}">Eliminar</button>` : ''}
         </td>
       </tr>`).join('')
     : '<tr><td colspan="6" class="empty-row">Sin registros.</td></tr>';
@@ -318,6 +468,11 @@ function showLineErrors(errors) {
 }
 
 function addDraftLine() {
+  const permission = currentOrderId ? PERMISSIONS.DOCUMENTS_UPDATE : PERMISSIONS.DOCUMENTS_CREATE;
+  if (!canUse(permission)) {
+    qs('document-feedback').textContent = PERMISSION_DENIED;
+    return;
+  }
   const line = {
     id_producto: qs('line-product').value,
     cantidad: qs('line-quantity').value,
@@ -355,6 +510,11 @@ function addDraftLine() {
 }
 
 function editDraftLine(index) {
+  const permission = currentOrderId ? PERMISSIONS.DOCUMENTS_UPDATE : PERMISSIONS.DOCUMENTS_CREATE;
+  if (!canUse(permission)) {
+    qs('document-feedback').textContent = PERMISSION_DENIED;
+    return;
+  }
   const line = draftLines[index];
   if (!line) return;
   qs('line-product').value = line.id_producto;
@@ -370,6 +530,11 @@ function editDraftLine(index) {
 }
 
 function removeDraftLine(index) {
+  const permission = currentOrderId ? PERMISSIONS.DOCUMENTS_UPDATE : PERMISSIONS.DOCUMENTS_CREATE;
+  if (!canUse(permission)) {
+    qs('document-feedback').textContent = PERMISSION_DENIED;
+    return;
+  }
   const line = draftLines[index];
   if (!line) return;
   if (currentOrderId) {
@@ -393,6 +558,7 @@ function renderProductCatalog() {
   initProductCatalog({
     escapeHtml,
     formatCurrencyCLP,
+    canManage: canUse(PERMISSIONS.PRODUCTS_MANAGE),
     onChanged: () => {
       renderDocumentEntityOptions();
       renderDashboard();
@@ -400,15 +566,33 @@ function renderProductCatalog() {
   });
 }
 
+function detailOptions(detail) {
+  const order = detail.order || detail.document || detail;
+  return {
+    escapeHtml,
+    formatCurrencyCLP,
+    formatDate,
+    canPrint: canUse(PERMISSIONS.ORDERS_PRINT),
+    canEditLines: canUse(PERMISSIONS.DOCUMENTS_UPDATE),
+    allowedNextStatuses: allowedNextStatuses(order.status)
+  };
+}
+
 function openOrderDetail(orderId) {
+  if (!canUse(PERMISSIONS.DOCUMENTS_VIEW)) return;
   currentOrderId = orderId;
   const detail = getPurchaseOrderDetail(orderId);
-  renderDetail(detail, { escapeHtml, formatCurrencyCLP, formatDate });
+  renderDetail(detail, detailOptions(detail));
   showView('order-detail');
   qs('order-detail-view').scrollIntoView?.({ behavior: 'smooth', block: 'start' });
 }
 
 function printOrder(orderId) {
+  if (!canUse(PERMISSIONS.ORDERS_PRINT)) {
+    const feedback = qs('order-actions').querySelector('.feedback');
+    if (feedback) feedback.textContent = PERMISSION_DENIED;
+    return;
+  }
   const detail = getPurchaseOrderDetail(orderId);
   renderPrintable(detail, { escapeHtml, formatCurrencyCLP, formatDate });
   showView('print');
@@ -531,14 +715,26 @@ function loadDocumentIntoForm(document) {
 }
 
 function bindEvents() {
+  if (appEventsBound) return;
+  appEventsBound = true;
   qs('nav-dashboard').addEventListener('click', () => showView('dashboard'));
   qs('nav-entities').addEventListener('click', () => showView('entities'));
   qs('nav-documents').addEventListener('click', () => showView('documents'));
   if (qs('nav-products')) qs('nav-products').addEventListener('click', () => showView('products'));
   qs('nav-search').addEventListener('click', () => showView('search'));
-  qs('action-new-entity').addEventListener('click', () => { clearEntityForm(); showView('entities'); qs('name').focus(); });
+  qs('action-new-entity').addEventListener('click', () => {
+    if (!canUse(PERMISSIONS.ENTITIES_CREATE)) return;
+    clearEntityForm();
+    showView('entities');
+    qs('name').focus();
+  });
   qs('action-open-entities').addEventListener('click', () => showView('entities'));
-  qs('action-new-document').addEventListener('click', () => { clearDocumentForm(); showView('documents'); qs('document-entity').focus(); });
+  qs('action-new-document').addEventListener('click', () => {
+    if (!canUse(PERMISSIONS.DOCUMENTS_CREATE)) return;
+    clearDocumentForm();
+    showView('documents');
+    qs('document-entity').focus();
+  });
   qs('action-find').addEventListener('click', () => { showView('search'); qs('search-input').focus(); });
   qs('search-input').addEventListener('input', renderSearch);
 
@@ -548,6 +744,11 @@ function bindEvents() {
     event.preventDefault();
     const data = collectEntity();
     const id = qs('entity-id').value;
+    const permission = id ? PERMISSIONS.ENTITIES_UPDATE : PERMISSIONS.ENTITIES_CREATE;
+    if (!canUse(permission)) {
+      qs('entity-feedback').textContent = PERMISSION_DENIED;
+      return;
+    }
     const validation = validateEntity({ ...data, ...(id ? { id } : {}) });
     showEntityErrors(validation.errors);
     if (!validation.valid) return;
@@ -573,8 +774,16 @@ function bindEvents() {
     const entity = loadEntities().find(item => item.id === button.dataset.id);
     if (!entity) return;
     if (button.dataset.action === 'edit') {
+      if (!canUse(PERMISSIONS.ENTITIES_UPDATE)) {
+        qs('entity-feedback').textContent = PERMISSION_DENIED;
+        return;
+      }
       loadEntityIntoForm(entity);
       qs('name').focus();
+      return;
+    }
+    if (!canUse(PERMISSIONS.ENTITIES_DELETE)) {
+      qs('entity-feedback').textContent = PERMISSION_DENIED;
       return;
     }
     if (!globalThis.confirm(`¿Eliminar ${withArticle(config.labels.entity)} ${entity.name}?`)) return;
@@ -599,6 +808,11 @@ function bindEvents() {
     event.preventDefault();
     const data = collectDocument();
     const id = qs('document-id').value;
+    const permission = id ? PERMISSIONS.DOCUMENTS_UPDATE : PERMISSIONS.DOCUMENTS_CREATE;
+    if (!canUse(permission)) {
+      qs('document-feedback').textContent = PERMISSION_DENIED;
+      return;
+    }
     const validation = validateDocument(data);
     if (isPurchasing()) {
       if (!data.id_empleado) {
@@ -639,8 +853,16 @@ function bindEvents() {
       return;
     }
     if (button.dataset.action === 'edit') {
+      if (!canUse(PERMISSIONS.DOCUMENTS_UPDATE)) {
+        qs('document-feedback').textContent = PERMISSION_DENIED;
+        return;
+      }
       loadDocumentIntoForm(document);
       qs('folio').focus();
+      return;
+    }
+    if (!canUse(PERMISSIONS.DOCUMENTS_DELETE)) {
+      qs('document-feedback').textContent = PERMISSION_DENIED;
       return;
     }
     if (!globalThis.confirm(`¿Eliminar ${withArticle(config.labels.document)} folio ${document.folio}?`)) return;
@@ -665,10 +887,15 @@ function bindEvents() {
     }
     if (action === 'transition') {
       const nextStatus = button.dataset.nextStatus;
+      if (!canUse(transitionPermission(nextStatus))) {
+        const feedback = qs('order-actions').querySelector('.feedback');
+        if (feedback) feedback.textContent = PERMISSION_DENIED;
+        return;
+      }
       if (!globalThis.confirm(`¿Confirmar el cambio de estado a "${nextStatus}"?`)) return;
       try {
         const detail = changeOrderStatus(currentOrderId, nextStatus);
-        renderDetail(detail, { escapeHtml, formatCurrencyCLP, formatDate });
+        renderDetail(detail, detailOptions(detail));
         renderDocumentTable();
         renderDashboard();
         qs('order-actions').querySelector('.feedback').textContent = 'Estado actualizado correctamente.';
@@ -682,11 +909,16 @@ function bindEvents() {
   qs('order-lines-table').addEventListener('click', event => {
     const button = event.target.closest('button[data-action="delete-line"]');
     if (!button) return;
+    if (!canUse(PERMISSIONS.DOCUMENTS_UPDATE)) {
+      const feedback = qs('order-actions').querySelector('.feedback');
+      if (feedback) feedback.textContent = PERMISSION_DENIED;
+      return;
+    }
     if (!globalThis.confirm('¿Eliminar esta línea de detalle?')) return;
     try {
       deletePurchaseOrderLine(currentOrderId, button.dataset.productId);
       const detail = getPurchaseOrderDetail(currentOrderId);
-      renderDetail(detail, { escapeHtml, formatCurrencyCLP, formatDate });
+      renderDetail(detail, detailOptions(detail));
       renderDocumentTable();
       renderDashboard();
     } catch (error) {
@@ -706,6 +938,7 @@ export async function initApp(normalizedConfig, options = {}) {
     config = loaded.config;
     configErrors = loaded.errors;
   }
+  activeSession = getSession();
   setActiveConfig(config);
   ensureProductsNav();
   if (options.recoverTransactions !== false) {
@@ -725,6 +958,7 @@ export async function initApp(normalizedConfig, options = {}) {
   renderStatusControl();
   renderDraftLines();
   bindEvents();
+  applyAccessControl();
   renderEntityTable();
   renderDocumentTable();
   renderDashboard();
@@ -743,5 +977,11 @@ export function getRecoveryResult() {
 }
 
 export async function boot() {
+  bindAuthEvents();
+  if (!getSession()) {
+    revealLoginGate();
+    return;
+  }
+  hideLoginGate();
   await initApp();
 }
