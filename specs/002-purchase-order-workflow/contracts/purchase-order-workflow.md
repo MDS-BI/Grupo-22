@@ -15,13 +15,15 @@ La extensión es una aplicación web local sin API externa. Los contratos docume
 
 | Operación | Entrada | Salida | Errores esperados |
 |---|---|---|---|
-| Guardar orden con líneas | Cabecera base, metadatos (`id_empleado` obligatorio), líneas | Orden, metadatos y líneas persistidos | `ORDER_INVALID`, `NO_LINES`, `LINE_INVALID`, `FOLIO_DUPLICATE`, `PERSISTENCE_ERROR` |
-| Actualizar orden con líneas | `id_orden_compra`, cabecera, metadatos (`id_empleado` obligatorio), líneas | Registros actualizados y total recalculado | `ORDER_NOT_FOUND`, `ORDER_TERMINAL`, `NO_LINES`, `LINE_INVALID`, `PERSISTENCE_ERROR` |
+| Guardar orden con líneas | Cabecera permitida (proveedor, empleado, folio, fecha de entrega, condición de pago y moneda condicional), metadatos (`id_empleado` obligatorio), líneas | Orden, metadatos y líneas persistidos | `ORDER_INVALID`, `NO_LINES`, `LINE_INVALID`, `FOLIO_DUPLICATE`, `SUPPLIER_ORIGIN_INVALID`, `CURRENCY_INVALID`, `PAYMENT_TERMS_INVALID`, `DATE_FORMAT_INVALID`, `PERSISTENCE_ERROR` |
+| Actualizar orden con líneas | `id_orden_compra`, cabecera permitida, metadatos (`id_empleado` obligatorio), líneas | Registros actualizados y total recalculado | `ORDER_NOT_FOUND`, `ORDER_TERMINAL`, `NO_LINES`, `LINE_INVALID`, `SUPPLIER_ORIGIN_INVALID`, `CURRENCY_INVALID`, `PAYMENT_TERMS_INVALID`, `DATE_FORMAT_INVALID`, `PERSISTENCE_ERROR` |
 | Obtener detalle de orden | `id_orden_compra` | Vista de lectura con proveedor, empleado, líneas, totales e historial | `ORDER_NOT_FOUND` |
 | Eliminar orden | `id_orden_compra` | Orden, líneas, metadatos, historial y transacciones eliminados | `ORDER_NOT_FOUND` |
 | Listar órdenes | Sin parámetros | Órdenes con estado, total y acciones disponibles | — |
 
 `id_empleado` es obligatorio al crear o guardar una OC; si falta, la operación se rechaza con `ORDER_INVALID` y un mensaje que indique seleccionar un empleado.
+
+La cabecera no acepta `quantity`, `subtotal`, `discount`, `taxAmount`, `notes` ni `status` enviados manualmente; esos valores se ignoran o se rechazan con `MANUAL_FIELD_NOT_ALLOWED`. La fecha de emisión (`startDate`) no forma parte de la entrada: se asigna automáticamente al aprobar. La `currency` debe ser `CLP` para origen Nacional y `USD` o `EUR` para origen Extranjero. La `paymentTerms` debe pertenecer a la lista fija del proveedor.
 
 ### Operaciones de líneas
 
@@ -40,6 +42,8 @@ La extensión es una aplicación web local sin API externa. Los contratos docume
 | Obtener historial | `id_orden_compra` | Cambios de estado en orden cronológico | `ORDER_NOT_FOUND` |
 
 La transición `borrador → pendiente` se rechaza con `NO_LINES` si la OC no tiene al menos una línea válida; no se modifica el estado ni se agrega historial.
+
+La transición `pendiente → aprobado` asigna automáticamente `startDate` con la fecha del día en America/Santiago. La fecha de emisión no se recibe como entrada del usuario. Antes de aprobar, el detalle y la impresión muestran «Sin emitir».
 
 ### Operaciones de recepción
 
@@ -72,6 +76,18 @@ La transición `borrador → pendiente` se rechaza con `NO_LINES` si la OC no ti
 - La lectura del historial se ordena por `changedAt` ascendente.
 - El historial se elimina en cascada con la orden.
 
+### Contrato de cabecera y cálculos post-revisión
+
+- El formulario de OC no muestra cantidad, subtotal, descuento, impuesto, importe total ni notas; la cantidad y el precio unitario solo existen en las líneas.
+- El formulario no muestra un desplegable de Estado; toda orden nueva inicia en `borrador` y el estado solo cambia mediante las acciones de flujo.
+- El subtotal de cada línea, el neto, el impuesto y el total se calculan automáticamente y se muestran en solo lectura; ningún usuario puede editarlos.
+- El origen del proveedor se toma de 001. Para `Nacional`, el IVA es del 19 % y la moneda queda fija en CLP. Para `Extranjero`, no se aplica IVA en la OC y la moneda se puede seleccionar entre USD y EUR.
+- Los montos se muestran con el símbolo de su moneda: CLP sin decimales y USD/EUR con dos decimales.
+- Las condiciones de pago se eligen desde la misma lista fija usada por el proveedor y el valor del proveedor aparece preseleccionado.
+- La fecha de emisión no se ingresa; se asigna con la fecha del día al pasar a `aprobado` y solo se muestra en el detalle y en la impresión. En `borrador` o `pendiente` se muestra «Sin emitir».
+- Las fechas ingresadas por el usuario, incluida la fecha de entrega, usan máscara `dd-mm-aaaa` y se guardan internamente en ISO 8601 (`YYYY-MM-DD`).
+- El título de la sección de líneas es «Detalle de compra».
+
 ## Contrato de Interfaz de Usuario
 
 ### Vistas
@@ -79,8 +95,9 @@ La transición `borrador → pendiente` se rechaza con `NO_LINES` si la OC no ti
 | Vista | Propósito |
 |---|---|
 | Lista de órdenes | Mostrar folio, proveedor, fecha de entrega, total, estado y acciones |
-| Detalle de orden | Mostrar cabecera, líneas, totales, acciones de estado, historial y acceso a impresión |
-| Editor de líneas | Agregar, editar y eliminar líneas mientras la orden no sea terminal |
+| Formulario de OC | Capturar proveedor, empleado, folio, fecha de entrega, condición de pago y moneda condicional; sin campos manuales de importes, notas ni estado |
+| Detalle de orden | Mostrar cabecera, líneas, totales de solo lectura, acciones de estado, historial y acceso a impresión |
+| Editor de líneas | Agregar, editar y eliminar líneas mientras la orden no sea terminal; cantidad y precio unitario solo aquí |
 | Vista imprimible | Documento limpio de la orden, sin navegación ni acciones |
 
 ### Acciones observables
@@ -110,11 +127,11 @@ La acción de impresión está disponible en todos los estados. Las acciones de 
 ### Contrato de líneas
 
 - El selector de producto solo muestra productos existentes.
-- La cantidad es un entero positivo.
-- El precio unitario es un número no negativo.
-- El subtotal se muestra calculado y no es editable.
+- La cantidad es un entero positivo y solo se captura en la línea.
+- El precio unitario es un número no negativo y solo se captura en la línea.
+- El subtotal de la línea, el neto, el impuesto y el total se muestran calculados, con el símbolo de la moneda, y no son editables.
 - El formulario impide guardar una línea inválida y muestra el error junto al campo.
-- Al guardar o eliminar una línea, el neto, el IVA y el total se actualizan en la misma pantalla.
+- Al guardar o eliminar una línea, el neto, el impuesto y el total se actualizan en la misma pantalla.
 - Una orden sin líneas no puede guardarse ni enviarse a revisión.
 
 ### Contrato de la vista imprimible
@@ -123,9 +140,10 @@ La vista imprimible debe mostrar:
 
 - Nombre del módulo y título del documento.
 - Folio, proveedor, RUT del proveedor, condición de pago y empleado solicitante.
-- Fecha de emisión, fecha de entrega y estado actual.
+- Fecha de emisión o «Sin emitir», fecha de entrega y estado actual.
 - Tabla de líneas con producto, unidad, cantidad, precio unitario y subtotal.
-- Neto, IVA del 19 % y total.
+- Neto, impuesto correspondiente al origen y total, con el símbolo de la moneda de la orden.
+- Para proveedores Extranjeros, la OC no incluye IVA; el IVA de importación se paga en aduana y queda fuera del documento.
 - Historial de estados con estado anterior, estado nuevo y fecha/hora.
 - Indicación de que la orden fue recibida y el stock fue aplicado, cuando corresponda.
 
@@ -140,6 +158,8 @@ Al imprimir:
 - Todas las acciones son operables con teclado.
 - Los botones tienen texto o `aria-label` comprensible.
 - Los campos de línea tienen etiqueta asociada y errores anunciables.
+- El campo de fecha con máscara `dd-mm-aaaa` tiene etiqueta, ayuda de formato y error anunciable.
+- Los importes de solo lectura se anuncian como texto y no como campos editables.
 - El foco es visible.
 - El contraste cumple WCAG 2.1 AA.
 - La tabla de líneas y el historial usan encabezados semánticos.
@@ -155,6 +175,11 @@ Al imprimir:
 | `LINE_INVALID` | La línea tiene datos inválidos; revisa producto, cantidad y precio. |
 | `PRODUCT_NOT_FOUND` | El producto seleccionado ya no existe. |
 | `PRODUCT_DUPLICATE` | El producto ya está incluido en esta orden. |
+| `SUPPLIER_ORIGIN_INVALID` | No fue posible determinar el origen del proveedor; revisa el dato maestro. |
+| `CURRENCY_INVALID` | La moneda no corresponde al origen del proveedor. |
+| `PAYMENT_TERMS_INVALID` | La condición de pago no pertenece a la lista del proveedor. |
+| `DATE_FORMAT_INVALID` | La fecha debe tener el formato dd-mm-aaaa. |
+| `MANUAL_FIELD_NOT_ALLOWED` | Los importes y notas se calculan desde las líneas y no se ingresan en la cabecera. |
 | `INVALID_TRANSITION` | La acción no está permitida para el estado actual. |
 | `STOCK_ALREADY_APPLIED` | La recepción de esta orden ya fue aplicada. |
 | `PERSISTENCE_ERROR` | No fue posible guardar los cambios; se restauró el estado anterior. |
@@ -164,5 +189,7 @@ Al imprimir:
 - Autenticación, autorización por roles y registro de usuario.
 - Sincronización entre pestañas, dispositivos o usuarios.
 - Recepciones parciales, múltiples bodegas y devoluciones.
+- IVA de importación, liquidación aduanera y pagos internacionales.
+- Edición manual de importes calculados, estado y fecha de emisión.
 - Generación de PDF en servidor o firma electrónica.
 - Edición del historial por parte del usuario.

@@ -14,7 +14,7 @@ De los seis conceptos del MER, solo dos se apoyan directamente en el módulo bas
 
 **Lenguaje/Versión**: JavaScript (ES2022), HTML, CSS
 **Dependencias Principales**: Vite, sin framework de interfaz pesado
-**Almacenamiento**: `localStorage` del navegador. El base conserva `erp_base_module:entities` (proveedores) y `erp_base_module:documents` (órdenes de compra); la extensión añade `erp_purchasing:employees`, `erp_purchasing:categories`, `erp_purchasing:products` y `erp_purchasing:purchase-order-lines`
+**Almacenamiento**: `localStorage` del navegador. El base conserva `erp_base_module:entities` (proveedores) y `erp_base_module:documents` (órdenes de compra); la extensión añade `erp_purchasing:employees`, `erp_purchasing:categories`, `erp_purchasing:rubros`, `erp_purchasing:products` y `erp_purchasing:purchase-order-lines`
 **Pruebas**: Vitest con jsdom para pruebas unitarias y de integración
 **Plataforma Objetivo**: Navegadores modernos de escritorio y móviles
 **Tipo de Proyecto**: Aplicación web de una sola página
@@ -35,7 +35,7 @@ De los seis conceptos del MER, solo dos se apoyan directamente en el módulo bas
 
 ### Incluido
 
-- Gestión de proveedores como entidad base, con nombre, RUT, categoría y condición de pago obligatorios.
+- Gestión de proveedores como entidad base, con nombre, Rubro de selección múltiple, condición de pago de lista fija, Origen obligatorio, RUT (Nacional) o Identificación tributaria extranjera, límite de crédito no negativo y sin Fecha objetivo.
 - Gestión de empleados, categorías y productos como datos maestros de la extensión.
 - Creación y edición de órdenes de compra vinculadas a un proveedor y a un empleado.
 - Registro de líneas de detalle con producto, cantidad y costo unitario.
@@ -67,14 +67,17 @@ Dato maestro del módulo: la empresa o persona a quien se le compra. Se almacena
 |---|---|---|---|
 | `entity_id` | `entity_id` | string | Generado automáticamente, único; vínculo con las órdenes |
 | `nombre` | `name` | string | Obligatorio, no vacío |
-| `rut` | `code` | string | Obligatorio; normalizado sin puntos y con guion, dígito verificador en mayúscula, validado por módulo 11 (incluida K) y único. Se etiqueta "RUT" |
-| `categoria` | `category` | string | Obligatoria, no vacía |
-| `condicion_pago` | `paymentTerms` | string | Obligatoria, no vacía |
+| `rut` | `code` | string | Obligatorio y validado por módulo 11 (incluida K) solo para Origen Nacional; normalizado sin puntos y con guion, dígito verificador en mayúscula y único. Se etiqueta "RUT" |
+| `rubro_ids` | `rubro_ids` | string[] | Lista de identificadores de Rubro; al menos uno obligatorio. Reemplaza a `category` en Compras |
+| `condicion_pago` | `paymentTerms` | string | Obligatoria; debe ser una de Contado, 30 días, 60 días o 90 días |
+| `origen` | `origin` | string | Obligatorio; Nacional o Extranjero |
+| `identificacion_tributaria_extranjera` | `foreignTaxId` | string | Obligatoria cuando el Origen es Extranjero; texto libre |
+| `limite_credito` | `creditLimit` | number | Opcional; número mayor o igual a 0 |
 | `email` | `email` | string | Opcional; formato de correo válido |
 | `telefono` | `phone` | string | Opcional |
 | `direccion` | `address` | string | Opcional |
 
-Hereda además `id`, `createdAt` y `updatedAt`. Los campos base `description`, `targetDate` y `creditLimit` no forman parte del MER y permanecen opcionales y sin uso en este módulo. El RUT se persiste en el campo base `code` y se etiqueta "RUT"; no se usa un campo fiscal separado.
+Hereda además `id`, `createdAt` y `updatedAt`. El campo base `category` queda como legado de migración: al cargar, su texto se convierte en un Rubro con ese nombre y el proveedor pasa a usar `rubro_ids`. El campo base `targetDate` no se usa en Proveedor y no se muestra en el formulario; `description` permanece opcional y sin uso. El RUT se persiste en el campo base `code` y se etiqueta "RUT"; la identificación extranjera se persiste en `foreignTaxId`.
 
 ### Empleado — Extensión
 
@@ -157,7 +160,11 @@ Entre **Orden de compra** y **Producto** existe una relación de muchos a muchos
 
 ### Reglas de integridad y validación
 
-- Además de las reglas base, Compras exige (XR-003): `code` etiquetado "RUT" obligatorio, normalizado sin puntos y con guion, dígito verificador módulo 11 (incluida K) y único; `category` obligatoria y `paymentTerms` obligatorio. Las reglas base no se reemplazan, se añaden.
+- Además de las reglas base, Compras exige (XR-003): al menos un Rubro en `rubro_ids`; `paymentTerms` obligatorio y restringido a Contado, 30 días, 60 días o 90 días; `origin` obligatorio (Nacional o Extranjero); y, según el Origen, `code` etiquetado "RUT" normalizado, validado por módulo 11 (incluida K) y único para Nacional, o `foreignTaxId` obligatorio en texto para Extranjero. Las reglas base no se reemplazan, se añaden.
+- El límite de crédito es opcional, pero cuando se informa debe ser un número mayor o igual a 0; un valor negativo se rechaza con un mensaje bajo el campo.
+- Los proveedores existentes con `category` en texto se migran al cargar a un Rubro con ese nombre; si el Rubro ya existe, se reutiliza.
+- Una condición de pago histórica que no pertenezca a la lista fija se muestra como "Otra (valor anterior)" hasta que el proveedor se edite y se elija un valor permitido.
+- El formulario de Proveedor no incluye `targetDate`; el campo permanece disponible solo para otros módulos del base.
 - Un empleado debe tener nombre y cargo no vacíos.
 - Una categoría debe tener nombre no vacío y no puede repetirse sin distinguir mayúsculas.
 - Un producto debe tener nombre, unidad de medida y categoría existente; el stock debe ser un entero no negativo.
@@ -176,7 +183,7 @@ Entre **Orden de compra** y **Producto** existe una relación de muchos a muchos
 ## Flujo Funcional de Compra
 
 1. **Se configura el módulo**: en `userConfig` se define el nombre del módulo, se renombran Entidad → Proveedor y Documento → Orden de Compra, y se declara el ciclo de vida de estados.
-2. **Se registran los datos maestros**: proveedores (con nombre, RUT, categoría y condición de pago obligatorios), empleados, y las categorías y productos del catálogo.
+2. **Se registran los datos maestros**: proveedores (con nombre, al menos un Rubro, condición de pago de la lista fija, Origen y RUT o Identificación tributaria extranjera según corresponda), empleados, Rubros, y las categorías y productos del catálogo.
 3. **Se crea una orden de compra**: se elige el proveedor, se indica qué empleado la registra, el folio, la fecha de emisión y la fecha de entrega esperada. El sistema impide guardar si falta el proveedor, el empleado, el folio o las fechas, o si la fecha de entrega es anterior a la de emisión.
 4. **Se agregan las líneas de detalle**: por cada producto se indica la cantidad y el costo unitario. El costo se guarda en la propia línea, de modo que el precio pagado queda como registro histórico aunque después cambie.
 5. **Se calcula el total**: es la suma de cantidad × costo unitario de las líneas. El módulo base valida cada importe por separado, pero no calcula el total automáticamente; esa regla la implementa este módulo.
@@ -200,6 +207,8 @@ export const userConfig = {
     employees: "Empleados",
     category: "Categoría",
     categories: "Categorías",
+    supplierCategory: "Rubro",
+    supplierCategories: "Rubros",
     product: "Producto",
     products: "Productos",
     purchaseOrderLine: "Detalle de compra",
@@ -304,6 +313,8 @@ tests/
 - Aplicación de stock al recibir y garantía de que no se aplica dos veces.
 - Validaciones de proveedor, empleado, categoría, producto y orden.
 - Cascada proveedor → órdenes → líneas y bloqueo de borrado de datos referenciados.
+- Límite de crédito mayor o igual a 0, al menos un Rubro, condición de pago de la lista fija, Origen obligatorio y regla RUT/Identificación tributaria extranjera.
+- Migración de categoría en texto a Rubro y presentación de condiciones de pago heredadas como "Otra (valor anterior)".
 
 **De integración**
 
@@ -315,6 +326,8 @@ tests/
 - Intentar eliminar un producto referenciado y verificar el mensaje de bloqueo.
 - Verificar los indicadores del panel: acciones rápidas, recuento de proveedores, recuento de órdenes, órdenes por estado y órdenes atrasadas (fecha_entrega anterior a la fecha actual local America/Santiago y estado distinto de recibido/cancelado; una entrega de hoy no está atrasada).
 - Verificar que nombres y notas con HTML se muestran escapados.
+- Crear un proveedor con Rubro múltiple, condición de pago fija, Origen y sin Fecha objetivo; verificar que aparece la etiqueta Rubro y que se encuentra al buscar por cualquiera de sus Rubros.
+- Verificar que un proveedor existente con categoría en texto se migra a un Rubro y que una condición de pago no listada se muestra como "Otra (valor anterior)".
 
 **Rendimiento**
 
@@ -356,6 +369,9 @@ tests/
 | Unicidad de folio | Se valida de forma global; Compras no usa series. |
 | Recepciones parciales | Fuera de alcance; la recepción actualiza el stock por la cantidad completa de cada línea. |
 | Producto compartido con ventas | Se mantiene una única definición de producto reutilizable por otros módulos. |
+| Migración de categorías de proveedor a Rubro | Se ejecuta al cargar, reutiliza Rubros por nombre y conserva `category` como legado solo para la migración. |
+| Condiciones de pago históricas fuera de la lista fija | Se muestran como "Otra (valor anterior)" y se reemplazan solo al editar el proveedor. |
+| Cambio a módulo ESM | Se declara `"type": "module"` en `package.json` y se verifica build, test y lint sin regresiones. |
 
 ## Seguimiento de Complejidad
 

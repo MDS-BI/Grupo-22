@@ -193,6 +193,38 @@
 
 ---
 
+## Phase 9: Ajustes post-revisión
+
+**Purpose**: Alinear el formulario y los cálculos de la orden de compra con la revisión final: eliminar campos manuales, dejar los importes de solo lectura, aplicar impuesto y moneda según el origen del proveedor, usar la lista fija de condiciones de pago, asignar automáticamente la fecha de emisión, eliminar el selector de estado, corregir el título y capturar fechas con máscara.
+
+**Independent Test**: Crear una OC Nacional y una Extranjera comprobando campos visibles, totales de solo lectura, IVA/moneda, condición de pago predeterminada, fecha de emisión y máscara de fecha; aprobar una OC y verificar la fecha de emisión en detalle e impresión.
+
+### Tests for Ajustes post-revisión
+
+- [ ] T054 [P] [US1] Escribir pruebas unitarias fallidas para impuesto y moneda según origen, totales de solo lectura y formato monetario en `tests/unit/purchasing-workflow.test.js`.
+- [ ] T055 [P] [US1] Escribir pruebas de integración fallidas para el formulario sin campos manuales, totales de solo lectura, moneda condicional, condición de pago predeterminada, fecha de entrega enmascarada, ausencia del selector Estado y título «Detalle de compra» en `tests/integration/purchase-order-form-adjustments.test.js`.
+- [ ] T056 [P] [US2] Escribir pruebas de integración fallidas para la fecha de emisión automática al aprobar y «Sin emitir» en borrador y pendiente en `tests/integration/purchase-order-emission-date.test.js`.
+- [ ] T057 [P] [US5] Extender las pruebas de impresión para fecha de emisión o «Sin emitir», moneda e impuesto según origen en `tests/integration/purchase-order-print.test.js`.
+
+### Implementation for Ajustes post-revisión
+
+- [ ] T058 [US1] Extender `src/domain/purchasing.js` con resolución del origen del proveedor, regla de IVA 19 %/0 %, monedas CLP/USD/EUR, formato monetario y validaciones asociadas.
+- [ ] T059 [US1] Ajustar `src/purchasing-storage.js` para persistir solo los campos de cabecera permitidos, `currency`, `paymentTerms`, la fecha de emisión automática y el total calculado; ignorar o rechazar cantidad, subtotal, descuento, impuesto, notas y estado enviados manualmente.
+- [ ] T060 [US1] Actualizar `index.html` y `src/app.js` para eliminar los campos manuales y el selector Estado, iniciar toda OC nueva en borrador y mostrar los totales en solo lectura.
+- [ ] T061 [US1] Implementar las condiciones de pago desde la lista fija con el valor del proveedor como predeterminado en `src/app.js` y `src/domain/purchasing.js`.
+- [ ] T062 [US1] Actualizar `src/purchase-order-lines.js` y `src/purchase-order-detail.js` para mostrar subtotal, neto, impuesto y total de solo lectura con el símbolo de la moneda.
+- [ ] T063 [US2] Implementar la asignación automática de la fecha de emisión al pasar a `aprobado` en `src/domain/purchasing.js` y `src/purchasing-storage.js`.
+- [ ] T064 [US4] Mostrar «Sin emitir» o la fecha de emisión en el detalle y en la impresión en `src/purchase-order-detail.js` y `src/purchase-order-print.js`.
+- [ ] T065 [US5] Actualizar `src/purchase-order-print.js` para usar la moneda, el impuesto según origen y la fecha de emisión.
+- [ ] T066 [US1] Implementar la fecha de entrega con máscara `dd-mm-aaaa` y su conversión a ISO en `src/app.js`, junto con la persistencia en `src/purchasing-storage.js`.
+- [ ] T067 [US1] Cambiar el título a «Detalle de compra» en `index.html` y `src/app.js`.
+- [ ] T068 [US1] Ajustar los estilos de solo lectura, moneda y máscara de fecha en `src/styles.css`.
+- [ ] T069 Ejecutar `npm test -- --run`, `npm run lint` y `npm run build`; corregir cualquier regresión antes de cerrar.
+
+**Checkpoint**: Los ajustes post-revisión quedan cubiertos por pruebas y la orden de compra opera con los campos, cálculos, impuestos, monedas, condiciones de pago y fechas revisados.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -206,6 +238,7 @@
   - **US4**: depende de US2/US3 para recibir registros; sus pruebas independientes pueden sembrar historial.
   - **US5**: depende de US1 y US4 para el contenido completo; sus pruebas independientes pueden sembrar líneas e historial.
 - **Polish (Phase 8)**: depende de todas las historias incluidas en la entrega.
+- **Ajustes post-revisión (Phase 9)**: depende de todas las fases previas incluidas en la entrega.
 
 ### User Story Dependencies
 
@@ -233,6 +266,7 @@
 - US4: T036 y T037.
 - US5: T042 puede ejecutarse mientras se preparan datos/imágenes de impresión.
 - Polish: T048, T049, T050, T051 y T052.
+- Ajustes post-revisión: T054, T055, T056 y T057.
 
 ---
 
@@ -291,6 +325,7 @@ Task: "Pruebas de integración de historial en tests/integration/purchase-order-
 4. Añadir US4 → historial consultable y persistente.
 5. Añadir US5 → impresión.
 6. Polish → legado, accesibilidad, rendimiento y regresión completa.
+7. Ajustes post-revisión → formulario, impuesto/moneda por origen, condiciones de pago, fecha de emisión y máscara de fechas.
 
 ### Parallel Team Strategy
 

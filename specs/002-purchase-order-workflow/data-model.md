@@ -36,12 +36,16 @@ Documento transaccional del módulo de Compras. Se compone de la cabecera base y
 | `id` | string | PK autogenerada, única |
 | `entity_id` | string | FK a Proveedor; obligatorio |
 | `folio` | number | Entero positivo, único global |
-| `startDate` | string | Fecha de emisión `YYYY-MM-DD`; obligatoria |
-| `endDate` | string | Fecha de entrega `YYYY-MM-DD`; igual o posterior a `startDate` |
-| `status` | string | `borrador`, `pendiente`, `aprobado`, `recibido` o `cancelado` |
+| `startDate` | string \| null | Fecha de emisión `YYYY-MM-DD`; `null` en `borrador` o `pendiente`; se asigna automáticamente al pasar a `aprobado` |
+| `endDate` | string | Fecha de entrega `YYYY-MM-DD`; capturada con máscara `dd-mm-aaaa` y persistida en ISO; igual o posterior a `startDate` cuando esta exista |
+| `status` | string | `borrador`, `pendiente`, `aprobado`, `recibido` o `cancelado`; no se captura manualmente |
 | `totalAmount` | number | Total calculado, dos decimales internos |
+| `currency` | string | `CLP` para origen Nacional; `USD` o `EUR` para origen Extranjero |
+| `paymentTerms` | string | Condición de pago tomada de la lista fija del proveedor; obligatoria |
+| `notes` | — | No utilizada en la OC; el formulario no captura notas |
+| `quantity` / `subtotal` / `discount` / `taxAmount` | — | No utilizados en la OC; los importes se derivan de las líneas |
 | `createdAt` / `updatedAt` | string | ISO 8601 |
-| Campos base opcionales | varios | Se conservan sin cambios |
+| Campos base opcionales | varios | Se conservan sin cambios, salvo los campos indicados como no utilizados |
 
 **Metadatos de extensión** (`erp_purchasing:order-metadata`):
 
@@ -58,7 +62,10 @@ Documento transaccional del módulo de Compras. Se compone de la cabecera base y
 - Una orden con estado `recibido` debe tener `stock_aplicado = true`.
 - Una orden con `stock_aplicado = true` debe estar en estado `recibido`.
 - Una orden sin recepción debe tener `stock_aplicado = false` y `appliedAt = null`.
-- El total persistido debe coincidir con la suma de los subtotales de las líneas más el IVA del 19 %, con dos decimales internos.
+- Una orden en `borrador` o `pendiente` no debe tener fecha de emisión; una orden en `aprobado` o `recibido` debe tener `startDate` asignada.
+- La `currency` debe ser `CLP` para proveedores Nacionales y `USD` o `EUR` para proveedores Extranjeros.
+- La `paymentTerms` debe pertenecer a la lista fija de condiciones de pago del proveedor.
+- El total persistido debe coincidir con la suma de los subtotales de las líneas más el impuesto correspondiente al origen (19 % para Nacional, 0 % para Extranjero), con dos decimales internos.
 
 ### Detalle de Compra
 
@@ -72,7 +79,7 @@ Línea de una orden. Se persiste en `erp_purchasing:purchase-order-lines`.
 | `costo_unitario` | number | Número no negativo; valor histórico de la compra |
 | `subtotal` | number | Derivado (`cantidad × costo_unitario`); no persistido |
 
-La clave primaria es compuesta por `id_orden_compra` e `id_producto`. No se permiten dos líneas con el mismo producto en una misma orden.
+La clave primaria es compuesta por `id_orden_compra` e `id_producto`. No se permiten dos líneas con el mismo producto en una misma orden. El subtotal de línea, el neto, el impuesto y el total son valores derivados de solo lectura; no se capturan ni se editan desde el formulario.
 
 ### Producto
 
@@ -138,6 +145,8 @@ Registro temporal del diario de transacciones. Se persiste en `erp_purchasing:tr
 
 Se reutilizan las entidades existentes. El empleado se referencia desde `erp_purchasing:order-metadata` y el proveedor desde `entity_id` de la cabecera base. Ambos se muestran en el detalle y en la impresión.
 
+El proveedor aporta dos datos comerciales definidos en 001: su origen (`Nacional` o `Extranjero`) y su condición de pago. El origen determina el impuesto y la moneda de la orden; la condición de pago se ofrece desde la misma lista fija del proveedor y se preselecciona con el valor de ese proveedor.
+
 ## Relaciones y Cardinalidades
 
 | Origen | Cardinalidad | Destino | Regla |
@@ -164,15 +173,19 @@ Se reutilizan las entidades existentes. El empleado se referencia desde `erp_pur
 
 La matriz es únicamente el ciclo canónico de Compras. Si la configuración define estados o transiciones distintos, la validación los rechaza, muestra un aviso y aplica el ciclo canónico. Cualquier transición fuera de la matriz se rechaza sin modificar la orden, el stock ni el historial.
 
+Al ejecutar la transición `pendiente → aprobado`, el sistema asigna `startDate` con la fecha del día en la zona horaria local del módulo (America/Santiago). Antes de esa transición, la orden se muestra como «Sin emitir» en el detalle y en la impresión.
+
 ## Reglas de Cálculo
 
 - `subtotal_linea = cantidad × costo_unitario`.
 - `neto = suma(subtotal_linea)`.
-- `iva = neto × 0,19`.
-- `total = neto + iva`.
+- `impuesto = neto × 0,19` cuando el origen del proveedor es Nacional; `impuesto = 0` cuando el origen es Extranjero.
+- `total = neto + impuesto`.
 - Todos los cálculos se redondean a dos decimales internos con la función de dominio existente.
-- El subtotal de línea, el neto y el IVA son derivados y no se persisten; el total se persiste en `totalAmount`.
-- La interfaz muestra los importes como CLP sin decimales.
+- El subtotal de línea, el neto y el impuesto son derivados y no se persisten; el total se persiste en `totalAmount`.
+- La interfaz muestra los importes con el símbolo de la moneda de la orden: CLP sin decimales y USD/EUR con dos decimales.
+- El IVA de importación de proveedores Extranjeros se paga en aduana y no forma parte de la OC.
+- El subtotal de línea, el neto, el impuesto y el total se muestran en solo lectura y no admiten edición manual.
 
 ## Reglas de Validación
 
@@ -182,9 +195,13 @@ La matriz es únicamente el ciclo canónico de Compras. Si la configuración def
 - Debe existir el empleado referenciado.
 - El empleado solicitante debe seleccionarse de la lista de empleados registrados; si falta, la orden no se guarda y se muestra un mensaje claro.
 - El folio debe ser un entero positivo y único a nivel global.
-- La fecha de emisión debe ser válida.
-- La fecha de entrega debe ser válida e igual o posterior a la fecha de emisión.
-- El estado debe pertenecer al ciclo canónico.
+- La fecha de emisión no se captura: debe ser nula en `borrador` o `pendiente` y válida en `aprobado` o `recibido`.
+- La fecha de entrega debe ser válida, capturarse con máscara `dd-mm-aaaa`, persistirse en ISO y ser igual o posterior a la fecha de emisión cuando esta exista.
+- El estado debe pertenecer al ciclo canónico y no se captura manualmente; toda orden nueva inicia en `borrador`.
+- El origen del proveedor debe ser `Nacional` o `Extranjero`; si no puede determinarse, la orden no se guarda.
+- La `currency` debe ser `CLP` para origen Nacional y `USD` o `EUR` para origen Extranjero; una moneda distinta se rechaza.
+- La `paymentTerms` debe pertenecer a la lista fija de condiciones de pago del proveedor.
+- El formulario no admite cantidad, subtotal, descuento, impuesto, importe total ni notas en la cabecera; si se envían, se ignoran o se rechazan.
 - Debe tener al menos una línea válida para guardar o enviar a revisión.
 - La transición `borrador → pendiente` devuelve `NO_LINES` si la orden no tiene al menos una línea válida.
 - La cabecera y las líneas no se editan si el estado es `recibido` o `cancelado`.
@@ -227,11 +244,13 @@ La matriz es únicamente el ciclo canónico de Compras. Si la configuración def
 
 | Concepto | Base existente | Extensión nueva |
 |---|---|---|
-| Orden de Compra | `id`, `entity_id`, `folio`, `startDate`, `endDate`, `status`, `totalAmount` | `id_empleado`, `stock_aplicado`, `appliedAt` |
-| Detalle de Compra | — | `id_orden_compra`, `id_producto`, `cantidad`, `costo_unitario` |
+| Orden de Compra | `id`, `entity_id`, `folio`, `startDate` (automática), `endDate`, `status`, `totalAmount`, `currency`, `paymentTerms` | `id_empleado`, `stock_aplicado`, `appliedAt` |
+| Detalle de Compra | — | `id_orden_compra`, `id_producto`, `cantidad`, `costo_unitario`; importes derivados de solo lectura |
 | Producto | — | `nombre`, `unidad_medida`, `stock`, `id_categoria` |
 | Cambio de Estado | — | `from`, `to`, `changedAt` |
 | Transacción de Recepción | — | Diario para recuperación y atomicidad local |
+
+Los campos base `quantity`, `subtotal`, `discount`, `taxAmount` y `notes` no se utilizan en la OC: la cantidad y el precio viven en las líneas, los importes se calculan y no se capturan, y las notas no forman parte del formulario.
 
 ## Datos Históricos sin Metadatos
 

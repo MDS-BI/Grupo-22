@@ -119,6 +119,12 @@ Como **agente de compras**, quiero abrir una vista de detalle imprimible de la o
 - **Recarga o navegación durante el flujo**: las líneas, los importes, el estado y el historial se conservan.
 - **Importes con fracciones**: los cálculos se redondean según el formato monetario vigente del módulo.
 - **Impresión de una orden extensa**: las líneas y los totales se mantienen legibles y completos en varias páginas.
+- **Origen de proveedor desconocido**: no se permite guardar la orden y se muestra un mensaje claro.
+- **Moneda inválida según el origen**: se rechaza el guardado.
+- **Condición de pago fuera de la lista fija**: se rechaza el guardado.
+- **Fecha enmascarada inválida**: se rechaza el campo y se solicita una fecha `dd-mm-aaaa` válida.
+- **Campos manuales de importes o notas en la orden**: se ignoran o se rechazan; los importes solo provienen de las líneas.
+- **Fecha de emisión antes de aprobar**: se muestra «Sin emitir».
 - **Eliminación de una orden**: se eliminan también sus líneas e historial, sin afectar el stock ya recibido.
 - **Eliminación de un producto referenciado**: se bloquea para preservar las órdenes y su historial.
 
@@ -186,15 +192,29 @@ Como **agente de compras**, quiero abrir una vista de detalle imprimible de la o
 - **FR-041**: El sistema NO DEBE requerir autenticación, roles ni permisos diferenciados para ejecutar las acciones de la extensión.
 - **FR-042**: El sistema DEBE mostrar mensajes claros cuando una operación no pueda completarse.
 - **FR-043**: El empleado solicitante DEBE ser obligatorio para toda OC creada o guardada desde la interfaz y DEBE seleccionarse de la lista de empleados registrados; si falta, el sistema impide guardar con un mensaje claro. Las OC históricas sin empleado se muestran como «Empleado desconocido» en solo lectura. El empleado se muestra en la vista de detalle y en la impresión.
+- **FR-044**: El formulario de una orden de compra NO DEBE incluir los campos manuales Cantidad, Subtotal, Descuento, Impuesto, Importe total ni Notas. La cantidad y el precio unitario DEBEN existir únicamente en las líneas de detalle.
+- **FR-045**: El sistema DEBE calcular automáticamente el subtotal de cada línea, el neto, el impuesto y el total, y DEBE mostrarlos en modo solo lectura; ningún usuario DEBE poder editarlos directamente.
+- **FR-046**: El sistema DEBE obtener el origen del proveedor desde el dato maestro definido en 001 y DEBE aplicar la regla de impuesto y moneda correspondiente.
+- **FR-047**: Para proveedores de origen Nacional, el sistema DEBE aplicar IVA del 19 % y DEBE fijar la moneda en CLP, sin permitir cambiarla.
+- **FR-048**: Para proveedores de origen Extranjero, el sistema NO DEBE aplicar IVA en la OC y DEBE permitir seleccionar la moneda entre USD y EUR. El IVA de importación se paga en aduana y queda fuera del alcance.
+- **FR-049**: El sistema DEBE mostrar los montos con el símbolo de la moneda de la orden de compra.
+- **FR-050**: El sistema DEBE ofrecer las condiciones de pago desde la misma lista fija usada por el proveedor y DEBE preseleccionar el valor del proveedor como predeterminado.
+- **FR-051**: El sistema NO DEBE solicitar la fecha de emisión; DEBE asignarla automáticamente con la fecha del día cuando la orden de compra pasa a estado `aprobado`.
+- **FR-052**: El sistema DEBE mostrar la fecha de emisión únicamente en el detalle y en la impresión. Mientras la orden esté en `borrador` o `pendiente`, DEBE mostrar «Sin emitir».
+- **FR-053**: El formulario de la orden de compra NO DEBE incluir un desplegable de Estado; el estado DEBE cambiar únicamente mediante los botones de flujo y toda orden nueva DEBE iniciar en `borrador`.
+- **FR-054**: La interfaz DEBE usar el título «Detalle de compra».
+- **FR-055**: Las fechas ingresadas por el usuario, incluida la fecha de entrega, DEBEN capturarse con máscara `dd-mm-aaaa` y persistirse internamente en ISO 8601 (`YYYY-MM-DD`).
+
+> **Precisión de alcance**: FR-047 y FR-048 precisan el alcance de FR-009 para proveedores extranjeros; FR-048 y FR-049 precisan el contenido de FR-035 en materia de IVA y moneda.
 
 ### Entidades Clave
 
-- **Orden de Compra**: Documento de compra identificado por un folio único. Contiene proveedor, fechas, estado actual, importes calculados e indicación de si el stock ya fue aplicado.
+- **Orden de Compra**: Documento de compra identificado por un folio único. Contiene proveedor, moneda, condición de pago, fechas (la de emisión se asigna al aprobar), estado actual, importes calculados e indicación de si el stock ya fue aplicado.
 - **Detalle de Compra**: Línea perteneciente a una orden. Contiene un producto, una cantidad entera positiva y un precio unitario; su subtotal es calculado y no se edita directamente. Un producto no puede repetirse dentro de la misma orden.
 - **Producto**: Bien adquirido al que se asocia el detalle y cuyo stock aumenta al recibir la orden.
 - **Cambio de Estado**: Registro de una transición exitosa de una orden. Contiene estado anterior, estado nuevo y fecha y hora; pertenece a una única orden y no se modifica manualmente.
 - **Empleado**: Persona registrada en el módulo; se identifica por su nombre e identificador y puede figurar como solicitante de una orden de compra.
-- **Proveedor**: Contraparte de la orden de compra; se muestra en el detalle y en la vista imprimible.
+- **Proveedor**: Contraparte de la orden de compra. Su origen (`Nacional` o `Extranjero`) determina el IVA y la moneda, y su condición de pago se ofrece como valor predeterminado; se muestra en el detalle y en la vista imprimible.
 
 **Relaciones**: una orden pertenece a un proveedor y tiene exactamente un empleado solicitante; un empleado puede tener muchas órdenes; la orden contiene al menos una línea de detalle; cada línea corresponde a un producto; una orden tiene cero o más cambios de estado; un producto puede aparecer en muchas líneas de distintas órdenes.
 
@@ -217,7 +237,11 @@ Como **agente de compras**, quiero abrir una vista de detalle imprimible de la o
 - La extensión se construye sobre el módulo de Compras existente y conserva sus datos maestros, navegación, terminología configurable y reglas generales.
 - El catálogo de productos y su stock ya forman parte del módulo de Compras; esta extensión consume esos datos y actualiza el stock al recibir.
 - Se mantiene una única bodega y no se admiten recepciones parciales: la recepción aplica la totalidad de las cantidades de la orden.
-- El IVA aplicable es del 19 % y los importes se expresan en la moneda única del módulo, en pesos chilenos (CLP) sin decimales en pantalla.
+- El IVA aplicable depende del origen del proveedor definido en 001: los proveedores Nacionales aplican IVA del 19 % y moneda CLP fija; los proveedores Extranjeros no aplican IVA en la OC y usan moneda seleccionable entre USD y EUR.
+- El IVA de importación de proveedores extranjeros se paga en aduana y queda fuera del alcance de esta funcionalidad.
+- Los importes se muestran con el símbolo de su moneda: CLP sin decimales y USD/EUR con dos decimales.
+- La lista fija de condiciones de pago y el origen del proveedor provienen del módulo base 001; esta extensión solo los consume.
+- La fecha de emisión se asigna en la zona horaria local del módulo (America/Santiago) al aprobar la orden.
 - El precio unitario se conserva en la línea como valor histórico de la compra y no se recalcula desde el catálogo.
 - La fecha y hora del historial se registra en la zona horaria local del módulo (America/Santiago).
 - No se registra el usuario que ejecuta cada transición, porque el módulo no utiliza autenticación ni roles reales.
