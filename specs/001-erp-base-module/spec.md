@@ -325,3 +325,23 @@ Los módulos personalizados construidos sobre esta base DEBEN poder
 - Los datos maestros de Empleado, Categoría y Producto son administrados por el módulo de Compras para satisfacer las órdenes.
 - La interfaz de usuario está en español y la terminología proviene de `ModuleConfig`.
 - Las ventas, facturación y presupuestos pertenecen a otros módulos y quedan fuera de este alcance.
+
+## Ajustes post-revisión
+
+Los siguientes requisitos funcionales complementan la especificación anterior. No reemplazan ni renumeran los requisitos existentes y prevalecen sobre ellos cuando exista conflicto.
+
+### Requisitos funcionales de ajuste
+
+- **FR-061**: El sistema DEBE aceptar un límite de crédito mayor o igual a 0 y DEBE rechazar los valores negativos con un mensaje claro mostrado bajo el campo (HU1).
+- **FR-062**: La etiqueta del campo "Categoría" del Proveedor DEBE ser "Rubro" en singular y "Rubros" en plural, definida mediante `ModuleConfig`; la etiqueta "Categoría" de Productos NO DEBE cambiar (HU1, HU6).
+- **FR-063**: El sistema DEBE administrar un catálogo de Rubros como dato maestro, con nombre obligatorio y único sin distinguir mayúsculas (HU1).
+- **FR-064**: El formulario de Proveedor DEBE permitir seleccionar uno o más Rubros del catálogo y DEBE exigir al menos uno (HU1).
+- **FR-065**: El Proveedor DEBE persistir sus Rubros como una lista de identificadores de Rubro (`rubro_ids`); el campo base `category` deja de usarse para nuevos proveedores (HU1).
+- **FR-066**: Al cargar los datos existentes, todo Proveedor con categoría en texto DEBE migrarse a un Rubro con ese nombre, reutilizando el Rubro si ya existe, y DEBE quedar asociado al identificador correspondiente (HU1).
+- **FR-067**: La condición de pago DEBE seleccionarse desde la lista fija Contado, 30 días, 60 días y 90 días, sin admisión de texto libre (HU1).
+- **FR-068**: Un valor de condición de pago existente que no pertenezca a la lista DEBE mostrarse como "Otra (valor anterior)" y solo DEBE reemplazarse cuando el Proveedor se edite eligiendo un valor de la lista (HU1).
+- **FR-069**: El Proveedor DEBE tener un Origen obligatorio, seleccionado entre Nacional y Extranjero (HU1).
+- **FR-070**: Para Origen Nacional, el RUT DEBE ser obligatorio y validarse con módulo 11; para Origen Extranjero, DEBE exigirse una "Identificación tributaria extranjera" en texto y NO DEBE aplicarse la validación de RUT (HU1).
+- **FR-071**: El formulario de Proveedor NO DEBE mostrar ni solicitar "Fecha objetivo"; el campo `targetDate` no se usa en Proveedor (HU1).
+- **FR-072**: La búsqueda de Proveedores DEBE admitir uno o más Rubros seleccionados y DEBE devolver los proveedores que coincidan con cualquiera de ellos, manteniendo la búsqueda por nombre y RUT y la comparación sin tildes (HU4).
+- **FR-073**: El proyecto DEBE declarar `"type": "module"` en `package.json` para eliminar la advertencia MODULE_TYPELESS_PACKAGE_JSON, y `build`, `test` y `lint` DEBEN seguir funcionando sin regresiones (Transversal).

@@ -52,7 +52,7 @@ Objeto de configuración cargado al arrancar que adapta el módulo base en un m�
 | Campo | Tipo | Descripción | Restricciones |
 |---|---|---|---|
 | moduleName | string | Nombre visible del módulo adaptado | Obligatorio, no vacío |
-| labels | object | Mapeos de términos como `{ entity: "Proveedor", entities: "Proveedores", document: "Orden de Compra", documents: "Órdenes de Compra", employee: "Empleado", employees: "Empleados", category: "Categoría", categories: "Categorías", product: "Producto", products: "Productos", purchaseOrderLine: "Detalle de compra", purchaseOrderLines: "Detalles de compra" }` | Opcional; en Compras se usan las etiquetas de Proveedor, Orden de Compra, Empleado, Categoría, Producto y Detalle de compra |
+| labels | object | Mapeos de términos como `{ entity: "Proveedor", entities: "Proveedores", document: "Orden de Compra", documents: "Órdenes de Compra", employee: "Empleado", employees: "Empleados", category: "Categoría", categories: "Categorías", supplierCategory: "Rubro", supplierCategories: "Rubros", product: "Producto", products: "Productos", purchaseOrderLine: "Detalle de compra", purchaseOrderLines: "Detalles de compra" }` | Opcional; en Compras se usan las etiquetas de Proveedor, Orden de Compra, Empleado, Rubro (categoría del Proveedor), Categoría (Productos), Producto y Detalle de compra |
 | customFields | array | Definiciones de campos por tipo de registro: `{ target: "entity"\|"document", key, label, type: "text"\|"number"\|"date"\|"select", required: boolean, options?: string[] }` | Opcional; las claves NO DEBEN chocar con nombres de campos base |
 | statusLifecycle | object | Estados ordenados y transiciones permitidas para documentos, p. ej., `{ statuses: ["cotización", "pedido", "facturado"], transitions: { cotización: ["pedido"], pedido: ["facturado"], facturado: [] } }` | Opcional |
 | theme | object | Opciones de marca, p. ej., `{ accentColor: "#0f62fe" }`; aplicado como propiedad personalizada de CSS en todo el marco del espacio de trabajo | Opcional; accentColor debe ser un color CSS válido o retrocede al predeterminado |
@@ -111,10 +111,13 @@ Objeto de configuración cargado al arrancar que adapta el módulo base en un m�
 | Entidad | Atributo | Tipo | Clave |
 |---|---|---|---|
 | PROVEEDOR | id_proveedor | string | PK, autogenerado |
-| PROVEEDOR | rut | string | Normalizado con guion, único, validado por módulo 11 incluida K |
+| PROVEEDOR | rut | string | Obligatorio solo para Origen Nacional; normalizado con guion, único y validado por módulo 11 incluida K |
 | PROVEEDOR | nombre | string | |
-| PROVEEDOR | categoria | string | Obligatoria |
-| PROVEEDOR | condicion_pago | string | Obligatoria |
+| PROVEEDOR | rubro_ids | string[] | Lista de identificadores de RUBRO; al menos uno obligatorio. Reemplaza el texto de `categoria` |
+| PROVEEDOR | condicion_pago | string | Obligatoria; una de Contado, 30 días, 60 días o 90 días |
+| PROVEEDOR | origen | string | Obligatorio; Nacional o Extranjero |
+| PROVEEDOR | identificacion_tributaria_extranjera | string | Obligatoria cuando `origen` es Extranjero |
+| PROVEEDOR | limite_credito | number | Opcional; mayor o igual a 0 |
 | PROVEEDOR | email | string | Opcional |
 | PROVEEDOR | telefono | string | Opcional |
 | PROVEEDOR | direccion | string | Opcional |
@@ -123,6 +126,8 @@ Objeto de configuración cargado al arrancar que adapta el módulo base en un m�
 | EMPLEADO | cargo | string | |
 | CATEGORIA | id_categoria | string | PK, autogenerado |
 | CATEGORIA | nombre | string | Único sin distinguir mayúsculas |
+| RUBRO | id_rubro | string | PK, autogenerado |
+| RUBRO | nombre | string | Único sin distinguir mayúsculas |
 | PRODUCTO | id_producto | string | PK, autogenerado |
 | PRODUCTO | id_categoria | string | FK (CATEGORIA.id_categoria) |
 | PRODUCTO | nombre | string | |
@@ -147,6 +152,8 @@ Objeto de configuración cargado al arrancar que adapta el módulo base en un m�
 
 Los identificadores `id_*` son cadenas autogeneradas, no enteros. El folio de la orden es entero positivo y único a nivel global; Compras no usa series. El subtotal de cada línea de detalle es un valor derivado y no se almacena. `stock_aplicado` comienza en `false` y pasa a `true` cuando la recepción aplica stock por primera vez.
 
+`rubro_ids` es una lista de identificadores de RUBRO y reemplaza al texto de `categoria` en el proveedor. Al cargar, los proveedores existentes con `categoria` en texto se migran a un RUBRO con ese nombre; si el RUBRO ya existe, se reutiliza. Una `condicion_pago` histórica que no pertenezca a la lista fija se muestra como "Otra (valor anterior)" hasta que el proveedor se edite. El campo base `targetDate` no se usa en Proveedor.
+
 ### Relaciones y cardinalidades
 
 | Entidad de origen | Cardinalidad | Entidad relacionada | Cardinalidad | Descripción |
@@ -154,6 +161,7 @@ Los identificadores `id_*` son cadenas autogeneradas, no enteros. El folio de la
 | PROVEEDOR | 1 | ORDEN_COMPRA | 0..N | Un proveedor puede tener cero o muchas órdenes de compra; cada orden corresponde a un proveedor. |
 | EMPLEADO | 1 | ORDEN_COMPRA | 0..N | Un empleado puede registrar cero o muchas órdenes de compra; cada orden la registra un empleado. |
 | CATEGORIA | 1 | PRODUCTO | 0..N | Una categoría puede clasificar cero o muchos productos; cada producto pertenece a una categoría. |
+| RUBRO | N | PROVEEDOR | 0..N | Un proveedor puede tener uno o más rubros y un rubro puede aplicarse a varios proveedores; la relación se resuelve con la lista `rubro_ids`. |
 | PRODUCTO | 1 | DETALLE_COMPRA | 0..N | Un producto puede aparecer en cero o muchos detalles de compra; cada detalle corresponde a un producto. |
 | ORDEN_COMPRA | 1 | DETALLE_COMPRA | 1..N | Una orden contiene uno o más detalles de compra; cada detalle pertenece a una orden. |
 
@@ -163,15 +171,20 @@ La clave primaria de `DETALLE_COMPRA` es compuesta por `id_orden_compra` e `id_p
 
 | Concepto de Compras | Almacenamiento base | Mapeo |
 |---|---|---|
-| Proveedor | `erp_base_module:entities` | `nombre`→`name`; `rut`→`code` (etiquetado "RUT"); `categoria`→`category`; `condicion_pago`→`paymentTerms`; `id` y `entity_id` son cadenas autogeneradas |
+| Proveedor | `erp_base_module:entities` | `nombre`→`name`; `rut`→`code` (etiquetado "RUT"); `rubro_ids`→`rubro_ids` (extensión; `category` queda como legado de migración); `condicion_pago`→`paymentTerms`; `origen`→`origin`; `identificacion_tributaria_extranjera`→`foreignTaxId`; `limite_credito`→`creditLimit`; `id` y `entity_id` son cadenas autogeneradas |
+| Rubro | `erp_purchasing:rubros` | `id_rubro`, `nombre`; los proveedores lo referencian desde `rubro_ids` |
 | Orden de Compra | `erp_base_module:documents` | `id`, `entity_id`, `folio`; `fecha_emision`→`startDate`; `fecha_entrega`→`endDate`; `estado`→`status`; `total`→`totalAmount`; `stock_aplicado` se persiste como extensión de Compras |
 | Detalle de Compra | `erp_purchasing:purchase-order-lines` | `id_orden_compra`, `id_producto`, `cantidad`, `costo_unitario`; el `subtotal` es derivado y no se persiste |
 
 ### Reglas de la instancia Compras
 
-- Todo proveedor debe tener `nombre`, `rut`, `categoria` y `condicion_pago` no vacíos.
-- El `rut` se almacena en `code`, se normaliza eliminando puntos y espacios, insertando un guion antes del dígito verificador, convierte la letra verificadora a mayúscula, se valida con módulo 11 (incluida K) y debe ser único tras la normalización.
-- Los campos base `description`, `targetDate` y `creditLimit` no se usan en Compras; `code` se usa para el RUT y `category`/`paymentTerms` son obligatorios en la instancia Compras.
+- Todo proveedor debe tener `nombre`, al menos un `rubro_ids`, `condicion_pago`, `origen` y, según el Origen, `rut` (Nacional) o `identificacion_tributaria_extranjera` (Extranjero).
+- Para Origen Nacional, el `rut` se almacena en `code`, se normaliza eliminando puntos y espacios, insertando un guion antes del dígito verificador, convierte la letra verificadora a mayúscula, se valida con módulo 11 (incluida K) y debe ser único tras la normalización.
+- Para Origen Extranjero, el `rut` no es obligatorio ni se valida con módulo 11; en su lugar se exige `identificacion_tributaria_extranjera` en texto.
+- `condicion_pago` debe ser una de Contado, 30 días, 60 días o 90 días. Un valor histórico distinto se muestra como "Otra (valor anterior)" hasta que el proveedor se edite.
+- `limite_credito` es opcional, pero cuando se informa debe ser un número mayor o igual a 0; los negativos se rechazan con un mensaje bajo el campo.
+- `rubro_ids` reemplaza a `category` en Compras. Al cargar, el texto de `category` se migra a un RUBRO con ese nombre, reutilizando el RUBRO si ya existe.
+- Los campos base `description` y `targetDate` no se usan en Compras; `targetDate` no aparece en el formulario de Proveedor. `code` se usa para el RUT y `category` queda solo como legado de migración.
 - Toda orden debe referenciar un proveedor y un empleado existentes, tener folio entero positivo y único global, fechas válidas con `fecha_entrega >= fecha_emision` y al menos una línea de detalle.
 - Una orden está atrasada si `fecha_entrega` es anterior a la fecha actual local (America/Santiago) y su estado no es recibido ni cancelado; una entrega de hoy no está atrasada.
 - Cada línea debe referenciar un producto existente, tener cantidad entera positiva y costo unitario no negativo; no se permiten dos líneas con el mismo producto en una orden.
