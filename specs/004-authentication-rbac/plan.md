@@ -24,7 +24,7 @@ No se modifican las claves, entidades ni reglas del módulo base ni de la extens
 - `erp_auth:session`: sesión activa.
 - `erp_base_module:*` y `erp_purchasing:*`: datos existentes, sin cambios de esquema.
 
-**Pruebas**: Vitest con jsdom. Pruebas unitarias para normalización, login, sesión y permisos; pruebas de integración para la puerta de acceso, restauración de sesión, cierre de sesión y despliegue de interfaz por rol.
+**Pruebas**: Vitest con jsdom. Pruebas unitarias para normalización, login, sesión y permisos; pruebas de integración para la puerta de acceso, restauración de sesión, cierre de sesión, despliegue de interfaz por rol y ocultamiento efectivo con `display: none` en el estilo computado. Las pruebas inyectan `src/styles.css` en JSDOM para validar reglas CSS reales.
 
 **Plataforma Objetivo**: Navegadores modernos de escritorio y móviles.
 
@@ -207,7 +207,7 @@ tests/
 - Bodeguero: sin proveedores ni formularios de orden; con recepción y gestión de productos.
 - Consulta: solo lectura en proveedores y productos, sin formularios ni acciones.
 - Administrador y gerente: despliegue completo de vistas, formularios, transiciones y edición de líneas.
-- Rechazo de transición, impresión, eliminación de línea y envío de formulario no autorizados sin mutar datos.
+- Rechazo uniforme con `No tienes permisos para ejecutar esta acción.` y sin mutar datos para transiciones, impresión, eliminación de línea, altas, ediciones y eliminaciones de proveedores, órdenes y productos no autorizados.
 - Compatibilidad: las pruebas existentes que llaman a `initApp()` sin sesión siguen pasando.
 
 ### Rendimiento
@@ -219,7 +219,7 @@ tests/
 - Foco en el campo de User ID al mostrar la puerta de acceso.
 - Error de acceso con `aria-live="polite"`.
 - Botones con texto comprensible.
-- Controles ocultos no accesibles por teclado.
+- Controles ocultos con `display: none` efectivo y no accesibles por teclado.
 - Contraste y foco visibles según los estilos existentes.
 
 ## Fases de Implementación

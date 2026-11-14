@@ -95,6 +95,8 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 | `#session-info` | Sesión activa | Oculto |
 | `#auth-gate` | Sin sesión | Visible |
 
+**Matriz de borrado**: la matriz normativa de `spec.md` y `data-model.md` prevalece. El `comprador` puede ejecutar `documents.delete`, pero no `entities.delete`; `bodeguero` y `consulta` no pueden ejecutar ninguno de los dos. Los guards de los manejadores deben aplicar exactamente esta regla.
+
 ### Reglas de despliegue
 
 - Si la vista actual deja de estar permitida, se muestra la primera vista permitida en el orden `dashboard`, `entities`, `documents`, `products`, `search`.
@@ -103,6 +105,7 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 - La impresión requiere `orders.print` tanto para mostrar el botón como para ejecutar la acción.
 - La edición de líneas requiere `documents.update` y que la orden no sea terminal.
 - El catálogo sin `products.manage` no permite alta, edición, eliminación ni creación de categoría, aunque se invoque la función directamente.
+- Todo elemento oculto por permisos DEBE tener `display: none` efectivo en el estilo computado; el atributo `hidden` por sí solo no es suficiente si otra regla CSS define `display`.
 
 ### Contrato de defensa de acciones
 

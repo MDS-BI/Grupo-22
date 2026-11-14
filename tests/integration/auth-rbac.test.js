@@ -1,11 +1,33 @@
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDom, qs } from '../helpers/purchasing-app.js';
+
+const styles = fs.readFileSync(fileURLToPath(new URL('../../src/styles.css', import.meta.url)), 'utf8');
+const PERMISSION_DENIED = 'No tienes permisos para ejecutar esta acción.';
 
 let dom;
 
 beforeEach(() => {
   dom = installDom();
+  const style = dom.window.document.createElement('style');
+  style.textContent = styles;
+  dom.window.document.head.appendChild(style);
 });
+
+function expectHidden(id) {
+  const element = qs(id);
+  expect(element).not.toBeNull();
+  expect(element.hidden).toBe(true);
+  expect(dom.window.getComputedStyle(element).display).toBe('none');
+}
+
+function expectVisible(id) {
+  const element = qs(id);
+  expect(element).not.toBeNull();
+  expect(element.hidden).toBe(false);
+  expect(dom.window.getComputedStyle(element).display).not.toBe('none');
+}
 
 afterEach(() => {
   dom.window.close();
@@ -58,7 +80,7 @@ async function seedApprovedOrder() {
     status: 'aprobado',
     lines: [{ id_producto: product.id_producto, cantidad: 2, costo_unitario: 1000 }]
   });
-  return { purchasing, storage, order };
+  return { purchasing, storage, order, category, product, employee, supplier };
 }
 
 function openOrderDetail() {
@@ -73,45 +95,45 @@ function transitionStatuses() {
 describe('User ID login flow', () => {
   it('shows the access gate until a valid User ID authenticates', async () => {
     await bootAndLogin();
-    expect(qs('auth-gate').hidden).toBe(false);
-    expect(qs('app-shell').hidden).toBe(true);
+    expectVisible('auth-gate');
+    expectHidden('app-shell');
 
     submitLogin('NO-EXISTE');
     await settle();
     expect(qs('login-error').textContent).toContain('no está registrado');
-    expect(qs('auth-gate').hidden).toBe(false);
+    expectVisible('auth-gate');
 
     submitLogin('COMP-001');
     await settle();
-    expect(qs('auth-gate').hidden).toBe(true);
-    expect(qs('app-shell').hidden).toBe(false);
+    expectHidden('auth-gate');
+    expectVisible('app-shell');
     expect(qs('session-user').textContent).toContain('Camila Vega');
     expect(qs('session-role').textContent).toBe('Comprador');
   });
 
   it('restores the session after a reload and allows logout', async () => {
     await bootAndLogin('GER-001');
-    expect(qs('app-shell').hidden).toBe(false);
+    expectVisible('app-shell');
 
     vi.resetModules();
     const app = await import('../../src/app.js');
     await app.boot();
-    expect(qs('auth-gate').hidden).toBe(true);
+    expectHidden('auth-gate');
     expect(qs('session-role').textContent).toBe('Gerente de Compras');
 
     qs('logout-button').click();
-    expect(qs('auth-gate').hidden).toBe(false);
-    expect(qs('app-shell').hidden).toBe(true);
+    expectVisible('auth-gate');
+    expectHidden('app-shell');
   });
 });
 
 describe('role-based interface deployment', () => {
   it('shows a purchaser their purchasing views but hides approval controls', async () => {
     await bootAndLogin('COMP-001');
-    expect(qs('nav-entities').hidden).toBe(false);
-    expect(qs('nav-documents').hidden).toBe(false);
-    expect(qs('nav-products').hidden).toBe(false);
-    expect(qs('action-new-document').hidden).toBe(false);
+    expectVisible('nav-entities');
+    expectVisible('nav-documents');
+    expectVisible('nav-products');
+    expectVisible('action-new-document');
 
     await seedApprovedOrder();
     openOrderDetail();
@@ -121,11 +143,11 @@ describe('role-based interface deployment', () => {
 
   it('deploys the warehouse view with receipt actions and stock management only', async () => {
     await bootAndLogin('BOD-001');
-    expect(qs('nav-entities').hidden).toBe(true);
-    expect(qs('nav-documents').hidden).toBe(false);
-    expect(qs('action-new-entity').hidden).toBe(true);
-    expect(qs('action-new-document').hidden).toBe(true);
-    expect(qs('document-form').hidden).toBe(true);
+    expectHidden('nav-entities');
+    expectVisible('nav-documents');
+    expectHidden('action-new-entity');
+    expectHidden('action-new-document');
+    expectHidden('document-form');
 
     await seedApprovedOrder();
     qs('nav-products').click();
@@ -138,12 +160,12 @@ describe('role-based interface deployment', () => {
 
   it('deploys a read-only consultation interface', async () => {
     await bootAndLogin('CONS-001');
-    expect(qs('nav-entities').hidden).toBe(false);
-    expect(qs('nav-documents').hidden).toBe(false);
-    expect(qs('action-new-entity').hidden).toBe(true);
-    expect(qs('action-new-document').hidden).toBe(true);
-    expect(qs('entity-form').hidden).toBe(true);
-    expect(qs('document-form').hidden).toBe(true);
+    expectVisible('nav-entities');
+    expectVisible('nav-documents');
+    expectHidden('action-new-entity');
+    expectHidden('action-new-document');
+    expectHidden('entity-form');
+    expectHidden('document-form');
 
     const storage = await import('../../src/storage.js');
     storage.addEntity({ name: 'Proveedor Uno', code: '12.345.678-5', category: 'Insumos', paymentTerms: 'Contado' });
@@ -159,12 +181,12 @@ describe('role-based interface deployment', () => {
   it('deploys the full administrative interface', async () => {
     await bootAndLogin('ADMIN-001');
     for (const nav of ['nav-dashboard', 'nav-entities', 'nav-documents', 'nav-products', 'nav-search']) {
-      expect(qs(nav).hidden).toBe(false);
+      expectVisible(nav);
     }
-    expect(qs('action-new-entity').hidden).toBe(false);
-    expect(qs('action-new-document').hidden).toBe(false);
-    expect(qs('entity-form').hidden).toBe(false);
-    expect(qs('document-form').hidden).toBe(false);
+    expectVisible('action-new-entity');
+    expectVisible('action-new-document');
+    expectVisible('entity-form');
+    expectVisible('document-form');
 
     await seedApprovedOrder();
     openOrderDetail();
@@ -176,12 +198,12 @@ describe('role-based interface deployment', () => {
   it('deploys the same full interface for the purchasing manager', async () => {
     await bootAndLogin('GER-001');
     for (const nav of ['nav-dashboard', 'nav-entities', 'nav-documents', 'nav-products', 'nav-search']) {
-      expect(qs(nav).hidden).toBe(false);
+      expectVisible(nav);
     }
-    expect(qs('action-new-entity').hidden).toBe(false);
-    expect(qs('action-new-document').hidden).toBe(false);
-    expect(qs('entity-form').hidden).toBe(false);
-    expect(qs('document-form').hidden).toBe(false);
+    expectVisible('action-new-entity');
+    expectVisible('action-new-document');
+    expectVisible('entity-form');
+    expectVisible('document-form');
 
     await seedApprovedOrder();
     openOrderDetail();
@@ -203,7 +225,7 @@ describe('denied actions do not mutate data', () => {
     qs('order-actions').appendChild(button);
     button.click();
 
-    expect(qs('order-actions').querySelector('.feedback').textContent).toBe('No tienes permisos para ejecutar esta acción.');
+    expect(qs('order-actions').querySelector('.feedback').textContent).toBe(PERMISSION_DENIED);
     expect(purchasing.getPurchaseOrderDetail(order.id).status).toBe('aprobado');
     expect(globalThis.confirm).not.toHaveBeenCalled();
   });
@@ -228,9 +250,9 @@ describe('denied actions do not mutate data', () => {
     qs('order-actions').appendChild(button);
     button.click();
 
-    expect(qs('order-actions').querySelector('.feedback').textContent).toBe('No tienes permisos para ejecutar esta acción.');
+    expect(qs('order-actions').querySelector('.feedback').textContent).toBe(PERMISSION_DENIED);
     expect(globalThis.print).not.toHaveBeenCalled();
-    expect(qs('view-print').hidden).toBe(true);
+    expectHidden('view-print');
     expect(order.status).toBe('aprobado');
   });
 
@@ -246,7 +268,7 @@ describe('denied actions do not mutate data', () => {
     qs('order-lines-table').appendChild(button);
     button.click();
 
-    expect(qs('order-actions').querySelector('.feedback').textContent).toBe('No tienes permisos para ejecutar esta acción.');
+    expect(qs('order-actions').querySelector('.feedback').textContent).toBe(PERMISSION_DENIED);
     expect(purchasing.getLinesForOrder(order.id)).toEqual(before);
     expect(globalThis.confirm).not.toHaveBeenCalled();
   });
@@ -258,7 +280,97 @@ describe('denied actions do not mutate data', () => {
 
     qs('document-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
 
-    expect(qs('document-feedback').textContent).toBe('No tienes permisos para ejecutar esta acción.');
+    expect(qs('document-feedback').textContent).toBe(PERMISSION_DENIED);
     expect(storage.loadDocuments()).toEqual(before);
+  });
+
+  it('rejects entity and document creation shortcuts without mutating data', async () => {
+    await bootAndLogin('CONS-001');
+    const storage = await import('../../src/storage.js');
+    const entitiesBefore = storage.loadEntities();
+    const documentsBefore = storage.loadDocuments();
+
+    qs('action-new-entity').click();
+    expect(qs('entity-feedback').textContent).toBe(PERMISSION_DENIED);
+    expect(storage.loadEntities()).toEqual(entitiesBefore);
+
+    qs('action-new-document').click();
+    expect(qs('document-feedback').textContent).toBe(PERMISSION_DENIED);
+    expect(storage.loadDocuments()).toEqual(documentsBefore);
+  });
+
+  it('rejects submitting an entity form without the create permission', async () => {
+    await bootAndLogin('CONS-001');
+    const storage = await import('../../src/storage.js');
+    const before = storage.loadEntities();
+
+    qs('entity-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(qs('entity-feedback').textContent).toBe(PERMISSION_DENIED);
+    expect(storage.loadEntities()).toEqual(before);
+  });
+
+  it('rejects forced entity edits and deletions without mutating data', async () => {
+    await bootAndLogin('CONS-001');
+    const storage = await import('../../src/storage.js');
+    const entity = storage.addEntity({
+      name: 'Proveedor Uno',
+      code: '12.345.678-5',
+      category: 'Insumos',
+      paymentTerms: 'Contado'
+    });
+    const before = storage.loadEntities();
+
+    qs('nav-entities').click();
+    for (const action of ['edit', 'delete']) {
+      const button = document.createElement('button');
+      button.dataset.action = action;
+      button.dataset.id = entity.id;
+      qs('entity-table-body').appendChild(button);
+      button.click();
+      expect(qs('entity-feedback').textContent).toBe(PERMISSION_DENIED);
+    }
+
+    expect(globalThis.confirm).not.toHaveBeenCalled();
+    expect(storage.loadEntities()).toEqual(before);
+  });
+
+  it('rejects forced order edits and deletions without mutating data', async () => {
+    await bootAndLogin('CONS-001');
+    const { purchasing, storage, order } = await seedApprovedOrder();
+    const before = storage.loadDocuments();
+
+    qs('nav-documents').click();
+    for (const action of ['edit', 'delete']) {
+      const button = document.createElement('button');
+      button.dataset.action = action;
+      button.dataset.id = order.id;
+      qs('document-table-body').appendChild(button);
+      button.click();
+      expect(qs('document-feedback').textContent).toBe(PERMISSION_DENIED);
+    }
+
+    expect(globalThis.confirm).not.toHaveBeenCalled();
+    expect(storage.loadDocuments()).toEqual(before);
+    expect(purchasing.getPurchaseOrderDetail(order.id).status).toBe('aprobado');
+  });
+
+  it('rejects forced product maintenance without mutating the catalog', async () => {
+    await bootAndLogin('CONS-001');
+    const { purchasing, product } = await seedApprovedOrder();
+    const before = purchasing.loadProducts();
+
+    qs('nav-products').click();
+    for (const action of ['edit-product', 'delete-product']) {
+      const button = document.createElement('button');
+      button.dataset.action = action;
+      button.dataset.id = product.id_producto;
+      qs('product-table-body').appendChild(button);
+      button.click();
+      expect(qs('product-feedback').textContent).toBe(PERMISSION_DENIED);
+    }
+
+    expect(globalThis.confirm).not.toHaveBeenCalled();
+    expect(purchasing.loadProducts()).toEqual(before);
   });
 });

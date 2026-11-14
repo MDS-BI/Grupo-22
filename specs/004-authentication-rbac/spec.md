@@ -150,16 +150,40 @@ Como **usuario autenticado**, quiero cerrar mi sesión para que la aplicación v
 - **FR-015**: El sistema DEBE declarar permisos para panel, proveedores, órdenes, productos, búsqueda, impresión y transiciones de estado.
 - **FR-016**: El rol `administrador` DEBE tener todos los permisos declarados.
 - **FR-017**: El rol `gerente` DEBE gestionar proveedores, órdenes y productos, y DEBE poder enviar, aprobar, recibir y cancelar órdenes.
-- **FR-018**: El rol `comprador` DEBE poder crear y editar proveedores, crear y editar órdenes, enviar a revisión y cancelar, pero NO DEBE aprobar, recibir ni gestionar productos.
-- **FR-019**: El rol `bodeguero` DEBE ver panel, órdenes, productos y búsqueda, recibir órdenes y gestionar productos y stock, pero NO DEBE ver proveedores ni crear o editar órdenes.
+- **FR-018**: El rol `comprador` DEBE poder crear y editar proveedores, crear, editar y eliminar órdenes, enviar a revisión y cancelar, pero NO DEBE eliminar proveedores, aprobar, recibir ni gestionar productos.
+- **FR-019**: El rol `bodeguero` DEBE ver panel, órdenes, productos y búsqueda, recibir órdenes y gestionar productos y stock, pero NO DEBE ver proveedores ni crear, editar o eliminar órdenes.
 - **FR-020**: El rol `consulta` DEBE tener acceso de solo lectura a panel, proveedores, órdenes, productos y búsqueda, y DEBE poder imprimir órdenes.
 - **FR-021**: El sistema DEBE mapear cada estado destino de una transición a un permiso: `pendiente` a envío, `aprobado` a aprobación, `recibido` a recepción y `cancelado` a cancelación.
 - **FR-022**: El sistema NO DEBE conceder una transición cuando el rol carezca del permiso correspondiente.
 
+**Matriz normativa de permisos por rol**:
+
+| Permiso | Administrador | Gerente | Comprador | Bodeguero | Consulta |
+|---|:---:|:---:|:---:|:---:|:---:|
+| `dashboard.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `entities.view` | ✓ | ✓ | ✓ | — | ✓ |
+| `entities.create` | ✓ | ✓ | ✓ | — | — |
+| `entities.update` | ✓ | ✓ | ✓ | — | — |
+| `entities.delete` | ✓ | ✓ | — | — | — |
+| `documents.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `documents.create` | ✓ | ✓ | ✓ | — | — |
+| `documents.update` | ✓ | ✓ | ✓ | — | — |
+| `documents.delete` | ✓ | ✓ | ✓ | — | — |
+| `orders.submit` | ✓ | ✓ | ✓ | — | — |
+| `orders.approve` | ✓ | ✓ | — | — | — |
+| `orders.receive` | ✓ | ✓ | — | ✓ | — |
+| `orders.cancel` | ✓ | ✓ | ✓ | — | — |
+| `products.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `products.manage` | ✓ | ✓ | — | ✓ | — |
+| `search.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `orders.print` | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de órdenes conserva las reglas de negocio del módulo `002`.
+
 #### Control de acceso en la interfaz
 
-- **FR-023**: El sistema DEBE ocultar los accesos de navegación a las vistas para las que el rol no tiene permiso.
-- **FR-024**: El sistema DEBE ocultar los botones de creación, búsqueda y demás accesos directos cuando el rol no tenga el permiso correspondiente.
+- **FR-023**: El sistema DEBE ocultar los accesos de navegación a las vistas para las que el rol no tiene permiso, con `display: none` efectivo en el estilo computado y no solo mediante el atributo `hidden`.
+- **FR-024**: El sistema DEBE ocultar los botones de creación, búsqueda y demás accesos directos cuando el rol no tenga el permiso correspondiente, con `display: none` efectivo en el estilo computado.
 - **FR-025**: El sistema DEBE ocultar los formularios de proveedor y de orden cuando el rol no pueda crear ni editar el registro correspondiente.
 - **FR-026**: El sistema DEBE omitir las acciones de fila de edición y eliminación cuando el rol no tenga permiso.
 - **FR-027**: El sistema DEBE redirigir a la primera vista permitida cuando la vista actual no sea accesible para el rol.

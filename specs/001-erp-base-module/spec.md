@@ -274,7 +274,7 @@ Las siguientes capacidades ya existen en el módulo base y el módulo de Compras
 
 ### Requisitos de Extensibilidad
 
-Los módulos personalizados construidos sobre esta base DEBEN poder:
+Los módulos personalizados construidos sobre esta base DEBEN poder
 
 - **XR-001**: Extender proveedores, órdenes y líneas con campos adicionales sin cambiar la estructura de almacenamiento base.
 - **XR-002**: Reetiquetar todas las pantallas y términos visibles mediante `ModuleConfig` sin alterar la navegación ni el comportamiento.

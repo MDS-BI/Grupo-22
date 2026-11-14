@@ -78,6 +78,8 @@ describe('role-based permissions', () => {
     expect(auth.can(auth.PERMISSIONS.ORDERS_APPROVE, 'comprador')).toBe(false);
     expect(auth.can(auth.PERMISSIONS.ORDERS_RECEIVE, 'comprador')).toBe(false);
     expect(auth.can(auth.PERMISSIONS.PRODUCTS_MANAGE, 'comprador')).toBe(false);
+    expect(auth.can(auth.PERMISSIONS.DOCUMENTS_DELETE, 'comprador')).toBe(true);
+    expect(auth.can(auth.PERMISSIONS.ENTITIES_DELETE, 'comprador')).toBe(false);
   });
 
   it('grants warehouse users receipt and stock permissions only', () => {

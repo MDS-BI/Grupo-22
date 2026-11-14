@@ -27,6 +27,7 @@ import {
 } from './domain/purchasing.js';
 import {
   PERMISSIONS,
+  PERMISSION_DENIED_MESSAGE,
   can,
   clearSession,
   ensureDefaultUsers,
@@ -52,7 +53,7 @@ let currentViewName = 'dashboard';
 let appEventsBound = false;
 let authEventsBound = false;
 
-const PERMISSION_DENIED = 'No tienes permisos para ejecutar esta acción.';
+const PERMISSION_DENIED = PERMISSION_DENIED_MESSAGE;
 
 const VIEW_PERMISSIONS = {
   dashboard: PERMISSIONS.DASHBOARD_VIEW,
@@ -97,6 +98,11 @@ function formatCurrencyCLP(value) {
 function canUse(permission) {
   if (!activeSession) return true;
   return can(permission, activeSession);
+}
+
+function showPermissionDenied(feedbackId = 'document-feedback') {
+  const feedback = qs(feedbackId);
+  if (feedback) feedback.textContent = PERMISSION_DENIED;
 }
 
 function allowedNextStatuses(status) {
@@ -581,7 +587,10 @@ function detailOptions(detail) {
 }
 
 function openOrderDetail(orderId) {
-  if (!canUse(PERMISSIONS.DOCUMENTS_VIEW)) return;
+  if (!canUse(PERMISSIONS.DOCUMENTS_VIEW)) {
+    showPermissionDenied('document-feedback');
+    return;
+  }
   currentOrderId = orderId;
   const detail = getPurchaseOrderDetail(orderId);
   renderDetail(detail, detailOptions(detail));
@@ -725,14 +734,20 @@ function bindEvents() {
   if (qs('nav-products')) qs('nav-products').addEventListener('click', () => showView('products'));
   qs('nav-search').addEventListener('click', () => showView('search'));
   qs('action-new-entity').addEventListener('click', () => {
-    if (!canUse(PERMISSIONS.ENTITIES_CREATE)) return;
+    if (!canUse(PERMISSIONS.ENTITIES_CREATE)) {
+      showPermissionDenied('entity-feedback');
+      return;
+    }
     clearEntityForm();
     showView('entities');
     qs('name').focus();
   });
   qs('action-open-entities').addEventListener('click', () => showView('entities'));
   qs('action-new-document').addEventListener('click', () => {
-    if (!canUse(PERMISSIONS.DOCUMENTS_CREATE)) return;
+    if (!canUse(PERMISSIONS.DOCUMENTS_CREATE)) {
+      showPermissionDenied('document-feedback');
+      return;
+    }
     clearDocumentForm();
     showView('documents');
     qs('document-entity').focus();

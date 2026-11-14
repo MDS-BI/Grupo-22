@@ -1,5 +1,6 @@
 :root { --accent:#2563eb; --surface:#ffffff; --text:#172033; --muted:#64748b; --border:#e2e8f0; --bg:#f4f7fb; }
 * { box-sizing:border-box; }
+[hidden] { display:none !important; }
 body { margin:0; font-family:Inter,Segoe UI,Arial,sans-serif; color:var(--text); background:var(--bg); }
 .topbar { position:fixed; z-index:20; left:0; right:0; top:0; height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 24px; background:var(--surface); border-bottom:1px solid var(--border); }
 .brand { display:flex; align-items:center; gap:10px; }

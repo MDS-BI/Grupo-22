@@ -7,6 +7,7 @@ import {
   deleteProduct
 } from './purchasing-storage.js';
 import { icon } from './ui-icons.js';
+import { PERMISSION_DENIED_MESSAGE } from './auth.js';
 
 let catalogOptions = {};
 let editingProductId = '';
@@ -29,6 +30,11 @@ function escape(value) {
 
 function productId(product) {
   return product.id_producto || product.id;
+}
+
+function denyPermission() {
+  const feedback = qs('product-feedback');
+  if (feedback) feedback.textContent = PERMISSION_DENIED_MESSAGE;
 }
 
 function renderCategoryOptions(selected = '') {
@@ -84,7 +90,10 @@ function showErrors(errors) {
 }
 
 function submitProduct() {
-  if (catalogOptions.canManage === false) return;
+  if (catalogOptions.canManage === false) {
+    denyPermission();
+    return;
+  }
   const data = {
     nombre: qs('product-nombre').value,
     unidad_medida: qs('product-unidad').value,
@@ -119,7 +128,10 @@ function submitProduct() {
 }
 
 function editProduct(id) {
-  if (catalogOptions.canManage === false) return;
+  if (catalogOptions.canManage === false) {
+    denyPermission();
+    return;
+  }
   const product = loadProducts().find(item => productId(item) === id);
   if (!product) return;
   editingProductId = id;
@@ -133,7 +145,10 @@ function editProduct(id) {
 }
 
 function removeProduct(id) {
-  if (catalogOptions.canManage === false) return;
+  if (catalogOptions.canManage === false) {
+    denyPermission();
+    return;
+  }
   if (!globalThis.confirm('¿Eliminar este producto del catálogo?')) return;
   try {
     deleteProduct(id);
@@ -146,7 +161,10 @@ function removeProduct(id) {
 }
 
 function addCategoryFromForm() {
-  if (catalogOptions.canManage === false) return;
+  if (catalogOptions.canManage === false) {
+    denyPermission();
+    return;
+  }
   const input = qs('new-category-name');
   const name = String(input?.value || '').trim();
   if (!name) return;
@@ -172,7 +190,6 @@ export function init(options = {}) {
         <div class="field"><label for="product-categoria">Categoría</label><select id="product-categoria"></select><small class="field-error" aria-live="polite" id="error-product-categoria"></small></div>
         <div class="field"><label for="new-category-name">Nueva categoría</label><div class="inline-control"><input id="new-category-name" placeholder="Nombre de la categoría"><button type="button" class="secondary" id="add-category-button">${icon('plus', { className: 'ui-icon' })}Agregar</button></div></div>
         <button class="primary" type="submit" id="product-submit-button">Guardar producto</button>
-        <div id="product-feedback" class="feedback" aria-live="polite"></div>
       </form>`;
   container.innerHTML = `
     <div class="product-grid${canManage ? '' : ' single-column'}">
@@ -186,7 +203,8 @@ export function init(options = {}) {
           </table>
         </div>
       </section>
-    </div>`;
+    </div>
+    <div id="product-feedback" class="feedback" aria-live="polite"></div>`;
   renderCategoryOptions();
   renderTable();
   clearForm();

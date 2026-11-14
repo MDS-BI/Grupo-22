@@ -1,5 +1,6 @@
 export const AUTH_USERS_KEY = 'erp_auth:users';
 export const AUTH_SESSION_KEY = 'erp_auth:session';
+export const PERMISSION_DENIED_MESSAGE = 'No tienes permisos para ejecutar esta acción.';
 
 export const PERMISSIONS = Object.freeze({
   DASHBOARD_VIEW: 'dashboard.view',

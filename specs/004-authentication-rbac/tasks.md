@@ -69,7 +69,7 @@
 - [x] T015 [US1] Implementar en `src/app.js` `renderSessionInfo`, `renderLoginHints`, `revealLoginGate`, `hideLoginGate`, `handleLogin`, `handleLogout` y `bindAuthEvents`.
 - [x] T016 [US1] Implementar en `src/app.js` el arranque `boot()` que muestra la puerta de acceso sin sesión e inicializa la aplicación con sesión vigente.
 - [x] T017 [US1] Integrar `ensureDefaultUsers` y `getSession` en el arranque, y asegurar que la sesión se resuelve al inicializar la aplicación.
-- [x] T018 [P] [US1] Añadir en `src/styles.css` los estilos de la pantalla de acceso, la barra de sesión y la utilidad `[hidden]`.
+- [x] T018 [P] [US1] Añadir en `src/styles.css` los estilos de la pantalla de acceso, la barra de sesión y la utilidad global `[hidden] { display: none !important; }` para que el ocultamiento sea efectivo frente a reglas `display` de componentes.
 
 **Checkpoint**: US1 funciona de forma independiente y constituye el MVP de acceso.
 
@@ -93,7 +93,7 @@
 - [x] T023 [US2] Implementar en `src/app.js` `applyAccessControl` para ocultar navegación, botones de creación, búsqueda, formularios de proveedor/orden y redirigir a la primera vista permitida.
 - [x] T024 [US2] Aplicar el filtrado de acciones de fila de proveedores y órdenes en `src/app.js` según `entities.update`, `entities.delete`, `documents.update` y `documents.delete`.
 - [x] T025 [US2] Aplicar el control de acceso en `showView` y en los manejadores de eventos de alta, edición, eliminación y búsqueda en `src/app.js`.
-- [x] T026 [P] [US2] Añadir en `src/styles.css` los ajustes necesarios para la barra de sesión y los controles ocultos.
+- [x] T026 [P] [US2] Añadir en `src/styles.css` los ajustes necesarios para la barra de sesión y garantizar que todo control oculto por permisos tenga `display: none` efectivo en el estilo computado.
 
 **Checkpoint**: US2 funciona de forma independiente con los cinco usuarios de demostración.
 
@@ -169,13 +169,17 @@
 **Purpose**: Cerrar documentación, accesibilidad, compatibilidad y verificación final.
 
 - [x] T044 [P] Revisar la accesibilidad de la pantalla de acceso: foco inicial, `aria-live` para errores, etiquetas y operabilidad por teclado en `index.html` y `src/styles.css`.
-- [x] T045 [P] Verificar que los controles ocultos por permisos no son accesibles por teclado ni por navegación.
+- [x] T045 [P] Verificar de forma automatizada que los controles ocultos por permisos tienen `display: none` en el estilo computado y no son accesibles por teclado ni por navegación, inyectando `src/styles.css` en JSDOM.
 - [x] T046 [P] Documentar la autenticación, los roles, los usuarios de demostración y las claves de persistencia en `README.md`.
 - [x] T047 [P] Verificar que las claves y el esquema de `erp_base_module:*` y `erp_purchasing:*` no cambiaron.
-- [x] T048 Ejecutar `npm test -- --run` y confirmar que las 205 pruebas pasan, incluidas las 24 de autenticación y RBAC.
+- [x] T048 Ejecutar `npm test -- --run` y confirmar que toda la suite pasa, incluidas las pruebas de autenticación y RBAC.
 - [x] T049 Ejecutar `npm run build` y confirmar que termina sin errores.
 - [x] T050 Ejecutar `npm run lint` y confirmar que no reporta errores.
 - [x] T051 Recorrer los escenarios manuales de `specs/004-authentication-rbac/quickstart.md` con los cinco usuarios de demostración.
+- [x] T052 [P] Añadir pruebas de integración del mensaje uniforme y de la no mutación para altas, ediciones y eliminaciones forzadas de proveedores y órdenes en `tests/integration/auth-rbac.test.js`.
+- [x] T053 [P] Añadir pruebas de integración del mensaje uniforme y de la no mutación para el mantenimiento de productos sin `products.manage` en `tests/integration/auth-rbac.test.js`.
+- [x] T054 Centralizar `PERMISSION_DENIED_MESSAGE` y aplicar feedback uniforme en los guards silenciosos de `src/app.js` y `src/product-catalog.js`.
+- [x] T055 [P] Fijar en pruebas unitarias que `comprador` tiene `documents.delete` y no tiene `entities.delete`, alineado con la matriz normativa, en `tests/unit/auth.test.js`.
 
 ---
 

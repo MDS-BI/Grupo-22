@@ -135,6 +135,8 @@ Capacidad atómica no persistida. Se identifica por una clave estable.
 | `search.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `orders.print` | ✓ | ✓ | ✓ | ✓ | ✓ |
 
+**Regla explícita de borrado**: `comprador` puede eliminar órdenes (`documents.delete`) pero no proveedores (`entities.delete`). `bodeguero` y `consulta` no pueden eliminar ninguno de los dos. La eliminación de órdenes sigue las reglas de negocio del módulo `002`.
+
 ## Mapeo de Transiciones a Permisos
 
 | Estado destino | Acción visible | Permiso requerido |
