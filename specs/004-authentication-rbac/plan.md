@@ -34,7 +34,7 @@ Los ajustes post-revisión refuerzan el RBAC en una cuarta capa: reglas de negoc
 
 **Objetivos de Rendimiento**:
 
-- Resolver la sesión y aplicar el control de acceso en ≤ 50 ms al arrancar.
+- Resolver la sesión y aplicar el control de acceso en ≤ 50 ms al arrancar, medido como promedio de 100 ejecuciones con `performance.now()` sobre el volumen de prueba definido.
 - Mantener los presupuestos del módulo base: panel ≤ 500 ms y búsqueda ≤ 300 ms con 500 proveedores y 2.000 órdenes.
 - No introducir consultas adicionales al almacenamiento por cada render de tabla, salvo la lectura del directorio al resolver la sesión.
 
@@ -60,7 +60,7 @@ Los ajustes post-revisión refuerzan el RBAC en una cuarta capa: reglas de negoc
 | I. Calidad y mantenibilidad | PASS | La autenticación y el RBAC se concentran en `src/auth.js`; la integración de interfaz se limita a `src/app.js` y a opciones explícitas en los módulos de vista. No se duplican reglas de negocio. |
 | II. Pruebas y verificación | PASS | Se añaden pruebas unitarias de login, sesión, normalización, permisos y transiciones, y pruebas de integración de la puerta de acceso y del despliegue por rol. |
 | III. Consistencia de experiencia | PASS | La pantalla de acceso y la sección de sesión reutilizan el marco visual, la terminología en español y los patrones de feedback del módulo. |
-| IV. Rendimiento y confiabilidad | PASS | La resolución de permisos es en memoria; la lectura de sesión es acotada y no altera los presupuestos del módulo base. Las guardas evitan operaciones no autorizadas. |
+| IV. Rendimiento y confiabilidad | PASS | La resolución de permisos es en memoria; la lectura de sesión es acotada. El presupuesto de 50 ms se valida con una prueba automatizada que mide con `performance.now()` la resolución de sesión y permisos y exige ≤ 50 ms como promedio de 100 ejecuciones sobre el volumen de prueba definido. Las guardas evitan operaciones no autorizadas. |
 | Estándares de calidad | PASS | El cierre exige `npm test -- --run`, `npm run build` y `npm run lint` sin errores. |
 
 No se identifican violaciones que requieran justificación de complejidad.
@@ -122,10 +122,10 @@ El detalle está en [data-model.md](data-model.md). Entidades y conceptos princi
 - **Sesión**: `userId`, `nombre`, `role`, `loginAt`.
 - **Rol**: `administrador`, `gerente`, `comprador`, `bodeguero`, `consulta`.
 - **Permiso**: claves estables para vistas, acciones y transiciones, incluido `orders.reject`.
-- **Mapeo de transiciones**: estado de origen y destino → permiso requerido.
+- **Mapeo de transiciones**: `borrador` → `pendiente` = `orders.submit`; `borrador` → `cancelado` = `orders.cancel`; `pendiente` → `aprobado` = `orders.approve`; `pendiente` → `cancelado` = `orders.reject`; `aprobado` → `recibido` = `orders.receive`.
 - **Denominación visible**: `borrador` y `pendiente` → «Solicitud de compra»; `aprobado` y `recibido` → «Orden de Compra emitida».
 - **Campo restringido**: `creditLimit` oculto y no editable para `comprador`.
-- **Empleado solicitante**: vínculo `Usuario.id_empleado` para `comprador`; selección manual para `administrador` y `gerente`.
+- **Empleado solicitante**: vínculo `Usuario.id_empleado` para `comprador`, con exactamente un empleado propio por comprador y como máximo un usuario por empleado; selección manual para `administrador` y `gerente`. Si falta el vínculo se crea un empleado nuevo con nombre y cargo del Usuario de la sesión, sin reutilizar por nombre.
 
 ### Contratos
 
@@ -172,7 +172,8 @@ src/
 ├── access-policy.js           # reglas puras de rol/estado y vínculo del empleado solicitante
 ├── styles.css                 # estilos de acceso, sesión y utilidades
 ├── product-catalog.js         # catálogo con modo de solo lectura
-├── purchase-order-detail.js   # detalle con acciones, impresión y edición filtradas
+├── purchase-order-detail.js   # detalle con denominación, emisión, empleado y acciones filtradas
+├── purchase-order-print.js    # impresión con denominación, emisión, empleado y campos filtrados
 └── (resto de módulos existentes sin cambios de contrato)
 
 tests/
@@ -193,7 +194,7 @@ tests/
 | I. Calidad y mantenibilidad | PASS | Módulo de autenticación dedicado; opciones explícitas en las vistas; sin duplicar la matriz de estados de Compras. |
 | II. Pruebas y verificación | PASS | Cobertura unitaria de la lógica y de integración del DOM y del despliegue por rol. |
 | III. Consistencia de experiencia | PASS | Acceso, sesión y mensajes siguen los patrones visuales y de feedback existentes; interfaz en español. |
-| IV. Rendimiento y confiabilidad | PASS | Resolución de permisos en memoria, sin llamadas adicionales por render; guardas que evitan mutaciones no autorizadas. |
+| IV. Rendimiento y confiabilidad | PASS | Resolución de permisos en memoria, sin llamadas adicionales por render; prueba automatizada con `performance.now()` que valida ≤ 50 ms (promedio de 100 ejecuciones) para sesión y permisos; guardas que evitan mutaciones no autorizadas. |
 | Complejidad | PASS | Un módulo nuevo y una integración acotada; no se añaden dependencias ni servicios. |
 
 ## Estrategia de Pruebas
@@ -211,16 +212,16 @@ tests/
 - Permisos de consulta: solo lectura e impresión.
 - Administrador con todos los permisos declarados.
 - Paridad explícita entre `gerente` y `administrador`.
-- Mapeo de estados de origen y destino a permisos, incluido `pendiente` → rechazo con `orders.reject`.
+- Mapeo de transiciones por estado de origen y destino a permisos, con `borrador` → `pendiente` = `orders.submit`, `borrador` → `cancelado` = `orders.cancel`, `pendiente` → `aprobado` = `orders.approve`, `pendiente` → `cancelado` = `orders.reject` y `aprobado` → `recibido` = `orders.receive`.
 - Matriz de denominación por estado y fecha de emisión conservada o completada.
-- Reglas del empleado solicitante: vínculo propio del `comprador`, selección manual de `administrador`/`gerente` y rechazo de payload manipulado.
+- Reglas del empleado solicitante: vínculo propio del `comprador` por `userId`, un solo empleado por comprador y como máximo un usuario por empleado, creación de un empleado nuevo con el nombre y cargo del Usuario cuando falta el vínculo, dos compradores con el mismo nombre obtienen empleados distintos, selección manual de `administrador`/`gerente` y rechazo de payload manipulado.
 - Reglas del límite de crédito: ocultamiento para `comprador` y conservación del valor persistido.
 - Reglas de integración con `003`: visibilidad de `+ Nuevo`, panel lateral, tarjetas, filtros y detalle.
 
 ### Unitarias de política (`tests/unit/access-policy.test.js`)
 
 - Respuestas de `canCreateDocument`, `canEditDocument`, `canApprove`, `canReject` y `canCancel` por rol y estado.
-- Resolución idempotente de `ensureRequesterEmployee(session, adapters)`, incluida la creación única y la reutilización.
+- Resolución idempotente de `ensureRequesterEmployee(session, adapters)`, incluida la creación única del empleado propio y la reutilización del vínculo por `userId`.
 - Rechazo de `creditLimit` manipulado y conservación del valor persistido en actualizaciones del `comprador`.
 - Etiqueta visible y presencia de fecha de emisión por estado.
 - Comportamiento permisivo cuando no hay sesión, consistente con `initApp()`.
@@ -234,24 +235,28 @@ tests/
 - Cierre de sesión y retorno a la puerta de acceso.
 - Comprador: vistas operativas, sin transiciones de aprobación y con impresión.
 - Bodeguero: sin proveedores ni formularios de orden; con recepción y gestión de productos.
-- Consulta: solo lectura en proveedores y productos, sin formularios ni acciones.
-- Administrador y gerente: despliegue completo de vistas, formularios, transiciones y edición de líneas.
-- Rechazo uniforme con `No tienes permisos para ejecutar esta acción.` y sin mutar datos para transiciones, impresión, eliminación de línea, altas, ediciones y eliminaciones de proveedores, órdenes y productos no autorizados.
+- Consulta: solo lectura en proveedores y productos, sin formularios ni acciones, con impresión de órdenes permitida.
+- Administrador y gerente: navegación visible, formularios permitidos, aprobación y rechazo de una solicitud `pendiente`, selección del empleado solicitante y edición de líneas.
+- Rechazo uniforme con `No tienes permisos para ejecutar esta acción.` y sin mutar datos para transiciones, eliminación de línea, altas, ediciones y eliminaciones de proveedores, órdenes y productos no autorizados.
 - Compatibilidad: las pruebas existentes que llaman a `initApp()` sin sesión siguen pasando.
 - Comprador: «Solicitud de compra» en `borrador`/`pendiente`, sin botones de aprobar o rechazar, sin `creditLimit`, con empleado de solo lectura.
 - Gerente y administrador: aprobar y rechazar disponibles solo en `pendiente`, con «Orden de Compra emitida» y fecha de emisión tras aprobar.
 - Rechazo de payload manipulado de empleado y de límite de crédito sin mutación ni notificación de éxito.
+- Detalle e impresión: denominación por estado, fecha de emisión o «Sin emitir», empleado solicitante, ausencia del límite de crédito para `comprador` y solo las acciones permitidas por el rol.
 - Integración con `003`: `+ Nuevo` oculto sin permiso, panel lateral cerrado ante apertura forzada, tarjetas y filtros restringidos y detalle coherente con el servicio.
 
 ### Integración post-revisión (`tests/integration/auth-rbac-post-review.test.js`)
 
 - Recorrido completo por rol de las superficies de `003` y de las acciones de aprobación/rechazo.
+- Administrador y gerente: navegación visible, formularios permitidos, aprobación y rechazo de una solicitud `pendiente` y selección del empleado solicitante.
+- Dos compradores con el mismo nombre obtienen empleados distintos vinculados por `userId`, sin reutilización por nombre.
 - Verificación de que toda operación rechazada muestra error persistente, conserva el panel y no registra historial ni transacciones.
 - Verificación de que la carga de datos de demostración no crea órdenes aprobadas para roles sin permiso de aprobación.
 
 ### Rendimiento
 
-- No se añaden pruebas de rendimiento específicas; el control de acceso es un filtrado en memoria y la lectura de sesión es acotada. Se conservan los presupuestos del módulo base.
+- Se añade una prueba automatizada que mide con `performance.now()` la resolución de sesión y permisos y exige ≤ 50 ms como promedio de 100 ejecuciones sobre el volumen de prueba definido para el módulo base (500 proveedores y 2.000 órdenes).
+- Se conservan los presupuestos del módulo base: panel ≤ 500 ms y búsqueda ≤ 300 ms con 500 proveedores y 2.000 órdenes.
 
 ### Accesibilidad
 
@@ -288,13 +293,16 @@ Detalladas en [tasks.md](tasks.md). Incluyen:
 
 Detalladas en [tasks.md](tasks.md), Phase 9. Incluyen:
 
-1. Ampliar `src/auth.js` con `orders.reject` y el mapeo de transición sensible al estado de origen.
+1. Ampliar `src/auth.js` con `orders.reject` y el mapeo explícito de transición por estado de origen y destino.
 2. Crear `src/access-policy.js` con las reglas de creación, edición, aprobación, rechazo, empleado solicitante y límite de crédito.
 3. Extender `index.html` y `src/app.js` para la denominación por estado, el empleado de solo lectura, el límite de crédito restringido y la fecha de emisión.
-4. Integrar los elementos de `003` (`+ Nuevo`, panel lateral, tarjetas, filtros y detalle) con la matriz de permisos.
-5. Añadir feedback persistente de error y defensas en los servicios de proveedores y solicitudes.
-6. Escribir pruebas unitarias de política e integración post-revisión.
-7. Actualizar documentación de la funcionalidad y verificar pruebas, build y lint.
+4. Actualizar `src/purchase-order-detail.js` y `src/purchase-order-print.js` para la denominación por estado, la fecha de emisión o «Sin emitir», el empleado solicitante, la ausencia del límite de crédito para `comprador` y las acciones permitidas por rol.
+5. Integrar los elementos de `003` (`+ Nuevo`, panel lateral, tarjetas, filtros y detalle) con la matriz de permisos.
+6. Añadir feedback persistente de error y defensas en los servicios de proveedores y solicitudes.
+7. Escribir pruebas unitarias de política e integración post-revisión.
+8. Actualizar documentación de la funcionalidad y verificar pruebas, build y lint.
+
+La Fase 9 del 004 se ejecuta solo después de completar la implementación del spec 003 (ui-side-panel, ui-feedback, purchasing-list-view, purchasing-list-query, purchasing-status, purchasing-demo-data). No se crean tareas para los módulos de 003 en esta funcionalidad.
 
 ## Riesgos y Decisiones Abiertas
 
@@ -308,9 +316,9 @@ Detalladas en [tasks.md](tasks.md), Phase 9. Incluyen:
 | Regresiones en pruebas existentes | El control de acceso se aplica solo cuando hay sesión; la suite base se ejecuta sin ella y debe seguir pasando. |
 | Doble fuente de verdad entre interfaz y servicios | Las reglas de rol/estado viven en `src/access-policy.js`; la interfaz y los servicios consumen la misma función y las pruebas comparan ambos caminos. |
 | `002` no define una fecha de emisión automática | Se usa `startDate` como fecha de emisión y solo se completa al aprobar cuando está vacía; una fecha válida existente se conserva. Se documenta como supuesto. |
-| El `comprador` no tiene empleado vinculado al inicio | `ensureRequesterEmployee` crea y persiste el vínculo una sola vez usando el nombre y cargo de la sesión; se prueba la idempotencia. |
+| El `comprador` no tiene empleado vinculado al inicio | `ensureRequesterEmployee` crea y persiste un empleado nuevo con el nombre y cargo del Usuario de la sesión, vinculado por `userId`; cada comprador tiene exactamente un empleado propio y un empleado puede estar vinculado como máximo a un usuario. No se reutiliza por nombre y se prueba que dos compradores con el mismo nombre obtienen empleados distintos. |
 | Payload manipulado de `creditLimit` o `id_empleado` | El servicio revalida y rechaza con `PERMISSION_DENIED` sin mutar la entidad ni mostrar éxito. |
-| `003` aún no implementado | Las tareas referencian los archivos planificados de `003`; la verificación se ejecuta cuando esos módulos existan y se documenta la dependencia. |
+| Dependencia del spec `003` | La Fase 9 del 004 se ejecuta solo después de completar la implementación del spec 003 (ui-side-panel, ui-feedback, purchasing-list-view, purchasing-list-query, purchasing-status, purchasing-demo-data). No se crean tareas para los módulos de 003. |
 | Datos de demostración de `003` con órdenes aprobadas | Se verifica que la acción de demo no cree órdenes `aprobado` para roles sin `orders.approve`; se corrige o restringe en la integración. |
 
 ## Seguimiento de Complejidad

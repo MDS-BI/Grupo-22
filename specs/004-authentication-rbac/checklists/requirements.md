@@ -14,7 +14,7 @@
 - [x] CHK006 Las historias de usuario tienen prioridad, valor explicado, prueba independiente y escenarios de aceptación.
 - [x] CHK007 Los requisitos cubren navegación, botones, formularios, acciones de fila, impresión y edición de líneas.
 - [x] CHK008 Los requisitos cubren el catálogo de productos en modo solo lectura.
-- [x] CHK009 Los requisitos cubren el filtrado de transiciones por permiso del estado destino.
+- [x] CHK009 Los requisitos cubren el filtrado de transiciones por permiso del estado de origen y destino.
 - [x] CHK010 La defensa de acciones en los manejadores está declarada además del ocultamiento visual.
 - [x] CHK011 La compatibilidad con las pruebas y los módulos existentes está declarada.
 

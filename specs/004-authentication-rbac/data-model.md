@@ -39,7 +39,7 @@ Persona registrada en el directorio local. Se persiste como un elemento del arre
 | `cargo` | string | Opcional; puede quedar vacío |
 | `role` | string | Obligatorio; uno de los cinco roles; si es desconocido se normaliza a `consulta` |
 | `activo` | boolean | Por defecto `true`; un usuario inactivo no puede autenticarse |
-| `id_empleado` | string \| null | Opcional; FK a Empleado de `002`; vínculo propio del `comprador`; si falta se resuelve o crea una sola vez y se persiste |
+| `id_empleado` | string \| null | Opcional; FK a Empleado de `002`; vínculo propio y exclusivo del `comprador`; si falta se crea un empleado nuevo con el nombre y cargo del Usuario y se persiste |
 
 **Invariantes**:
 
@@ -47,7 +47,8 @@ Persona registrada en el directorio local. Se persiste como un elemento del arre
 - Todo usuario persistido debe tener un rol válido tras la normalización.
 - Un usuario inactivo no puede iniciar sesión ni mantener una sesión vigente.
 - El directorio nunca queda vacío tras el arranque: si falta, está vacío o no contiene usuarios válidos, se siembran los usuarios de demostración.
-- Un usuario `comprador` con actividad de solicitudes debe tener un `id_empleado` válido y único que lo represente como empleado solicitante.
+- Un usuario `comprador` con actividad de solicitudes DEBE tener un `id_empleado` válido que lo represente como empleado solicitante.
+- Cada `comprador` tiene exactamente un empleado propio, vinculado por `userId`, y un empleado puede estar vinculado como máximo a un usuario.
 - El `id_empleado` de un usuario no `comprador` puede ser `null`; los roles `administrador` y `gerente` eligen el empleado en cada solicitud.
 
 **Usuarios de demostración**:
@@ -60,7 +61,7 @@ Persona registrada en el directorio local. Se persiste como un elemento del arre
 | `BOD-001` | Diego Fuentes | Jefe de Bodega | `bodeguero` | `true` |
 | `CONS-001` | Ana Pérez | Analista de Compras | `consulta` | `true` |
 
-**Nota de vínculo**: `COMP-001` no fija un `id_empleado` en la semilla. Al iniciar sesión o crear su primera solicitud, el sistema busca un empleado cuyo nombre normalizado coincida con el de la sesión; si no existe, crea uno con su nombre y cargo y persiste el vínculo en `erp_auth:users`. Los demás usuarios de demostración mantienen `id_empleado` nulo.
+**Nota de vínculo**: `COMP-001` no fija un `id_empleado` en la semilla. Al iniciar sesión o crear su primera solicitud, si el vínculo no existe, el sistema crea un empleado nuevo con el nombre y el cargo del Usuario de la sesión, resuelto por `userId`, y persiste el vínculo en `erp_auth:users`. No se reutilizan empleados por coincidencia de nombre. Los demás usuarios de demostración mantienen `id_empleado` nulo.
 
 ### Sesión
 
@@ -72,6 +73,8 @@ Vínculo temporal entre la aplicación y un usuario autenticado. Se persiste en 
 | `nombre` | string | Instantánea del nombre al iniciar sesión; se re-resuelve al leer |
 | `role` | string | Instantánea del rol al iniciar sesión; se re-resuelve al leer |
 | `loginAt` | string | ISO 8601; momento del inicio de sesión |
+
+**Nota**: La Sesión no almacena `cargo`; el nombre y el cargo del empleado solicitante se obtienen del registro de Usuario resuelto por `userId`.
 
 **Invariantes**:
 
@@ -151,11 +154,11 @@ Capacidad atómica no persistida. Se identifica por una clave estable.
 
 | Estado actual | Estado destino | Acción visible | Permiso requerido |
 |---|---|---|---|
-| `borrador` | `pendiente` | Enviar a revisión | `orders.submit` |
+| `borrador` | `pendiente` | Enviar a aprobación | `orders.submit` |
 | `pendiente` | `aprobado` | Aprobar | `orders.approve` |
 | `borrador` | `cancelado` | Cancelar | `orders.cancel` |
 | `pendiente` | `cancelado` | Rechazar (cancelar) | `orders.reject` |
-| `aprobado` | `recibido` | Marcar recibida | `orders.receive` |
+| `aprobado` | `recibido` | Recibir | `orders.receive` |
 | `recibido` / `cancelado` | — | Sin acciones | — |
 
 El permiso filtra las acciones que el ciclo canónico de Compras ya considera válidas para el estado actual. No crea transiciones nuevas ni relaja las reglas del dominio. La cancelación es sensible al estado actual: `orders.cancel` no habilita rechazar una solicitud `pendiente`.
@@ -164,18 +167,19 @@ El permiso filtra las acciones que el ciclo canónico de Compras ya considera v�
 
 La denominación es una etiqueta derivada del estado persistido, no una entidad ni una clave nueva.
 
-| Estado | Denominación visible |
-|---|---|
-| `borrador` | Solicitud de compra |
-| `pendiente` | Solicitud de compra |
-| `aprobado` | Orden de Compra emitida |
-| `recibido` | Orden de Compra emitida |
-| `cancelado` | Solicitud de compra |
+| Estado | Denominación visible | Fecha de emisión |
+|---|---|---|
+| `borrador` | Solicitud de compra | Sin emitir |
+| `pendiente` | Solicitud de compra | Sin emitir |
+| `aprobado` | Orden de Compra emitida | `startDate`, completado al aprobar si falta |
+| `recibido` | Orden de Compra emitida | `startDate` |
+| `cancelado` | Solicitud de compra | Sin emitir |
 
 **Invariantes**:
 
 - La etiqueta se recalcula al cambiar el estado y no depende del rol que consulta.
 - Las listas, tarjetas, filtros, panel lateral, detalle, impresión, confirmaciones y notificaciones usan la misma etiqueta.
+- La fecha de emisión se muestra como «Sin emitir» mientras el documento no esté aprobado.
 - Al aprobar, la fecha de emisión se toma de `startDate` de `002`; si está vacía, se completa con la fecha del cambio de estado en America/Santiago. Una fecha válida existente se conserva.
 
 ## Campo Restringido: Límite de Crédito
@@ -206,7 +210,9 @@ La denominación es una etiqueta derivada del estado persistido, no una entidad 
 **Invariantes**:
 
 - El empleado solicitante sigue siendo obligatorio conforme a `002`.
-- El empleado propio del `comprador` se crea una sola vez si no existe y se reutiliza; no se duplica por nombre en cada solicitud.
+- Cada `comprador` tiene exactamente un empleado propio vinculado por `userId`; un empleado puede estar vinculado como máximo a un usuario.
+- Si falta el vínculo, se crea un empleado nuevo con el nombre y el cargo del Usuario de la sesión; no se reutilizan empleados por coincidencia de nombre.
+- Dos compradores con el mismo nombre obtienen empleados distintos.
 - El vínculo `Usuario.id_empleado` no se elimina al cerrar sesión y no modifica el esquema de empleados de `002`.
 
 ## Relaciones y Cardinalidades
@@ -216,7 +222,8 @@ La denominación es una etiqueta derivada del estado persistido, no una entidad 
 | Rol | 1 | Usuario | 1..N; cada usuario tiene exactamente un rol |
 | Rol | 1 | Permiso | 0..N; cada rol agrupa un conjunto de permisos |
 | Usuario | 1 | Sesión | 0..1; cada navegador mantiene como máximo una sesión activa |
-| Usuario (`comprador`) | 1 | Empleado | 0..1; vínculo propio del empleado solicitante, resuelto o creado una sola vez |
+| Usuario (`comprador`) | 1 | Empleado | 0..1; empleado propio vinculado por `userId`, creado una sola vez si falta |
+| Empleado | 0..1 | Usuario (`comprador`) | 0..1; un empleado puede estar vinculado como máximo a un usuario |
 | Estado actual + destino | 1 | Permiso | 1; cada transición exige exactamente un permiso según el estado de origen |
 
 ## Estados de la Sesión
@@ -235,6 +242,7 @@ La denominación es una etiqueta derivada del estado persistido, no una entidad 
 - `activo` es `false` solo cuando el valor es explícitamente `false` o `active` es `false`; en cualquier otro caso es `true`.
 - `nombre` vacío se reemplaza por el `userId`.
 - `id_empleado` se normaliza con `String(value).trim()`; una cadena vacía equivale a `null`.
+- El cargo del empleado propio se toma del registro de Usuario resuelto por `userId`, nunca de la Sesión.
 - Si `id_empleado` referencia un empleado inexistente o pertenece a otro usuario, se descarta y se vuelve a resolver el vínculo propio del `comprador`.
 - Solo el `comprador` puede tener un `id_empleado` resuelto automáticamente; para los demás roles el campo se conserva como `null` salvo que se asigne explícitamente.
 - Una sesión sin `userId` se considera inválida.

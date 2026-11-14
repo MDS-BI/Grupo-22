@@ -43,7 +43,7 @@
 - [x] T005 [P] Implementar en `src/auth.js` `normalizeUserId`, `loadUsers`, `ensureDefaultUsers`, `saveUsers` y `findUser`, incluyendo normalización, validación de formato, siembra de usuarios de demostración y degradación segura ante datos inválidos.
 - [x] T006 [P] Implementar en `src/auth.js` `roleDefinition`, `roleLabel`, `permissionsFor` y `can`, con degradación de roles desconocidos a `consulta`.
 - [x] T007 Implementar en `src/auth.js` `login`, `getSession`, `clearSession` e `isAuthenticated`, incluyendo re-resolución dinámica del usuario y del rol, invalidación de usuarios inactivos o eliminados y persistencia de la sesión.
-- [x] T008 Implementar en `src/auth.js` `transitionPermission` y `canTransitionTo` con el mapeo `pendiente` → envío, `aprobado` → aprobación, `recibido` → recepción y `cancelado` → cancelación.
+- [x] T008 Implementar en `src/auth.js` `transitionPermission` y `canTransitionTo` con el mapeo inicial por estado destino (`pendiente` → envío, `aprobado` → aprobación, `recibido` → recepción, `cancelado` → cancelación); el mapeo explícito por origen y destino se completa en T063 y T063a.
 - [x] T009 [P] Escribir pruebas unitarias de login, sesión, normalización, rechazo de usuarios inválidos, cierre de sesión, re-resolución de rol y re-siembra ante un directorio inválido o corrupto en `tests/unit/auth.test.js`.
 - [x] T010 [P] Escribir pruebas unitarias de la matriz completa rol-permiso, de la paridad entre `gerente` y `administrador` y del mapeo de transiciones en `tests/unit/auth.test.js`.
 
@@ -101,7 +101,7 @@
 
 ## Phase 5: User Story 3 - Ejecutar transiciones de orden según permisos (Priority: P2)
 
-**Goal**: Filtrar las transiciones de estado del detalle de orden por permiso del estado destino y defender la ejecución en el manejador.
+**Goal**: Filtrar las transiciones de estado del detalle de orden por permiso del estado de origen y destino y defender la ejecución en el manejador.
 
 **Independent Test**: Sembrar una orden aprobada, ingresar con comprador, bodeguero y gerente, y comprobar las transiciones visibles y ejecutables.
 
@@ -129,7 +129,7 @@
 
 ### Tests for User Story 4
 
-- [x] T033 [P] [US4] Ampliar las pruebas de integración de consulta para verificar la ausencia de formulario y acciones en productos, y el rechazo de impresión y envío de formulario no autorizados sin mutar datos, en `tests/integration/auth-rbac.test.js`.
+- [x] T033 [P] [US4] Ampliar las pruebas de integración de consulta para verificar la ausencia de formulario y acciones en productos, la impresión permitida (FR-020) y el rechazo de envío de formulario no autorizado sin mutar datos, en `tests/integration/auth-rbac.test.js`. Se elimina la aserción de rechazo de impresión porque ningún rol carece de `orders.print` en la matriz vigente.
 - [x] T034 [P] [US4] Ampliar las pruebas de integración del bodeguero para verificar el formulario y las acciones de producto, y el rechazo de eliminación de línea no autorizada sin mutar la orden, en `tests/integration/auth-rbac.test.js`.
 
 ### Implementation for User Story 4
@@ -187,31 +187,37 @@
 
 **Purpose**: Incorporar la denominación por estado, la separación entre aprobar y rechazar, el empleado solicitante vinculado, la restricción del límite de crédito y la defensa en servicios, propagando estas reglas a la experiencia de `003`.
 
-**Prerequisites**: Phase 8 completada y módulos de `003` disponibles (`src/ui-side-panel.js`, `src/ui-feedback.js`, `src/purchasing-list-view.js`, `src/purchasing-list-query.js`, `src/purchasing-status.js`, `src/purchasing-demo-data.js`). Si algún módulo de `003` aún no existe, la tarea de integración se ejecuta sobre el archivo planificado y se verifica al integrarse.
+**Prerequisites**: Phase 8 completada. La Fase 9 del 004 se ejecuta solo después de completar la implementación del spec 003 (ui-side-panel, ui-feedback, purchasing-list-view, purchasing-list-query, purchasing-status, purchasing-demo-data). No se crean tareas para los módulos de 003 en esta funcionalidad.
 
 ### Tests for Phase 9
 
-- [ ] T056 [P] Ampliar `tests/unit/auth.test.js` con `orders.reject`, la matriz de roles y el mapeo de transición sensible al estado de origen (`borrador` → `cancelado` con `orders.cancel`; `pendiente` → `cancelado` con `orders.reject`).
+- [ ] T056 [P] Ampliar `tests/unit/auth.test.js` con `orders.reject`, la matriz de roles y el mapeo explícito por estado de origen y destino (`borrador` → `pendiente` con `orders.submit`; `borrador` → `cancelado` con `orders.cancel`; `pendiente` → `aprobado` con `orders.approve`; `pendiente` → `cancelado` con `orders.reject`; `aprobado` → `recibido` con `orders.receive`).
 - [ ] T057 [P] Crear `tests/unit/access-policy.test.js` con las reglas de creación, edición, aprobación, rechazo, cancelación, etiqueta por estado, fecha de emisión, límite de crédito y empleado solicitante, incluido el comportamiento permisivo sin sesión.
 - [ ] T058 [P] Crear `tests/integration/auth-rbac-post-review.test.js` con la denominación «Solicitud de compra» / «Orden de Compra emitida» en listas, tarjetas, filtros, panel lateral, detalle, impresión y notificaciones, y con la fecha de emisión tras aprobar.
 - [ ] T059 [P] Añadir pruebas de integración de que el `comprador` no ve ni ejecuta aprobar o rechazar, y de que sus intentos forzados se rechazan sin mutar estado, historial ni stock.
-- [ ] T060 [P] Añadir pruebas de integración del empleado solicitante: asignación automática y de solo lectura para `comprador`, creación única del vínculo, selección manual para `administrador`/`gerente` y rechazo de payload manipulado.
+- [ ] T060 [P] Añadir pruebas de integración del empleado solicitante: asignación automática y de solo lectura para `comprador` con vínculo por `userId`, creación de un empleado nuevo con nombre y cargo del Usuario cuando falta el vínculo, un solo empleado propio por comprador y como máximo un usuario por empleado, selección manual para `administrador`/`gerente` y rechazo de payload manipulado.
+- [ ] T060a [P] Añadir una prueba de integración de que dos compradores con el mismo nombre obtienen empleados distintos vinculados por `userId`, y de que no se reutiliza un empleado por coincidencia de nombre ni se vincula un mismo empleado a dos usuarios, en `tests/integration/auth-rbac-post-review.test.js`.
 - [ ] T061 [P] Añadir pruebas de integración del límite de crédito: oculto para `comprador` en formulario, listas, tarjetas, filtros, detalle, búsqueda, impresión y notificaciones; conservación del valor persistido y rechazo de cambios.
 - [ ] T062 [P] Añadir pruebas de integración de las superficies de `003` (`+ Nuevo`, panel lateral, tarjetas, filtros y detalle) y del feedback persistente sin falsos éxitos.
+- [ ] T062a [P] Añadir una prueba de integración para `administrador` y `gerente` que verifique la navegación visible, los formularios permitidos, la aprobación y el rechazo de una solicitud `pendiente`, y la selección del empleado solicitante, en `tests/integration/auth-rbac-post-review.test.js`.
 
 ### Implementation for Phase 9
 
-- [ ] T063 Añadir `ORDERS_REJECT: 'orders.reject'` a `PERMISSIONS`, incluirlo en `gerente` (el `administrador` lo hereda de `Object.values(PERMISSIONS)`) y hacer que `transitionPermission` y `canTransitionTo` reciban el estado de origen en `src/auth.js`.
+- [ ] T063 Añadir `ORDERS_REJECT: 'orders.reject'` a `PERMISSIONS`, incluirlo en `gerente` (el `administrador` lo hereda de `Object.values(PERMISSIONS)`) y hacer que `transitionPermission` y `canTransitionTo` reciban el estado de origen en `src/auth.js`, con el mapeo explícito `borrador` → `pendiente` = `orders.submit`, `borrador` → `cancelado` = `orders.cancel`, `pendiente` → `aprobado` = `orders.approve`, `pendiente` → `cancelado` = `orders.reject` y `aprobado` → `recibido` = `orders.receive`.
+- [ ] T063a Migrar TODAS las llamadas a `transitionPermission` y `canTransitionTo` en `src/` a la firma con estado de origen y destino, sin dejar ninguna con la forma antigua de solo destino; actualizar las pruebas existentes de transiciones (T028 y relacionadas) a la nueva firma y comprobar que no queda ninguna invocación con la forma antigua.
+- [ ] T063b Añadir una prueba de regresión en `tests/unit/auth.test.js` que verifique, sobre `transitionPermission` y `canTransitionTo`, que (a) el `comprador` NO puede ejecutar `pendiente` → `cancelado`; (b) `gerente` y `administrador` SÍ pueden ejecutarla; (c) el `comprador` SÍ puede ejecutar `borrador` → `cancelado`; y (d) una llamada sin estado de origen es rechazada.
 - [ ] T064 Crear `src/access-policy.js` con `documentLabel`, `canCreateDocument`, `canEditDocument`, `canApprove`, `canReject`, `canCancel`, `canViewCreditLimit`, `sanitizeEntityPayload`, `ensureRequesterEmployee`, `resolveRequesterForSave` y `emissionDateFor`.
 - [ ] T065 Añadir en `index.html` los puntos de extensión para la etiqueta de documento, la fecha de emisión, el empleado de solo lectura y el contenedor de feedback persistente, conservando los identificadores existentes.
 - [ ] T066 Integrar en `src/app.js` la etiqueta por estado, la fecha de emisión, el empleado de solo lectura para `comprador`, la selección manual para `administrador`/`gerente` y el ocultamiento efectivo del límite de crédito.
+- [ ] T066a Actualizar `src/purchase-order-detail.js` para mostrar «Solicitud de compra» u «Orden de Compra emitida» según el estado, la fecha de emisión automática («Sin emitir» si no está aprobada), el empleado solicitante, ocultar el límite de crédito al `comprador` y renderizar solo las acciones permitidas para el rol.
+- [ ] T066b Actualizar `src/purchase-order-print.js` para mostrar «Solicitud de compra» u «Orden de Compra emitida» según el estado, la fecha de emisión automática («Sin emitir» si no está aprobada), el empleado solicitante, ocultar el límite de crédito al `comprador` y mostrar solo las acciones permitidas para el rol.
 - [ ] T067 Añadir en `src/storage.js` la guarda de servicio que conserva `creditLimit` y rechaza con `PERMISSION_DENIED` un payload del `comprador` que intente crearlo o modificarlo, sin mutar el proveedor.
 - [ ] T068 Añadir en `src/purchasing-storage.js` las guardas de servicio para altas, ediciones, aprobación, rechazo y cancelación según el estado actual, incluida la asignación forzada del empleado propio y el completado de `startDate` solo cuando falte.
 - [ ] T069 Implementar en `src/app.js` y en el módulo de feedback de `003` la notificación persistente de error, sin cierre del panel, sin descarte de datos y sin notificación de éxito ante rechazos.
 - [ ] T070 Integrar las reglas en `src/ui-side-panel.js`, `src/purchasing-list-view.js`, `src/purchasing-list-query.js` y `src/purchasing-demo-data.js`: visibilidad de «+ Nuevo», apertura del panel, tarjetas navegables, filtros/columnas restringidos y datos de demostración sin aprobaciones no autorizadas.
 - [ ] T071 [P] Añadir en `src/styles.css` los estilos de la etiqueta por estado, el dato de empleado de solo lectura y el ocultamiento efectivo del límite de crédito y de las acciones restringidas.
 - [ ] T072 [P] Actualizar `README.md` y `specs/004-authentication-rbac/quickstart.md` con la denominación por estado, los nuevos permisos, el empleado solicitante y el límite de crédito restringido.
-- [ ] T073 Ejecutar `npm test -- --run`, `npm run build` y `npm run lint`, y recorrer los escenarios post-revisión de `quickstart.md` con los cinco usuarios de demostración.
+- [ ] T073 Ejecutar `npm test -- --run`, `npm run build` y `npm run lint`, recorrer los escenarios post-revisión de `quickstart.md` con los cinco usuarios de demostración e incluir una prueba automatizada que mida con `performance.now()` la resolución de sesión y permisos y verifique ≤ 50 ms como promedio de 100 ejecuciones sobre el volumen de prueba definido (500 proveedores y 2.000 órdenes).
 
 **Checkpoint**: Los ajustes post-revisión se aplican de forma coherente en interfaz y servicios, con pruebas unitarias, de integración, build y lint correctos.
 
@@ -230,7 +236,7 @@
   - **US4**: requiere US2 para el control de formularios y acciones.
   - **US5**: requiere US1 para la sesión activa.
 - **Polish (Phase 8)**: depende de todas las historias.
-- **Ajustes post-revisión (Phase 9)**: depende de Polish y de los módulos planificados de `003`.
+- **Ajustes post-revisión (Phase 9)**: depende de Polish. La Fase 9 del 004 se ejecuta solo después de completar la implementación del spec 003 (ui-side-panel, ui-feedback, purchasing-list-view, purchasing-list-query, purchasing-status, purchasing-demo-data).
 
 ### User Story Dependencies
 
@@ -246,7 +252,7 @@
 - El módulo de autenticación se implementó antes de la integración en `app.js`.
 - La integración en `app.js` se completó antes de los ajustes de estilos.
 - La verificación de pruebas, build y lint se realizó al cierre.
-- En Phase 9, las pruebas T056-T062 se escriben antes de la implementación T063-T071; la verificación T073 se ejecuta al final.
+- En Phase 9, las pruebas T056-T062a se escriben antes de la implementación T063-T071; T063a se ejecuta junto con T063, T063b se ejecuta después de T063a sobre el mismo archivo de pruebas, T066a y T066b junto con T066, y la verificación T073 se ejecuta al final.
 
 ### Parallel Opportunities
 
@@ -257,7 +263,7 @@
 - US4: T033 y T034; T039 puede ejecutarse con T035-T038.
 - US5: T040 y T041.
 - Polish: T044, T045, T046 y T047.
-- Ajustes post-revisión: T056-T062 en paralelo; T071 y T072 pueden ejecutarse con T063-T070 si no tocan los mismos archivos.
+- Ajustes post-revisión: T056-T062a en paralelo; T071 y T072 pueden ejecutarse con T063-T070 si no tocan los mismos archivos; T063a se ejecuta junto con T063, T063b se ejecuta después de T063a y T066a/T066b junto con T066.
 
 ---
 
@@ -330,5 +336,5 @@ Task: "Pruebas del despliegue de consulta en tests/integration/auth-rbac.test.js
 - No se incluye administración visual de usuarios ni recuperación de credenciales.
 - Evitar tareas que toquen el mismo archivo en paralelo.
 - Phase 9 no renumera ni reordena tareas existentes y conserva sus marcas de completado.
-- Las tareas de Phase 9 referencian los módulos planificados de `003`; si aún no existen, se implementan sobre esos archivos y se validan al integrarse.
+- La Fase 9 del 004 se ejecuta solo después de completar la implementación del spec 003 (ui-side-panel, ui-feedback, purchasing-list-view, purchasing-list-query, purchasing-status, purchasing-demo-data); no se crean tareas para esos módulos.
 - Toda operación rechazada por permisos debe mostrar error persistente y no registrar historial ni transacciones.

@@ -227,11 +227,31 @@ Como usuario con necesidades de accesibilidad o en un dispositivo móvil, quiero
 - **FR-058**: Las listas, formularios, filtros, notificaciones y confirmaciones DEBEN cumplir WCAG 2.1 AA en estructura, etiquetas, nombres accesibles y anuncios.
 - **FR-059**: La interfaz DEBE adaptarse a pantallas estrechas sin pérdida de información ni controles inaccesibles.
 
+#### Ajustes post-revisión (2026-11-14)
+
+> Estos requisitos complementan y, en caso de conflicto, prevalecen sobre FR-001 a FR-059 y sobre las tareas previas de 003, sin renumerar ni desmarcar lo existente.
+
+- **FR-060**: El detalle de una Orden de Compra DEBE ser una vista propia y NO DEBE mostrarse debajo de la lista ni de ninguna otra pantalla; al activar una orden desde la lista, el detalle DEBE reemplazar la vista visible.
+- **FR-061**: La vista de detalle DEBE ofrecer un botón "Volver a Órdenes de Compra" que regrese a la lista, restaure los filtros y el orden vigentes y devuelva el foco a un control equivalente.
+- **FR-062**: Cuando otra vista esté activa, el detalle DEBE permanecer oculto con `display: none` efectivo, sin ocupar espacio ni ser alcanzable por teclado o tecnologías de asistencia.
+- **FR-063**: Las listas de Proveedores, Solicitudes y Órdenes de Compra y Productos DEBEN mantenerse a ancho completo, con el botón "+ Nuevo" que abre el formulario en panel lateral. Si una entrega posterior degradó este diseño, DEBE restituirse sin cambiar reglas de negocio.
+- **FR-064**: Los formularios DEBEN mantenerse o restituirse en dos columnas cuando el ancho lo permita, agrupados en secciones: Proveedor (Datos generales con Rubro múltiple y Origen, Contacto, Condiciones comerciales), Orden (Cabecera, Detalle de compra, Totales) y Producto (Datos del producto). En pantallas estrechas DEBEN usar una columna.
+- **FR-065**: En Productos, la gestión de categorías DEBE estar en una pestaña o sección "Categorías" propia de la pantalla, con listado, creación, edición y eliminación según las reglas vigentes de 001.
+- **FR-066**: El formulario de producto NO DEBE permitir crear categorías; DEBE limitarse a seleccionar una categoría existente y conservar la validación de categoría obligatoria y existente.
+- **FR-067**: La barra lateral DEBE presentar el orden Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda, respetando la visibilidad por rol de 004.
+- **FR-068**: Todo elemento incorporado por 003 ("+ Nuevo", panel lateral, tarjetas clicables, filtros y orden, datos de demostración y vista de detalle) DEBE respetar los permisos de 004 en la interfaz y en el servicio: ocultar o deshabilitar controles sin permiso, excluirlos del orden de tabulación, revalidar en el servicio y mostrar error persistente sin mutar datos.
+- **FR-069**: La carga de datos de demostración DEBE crear al menos un empleado por cada cargo existente, considerando los cargos presentes en el directorio de usuarios y en los empleados registrados, sin crear cargos nuevos.
+- **FR-070**: La carga de demostración DEBE respetar los permisos de 004 en las transiciones que ejecuta. Si el rol activo no puede aprobar, recibir o cancelar, NO DEBE usar la carga como vía alternativa: DEBE limitarse a los estados alcanzables e informar la limitación. Para roles con permisos completos se mantiene FR-045.
+- **FR-071**: Los filtros de Proveedores DEBEN operar sobre uno o más Rubros (coincidencia OR) y Origen, no sobre el campo de texto `category`; los de Productos sobre Categoría; los de Órdenes sobre estado, proveedor, rango de entrega y atraso. NO DEBEN ofrecerse filtros o columnas sobre datos restringidos por 004. Este requisito prevalece sobre FR-027 para Proveedores y las menciones anteriores a «categoría» de Proveedores en historias o escenarios se interpretan como Rubro(s) y Origen.
+- **FR-072**: Los formularios y el detalle de 003 NO DEBEN reintroducir los campos retirados por 002 (Cantidad, Subtotal, Descuento, Impuesto, Importe total, Notas, selector de Estado y fecha de emisión manual) ni "Fecha objetivo" de 001. La fecha de emisión DEBE asignarse automáticamente al aprobar y mostrarse como "Sin emitir" en borrador/pendiente.
+- **FR-073**: Las etiquetas DEBEN mantener "Rubro/Rubros" para Proveedores y "Categoría" para Productos según 001, y "Solicitud de compra"/"Orden de Compra emitida" según el estado y 004, en listas, detalle, panel, filtros y notificaciones.
+- **FR-074**: La vista de detalle DEBE respetar las reglas de 004: denominación por estado, fecha de emisión, empleado solicitante de solo lectura para comprador, aprobar/rechazar solo para gerente/administrador y ausencia del límite de crédito para comprador; NO DEBE renderizar acciones que el servicio rechazará.
+
 ### Key Entities *(include if feature involves data)*
 
 - **Proveedor**: registro existente del spec 001; la mejora solo cambia cómo se lista, filtra, crea y edita.
 - **Producto**: registro existente del spec 002; la mejora solo cambia su listado, filtrado, alta y edición.
-- **Categoría**: dato existente usado para filtrar proveedores y productos; no se modifican sus reglas.
+- **Categoría**: dato existente usado para clasificar y filtrar productos; su gestión se realiza en una sección propia de Productos. Los proveedores se clasifican por Rubro(s) y Origen.
 - **Empleado**: dato existente usado por las órdenes de compra; la carga de demostración puede crear ejemplos.
 - **Orden de Compra**: documento existente del spec 002; se conservan sus estados, líneas, totales, historial, recepción y reglas de negocio.
 - **Estado de Orden de Compra**: valor canónico existente del spec 002; la mejora solo añade su representación visual como etiqueta con texto y color.
@@ -277,3 +297,5 @@ Como usuario con necesidades de accesibilidad o en un dispositivo móvil, quiero
 - La interfaz debe funcionar en navegadores modernos de escritorio y móvil, con navegación por teclado y tecnologías de asistencia compatibles.
 - Las pantallas estrechas se refieren a anchos de teléfono habituales; el panel lateral pasa a pantalla completa en esos casos.
 - Los colores exactos de las etiquetas de estado pueden ajustarse dentro de la paleta del módulo siempre que se respeten los colores indicados y el contraste mínimo.
+- El "cargo" de FR-069 se toma de los valores ya existentes en el directorio de usuarios y en los empleados registrados; la carga de demostración no crea cargos nuevos.
+- Los ajustes post-revisión de 003 no reabren ni renumeran requisitos ni tareas anteriores; cuando existe conflicto, prevalecen los requisitos FR-060 a FR-074.

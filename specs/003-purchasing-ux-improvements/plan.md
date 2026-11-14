@@ -1,6 +1,6 @@
 # Implementation Plan: Mejoras de UX del módulo de Compras
 
-**Branch**: `003-purchasing-ux-improvements` | **Date**: 2026-11-08 | **Spec**: [spec.md](./spec.md)
+**Branch**: `003-purchasing-ux-improvements` | **Date**: 2026-11-08 | **Actualizado**: 2026-11-14 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/003-purchasing-ux-improvements/spec.md`
 
@@ -9,6 +9,8 @@
 Rediseñar la experiencia del módulo de Compras sin tocar el modelo de datos ni las reglas de negocio de 001/002: listas a ancho completo con acciones visibles, formularios de alta/edición en un panel lateral accesible, secciones en dos columnas y campos obligatorios claros, badges de estado con texto y color, tarjetas de proveedores, productos y órdenes navegables con filtros, filtros/orden en memoria por cada columna visible, notificaciones no bloqueantes, confirmaciones propias, estados vacíos útiles, iconos SVG inline, datos de demostración y rendimiento verificado con 500 proveedores y 2.000 órdenes.
 
 La implementación mantiene Vite, JavaScript vanilla, HTML/CSS, `localStorage`, ESLint y Prettier. No se incorporan frameworks ni librerías de UI. Los componentes de panel, feedback, iconos y listas son propios y se apoyan en los módulos y tokens existentes.
+
+Los ajustes post-revisión del 2026-11-14 (FR-060 a FR-074 y Fase F) precisan el alcance: el detalle de Orden de Compra es una vista propia y no un bloque debajo de la lista; las listas vuelven a ocupar el ancho completo con «+ Nuevo» y panel lateral; los formularios se mantienen en dos columnas por secciones; Productos separa la gestión de Categorías en una pestaña o sección propia; la barra lateral queda ordenada como Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda; y todo elemento de 003 respeta los permisos de 004 en interfaz y servicio. Estos ajustes prevalecen sobre cualquier punto anterior de este plan que entre en conflicto y no renumeran ni desmarcan tareas existentes.
 
 ## Technical Context
 
@@ -36,16 +38,21 @@ La implementación mantiene Vite, JavaScript vanilla, HTML/CSS, `localStorage`, 
 
 - No modificar el modelo de datos ni las reglas de negocio de 001/002.
 - Mantener el ciclo `borrador → pendiente → aprobado → recibido`; `cancelado` desde `borrador`/`pendiente`; `recibido`/`cancelado` terminales.
+- El detalle de una Orden de Compra es una vista propia: no se renderiza debajo de la lista ni de otra pantalla, conserva filtros/orden al volver y las vistas inactivas usan `display: none` efectivo.
+- Las listas de Proveedores, Solicitudes y Órdenes de Compra y Productos ocupan el ancho completo con «+ Nuevo» y panel lateral; los formularios usan dos columnas por secciones cuando el ancho lo permite y una columna en móvil.
+- Productos incluye una pestaña o sección «Categorías» propia; el formulario de producto solo selecciona categorías existentes y no las crea.
+- La barra lateral respeta el orden Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda.
+- Todo elemento incorporado por 003 respeta los permisos de 004 en interfaz y servicio: ocultar o deshabilitar controles sin permiso, excluirlos del orden de tabulación, revalidar en el servicio y mostrar error persistente sin mutar datos.
 - Filtros y orden exclusivamente en memoria; sin backend ni consultas remotas.
 - Sin frameworks ni librerías de componentes/iconos. Iconos SVG inline con `currentColor`.
-- Formularios con los mismos IDs, campos y validaciones existentes, reutilizados dentro del panel.
+- Formularios con los mismos IDs, campos y validaciones existentes, reutilizados dentro del panel, alineados con los campos vigentes de 001/002: Rubro múltiple y Origen en Proveedores, sin `targetDate`, sin Cantidad/Subtotal/Descuento/Impuesto/Importe total/Notas/selector de Estado en Órdenes y fecha de emisión automática al aprobar.
 - Confirmaciones y notificaciones propias; no usar `window.confirm`, `alert` ni `prompt`.
 - Accesibilidad WCAG 2.1 AA: foco visible, navegación por teclado, etiquetas, `aria-live`, contraste y foco atrapado en diálogos.
 - Responsive: panel lateral a ancho completo en ventanas estrechas; listas y acciones utilizables sin desplazamiento horizontal.
 - La carga de demostración es aditiva: nunca elimina ni sobrescribe datos existentes.
 - Si una mejora exige cambiar el modelo o las reglas, detenerse y reportarlo.
 
-**Scale/Scope**: 500 proveedores, 2.000 órdenes de compra, 500 productos, hasta 50 líneas por orden. Pantallas afectadas: Panel, Proveedores, Órdenes de compra, Productos, detalle de orden y diálogos/panel globales.
+**Scale/Scope**: 500 proveedores, 2.000 órdenes de compra, 500 productos, hasta 50 líneas por orden. Pantallas afectadas: Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos (con pestaña o sección Categorías), Búsqueda, detalle de orden como vista propia y diálogos/panel globales.
 
 ## Constitution Check
 
@@ -83,13 +90,13 @@ specs/003-purchasing-ux-improvements/
 ```text
 index.html
 src/
-├── app.js                         # Navegación, dashboard, formularios y refresco de vistas
-├── styles.css                     # Tokens, layout, panel, badges, filtros, responsive
+├── app.js                         # Navegación, detalle como vista propia, formularios y refresco de vistas
+├── styles.css                     # Tokens, layout, panel, badges, filtros, categorías, responsive
 ├── storage.js                     # Persistencia base existente (sin cambios de modelo)
 ├── purchasing-storage.js          # Persistencia de compras existente (sin cambios de modelo)
 ├── module-config.js               # Configuración de etiquetas/estados existente
-├── product-catalog.js             # Catálogo; se adapta a panel y filtros
-├── purchase-order-detail.js       # Detalle; usa badge y feedback compartidos
+├── product-catalog.js             # Catálogo y pestaña/sección Categorías; panel y filtros
+├── purchase-order-detail.js       # Detalle como vista propia; badge y feedback compartidos
 ├── purchase-order-lines.js        # Editor de líneas existente
 ├── purchase-order-print.js        # Impresión existente
 ├── domain/
@@ -116,7 +123,12 @@ tests/
     ├── purchasing-dashboard-filters.test.js
     ├── purchasing-demo-data.test.js
     ├── purchasing-accessibility.test.js
-    └── purchasing-performance.test.js
+    ├── purchasing-performance.test.js
+    ├── purchasing-order-detail-view.test.js
+    ├── product-categories.test.js
+    ├── navigation-order.test.js
+    ├── purchasing-rbac-003.test.js
+    └── purchasing-post-review-alignment.test.js
 ```
 
 **Structure Decision**: Se conserva la organización plana de `src/` y la carpeta `src/domain/` ya existente. Los nuevos módulos se agregan como archivos hermanos para no reestructurar el proyecto. Los formularios existentes se extraen a plantillas `<template>` en `index.html` y se montan en `#side-panel` reutilizando IDs, campos y validaciones; no se duplican reglas.
@@ -191,10 +203,24 @@ El flujo de ejecución, validación manual y comandos de prueba están en [quick
 - Ejecutar `npm test -- --run`, `npm run build` y `npm run lint`.
 - Verificar manualmente flujo completo en escritorio y viewport estrecho.
 
+### Fase F: Ajustes post-revisión
+
+- Corregir en `index.html`, `src/styles.css` y `src/app.js` el cambio de vistas para que el detalle de OC sea una vista propia y las vistas inactivas usen `display: none` efectivo, sin apilar el detalle bajo la lista.
+- Añadir «Volver a Órdenes de Compra» en `src/purchase-order-detail.js` y restaurar filtros, orden y foco de la lista.
+- Restituir listas a ancho completo con «+ Nuevo» y panel lateral en Proveedores, Solicitudes y Órdenes de Compra y Productos; eliminar restos del layout lista/formulario en dos columnas.
+- Restituir formularios en dos columnas por secciones, una columna en móvil, y alinear campos y validaciones con 001/002.
+- Separar la gestión de Categorías en una pestaña o sección propia de Productos y retirar la creación de categorías del formulario de producto.
+- Reordenar la barra lateral como Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda.
+- Aplicar los permisos de 004 a «+ Nuevo», panel, tarjetas, filtros/orden, demo y detalle, con revalidación en el servicio.
+- Ajustar la demo para crear al menos un empleado por cargo existente y respetar los permisos en las transiciones.
+- Alinear filtros de Proveedores con Rubro múltiple (OR) y Origen, y excluir filtros/columnas restringidos por 004.
+- Agregar y actualizar pruebas de detalle propio, categorías, navegación, RBAC, demo y alineación con 001/002; ejecutar gates de cierre.
+
 ## Testing Strategy
 
 - **Unitarias**: filtros combinados, rango de fechas inclusivo, orden ascendente/descendente, estabilidad, no mutación, `isOverdue`, etiquetas de estado, unicidad de demo y estados cubiertos.
 - **Integración**: abrir/cerrar panel, foco inicial, Tab/Shift+Tab, Esc, dirty guard, retorno de foco, modo móvil; secciones y obligatorios; badges; tarjetas del dashboard; filtros/orden/limpiar/estados vacíos; toasts de 5 s y errores persistentes; confirmaciones; demo con y sin datos, cancelación y fallo; accesibilidad.
+- **Post-revisión**: detalle como vista propia y retorno con filtros/orden; listas a ancho completo con panel; pestaña Categorías con unicidad y bloqueo por referencia; orden de navegación; permisos de 004 en todos los elementos de 003; demo con un empleado por cargo y transiciones autorizadas; alineación de campos y etiquetas con 001/002.
 - **Regresión**: 001/002 deben seguir pasando; los tests que llenaban formularios inline se actualizan para abrir el panel, sin relajar aserciones de negocio.
 - **Performance**: semilla de 500 proveedores y 2.000 órdenes; medir render de lista, filtro/orden y dashboard con `performance.now()` y umbrales definidos.
 
@@ -208,6 +234,9 @@ El flujo de ejecución, validación manual y comandos de prueba están en [quick
 | Demo duplica datos o colisiona con existentes       | Valores únicos por RUT/folio/nombre, folios desde el máximo existente, confirmación si hay datos y limpieza best-effort.         |
 | Badges con contraste insuficiente                   | Tokens de color con contraste AA y texto siempre presente; probar estados en claro/oscuro si aplica.                             |
 | Cambios accidentales al modelo/reglas               | Reutilizar storage/domain existentes; revisión explícita y tests de regresión de 002.                                            |
+| Detalle apilado bajo la lista por CSS               | Vista propia con `hidden`/`display: none` efectivo, orden de vistas centralizado y pruebas de visibilidad y foco.                |
+| Permisos de 004 inconsistentes entre UI y servicio  | Helper de permisos compartido, revalidación en el servicio, pruebas por rol y error persistente sin mutación.                   |
+| Categorías duplicadas o creadas desde el producto   | Reutilizar validaciones de 001, unicidad sin distinguir mayúsculas, sección propia y pruebas de bloqueo por referencia.          |
 
 ## Complexity Tracking
 

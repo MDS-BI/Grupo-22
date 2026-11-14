@@ -10,8 +10,8 @@ Esta mejora **no modifica el modelo de datos persistente** de 001/002 ni las reg
 
 | Entidad                     | Clave / origen                        | Campos relevantes para la UX                                                                          |
 | --------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Proveedor                   | `erp_base_module:entities`            | `id`, `name`/`nombre`, `code`, `taxId`/`rut`, `email`, `phone`, `address`, `category`, `paymentTerms` |
-| Documento / Orden de compra | `erp_base_module:documents`           | `id`, `folio`, `supplierId`, `startDate`, `endDate`, `status`, `paymentTerms`, `notes`, `total`       |
+| Proveedor                   | `erp_base_module:entities`            | `id`, `name`/`nombre`, `code` (RUT), `foreignTaxId`, `email`, `phone`, `address`, `rubro_ids`, `origin`, `paymentTerms`, `creditLimit` |
+| Documento / Orden de compra | `erp_base_module:documents`           | `id`, `folio`, `supplierId`, `startDate` (emisión automática al aprobar), `endDate`, `status`, `paymentTerms`, `currency`, `totalAmount` |
 | Empleado                    | `erp_purchasing:employees`            | `id`, `nombre`, `cargo`                                                                               |
 | Categoría                   | `erp_purchasing:categories`           | `id`, `nombre`                                                                                        |
 | Producto                    | `erp_purchasing:products`             | `id_producto`, `nombre`, `unidad_medida`, `stock`, `id_categoria`                                     |
@@ -33,7 +33,8 @@ Estado en memoria por vista de lista. No se persiste.
   view: 'suppliers' | 'orders' | 'products',
   filters: {
     // suppliers
-    category: '',
+    rubroIds: [],
+    origin: '',
     // orders
     status: '',
     supplierId: '',
@@ -44,7 +45,7 @@ Estado en memoria por vista de lista. No se persiste.
     categoryId: ''
   },
   sort: {
-    key: 'name' | 'code' | 'rut' | 'category' | 'email' | 'phone'
+    key: 'name' | 'code' | 'rut' | 'rubros' | 'origin' | 'email' | 'phone'
       | 'folio' | 'supplier' | 'employee' | 'startDate' | 'endDate' | 'total' | 'status'
       | 'unit' | 'stock',
     direction: 'asc' | 'desc'
@@ -61,6 +62,7 @@ Estado en memoria por vista de lista. No se persiste.
 - El rango de fechas es inclusivo y solo aplica a `endDate`.
 - `deliveryFrom > deliveryTo` produce error y no se aplica el filtro.
 - `overdueOnly` usa `isOverdue(order, today)` de `src/domain/purchasing.js`.
+- Los Rubros de Proveedor se combinan con coincidencia OR; el Origen se combina con AND con los demás filtros.
 - El orden es estable: empate por índice original.
 - Cambiar de vista conserva solo el estado de esa vista durante la sesión; no se guarda en storage.
 
@@ -72,7 +74,9 @@ Estado en memoria por vista de lista. No se persiste.
   name,
   code,
   rut,
-  category,
+  foreignTaxId,
+  rubros, // identificadores y nombres de Rubro
+  origin, // 'Nacional' | 'Extranjero'
   email,
   phone,
   paymentTerms,
@@ -118,6 +122,8 @@ Estado en memoria por vista de lista. No se persiste.
   categoryName
 }
 ```
+
+La gestión de categorías se realiza en una vista o sección propia de Productos; el formulario de producto solo referencia `id_categoria` y no crea categorías.
 
 ### `DashboardMetrics` (derivado)
 
@@ -206,7 +212,7 @@ Datos de demostración generados en memoria y persistidos con APIs existentes.
 | Grupo       |    Cantidad mínima | Reglas                                                               |
 | ----------- | -----------------: | -------------------------------------------------------------------- |
 | Proveedores |                  3 | RUT válido y único; nombres únicos con sufijo si colisionan          |
-| Empleados   |                  2 | Nombres únicos                                                       |
+| Empleados   | ≥1 por cargo        | Nombres únicos; un empleado por cada cargo existente sin crear cargos |
 | Categorías  |                  3 | Nombres únicos                                                       |
 | Productos   |                  6 | 2 por categoría; nombres únicos; stock inicial ≥0                    |
 | Órdenes     |                  6 | Una por estado y al menos una atrasada no terminal                   |
@@ -223,6 +229,7 @@ Datos de demostración generados en memoria y persistidos con APIs existentes.
 - Fechas coherentes (`startDate <= endDate`); la orden atrasada debe tener `endDate < hoy` y estado no terminal.
 - Para `recibido`, usar la transición real y aplicar stock.
 - Para `cancelado`, crear y cancelar desde un estado permitido.
+- Respetar los permisos de 004: si el rol no puede aprobar, recibir o cancelar, no usar la carga como vía alternativa; limitarse a los estados alcanzables e informar la limitación.
 - Si falla, limpieza best-effort en orden inverso: órdenes/historial/líneas/metadatos → productos → categorías → empleados → proveedores. Los datos preexistentes no se tocan.
 - Al terminar, refrescar dashboard y listas y mostrar toast.
 
@@ -240,11 +247,51 @@ DemoDataset ──usa APIs existentes──> claves localStorage existentes
 
 ## Validaciones existentes que se conservan
 
-- Proveedor: nombre y código obligatorios; RUT válido si se informa; campos configurados obligatorios.
-- Producto: nombre, unidad y categoría obligatorios; stock numérico ≥0.
-- Orden: proveedor, empleado, fechas y al menos una línea; cantidades enteras positivas; costo unitario ≥0; sin producto duplicado.
-- Estados: solo transiciones permitidas; terminales no editables.
+- Proveedor: nombre, al menos un Rubro y Origen obligatorios; RUT obligatorio y válido para Nacional; identificación tributaria extranjera para Extranjero; condición de pago de la lista cerrada; límite de crédito ≥0; sin `targetDate`.
+- Producto: nombre, unidad y categoría existente obligatorios; stock entero ≥0; la categoría no se crea desde el formulario de producto.
+- Orden: proveedor, empleado, fecha de entrega y al menos una línea; cantidades enteras positivas; costo unitario ≥0; sin producto duplicado; sin campos manuales de importes ni Notas; estado inicial `borrador` sin selector; fecha de emisión automática al aprobar y «Sin emitir» antes.
+- Estados: solo transiciones permitidas; terminales no editables; permisos de 004 aplicados en interfaz y servicio.
 - Persistencia: errores actuales se muestran al usuario sin perder datos del formulario.
+
+## Ajustes post-revisión (2026-11-14)
+
+### `DetailViewState`
+
+```js
+{
+  orderId: string | null,
+  previousView: 'orders',
+  returnFocus: HTMLElement | null,
+  filters: object,
+  sort: object,
+  active: boolean
+}
+```
+
+**Reglas**:
+
+- El detalle es una vista propia y no comparte el DOM visible con la lista.
+- Al abrirse guarda `filters`, `sort` y el foco de origen; al volver los restaura.
+- Cuando `active === false`, la vista queda con `display: none` efectivo y fuera del orden de tabulación.
+- Respeta la denominación por estado, la fecha de emisión y las restricciones de 004.
+
+### `CategoryManagementState`
+
+```js
+{
+  active: boolean,
+  mode: 'list' | 'create' | 'edit',
+  categoryId: string | null,
+  error: string
+}
+```
+
+**Reglas**:
+
+- Es estado de vista efímero de la pantalla Productos; no crea claves ni campos persistentes.
+- El formulario de producto solo selecciona `id_categoria`; no crea categorías.
+- La unicidad y el bloqueo por referencia siguen las reglas de 001.
+- Sin `products.manage`, la sección es de solo lectura y las acciones se rechazan en el servicio.
 
 ## Fuera de alcance
 

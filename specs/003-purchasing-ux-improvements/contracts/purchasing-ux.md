@@ -4,6 +4,8 @@
 
 Estos contratos describen el comportamiento observable esperado. No imponen una implementación específica, pero cualquier implementación debe cumplirlos y las pruebas deben verificarlos.
 
+Los ajustes post-revisión del 2026-11-14 (detalle como vista propia, listas a ancho completo con panel lateral, categorías separadas en Productos, orden de navegación, permisos de `004` y alineación con `001`/`002`) prevalecen sobre los puntos anteriores cuando exista conflicto.
+
 ## 1. Contrato del panel lateral (`ui-side-panel.js`)
 
 ### Apertura
@@ -42,9 +44,10 @@ Estos contratos describen el comportamiento observable esperado. No imponen una 
 
 - Los formularios usan los mismos IDs, nombres, campos y validaciones existentes.
 - Se agrupan en secciones visibles:
-  - Proveedor: datos generales, contacto, condiciones comerciales.
+  - Proveedor: datos generales (incluye Rubro múltiple y Origen), contacto, condiciones comerciales.
   - Orden: cabecera, detalle, totales.
-  - Producto: datos del producto.
+  - Producto: datos del producto; la categoría solo se selecciona y no se crea desde el formulario.
+- La creación, edición y eliminación de categorías se realiza en la pestaña o sección «Categorías» de la pantalla Productos, no dentro del formulario de producto.
 - La grilla usa dos columnas cuando el ancho lo permite y una columna en pantallas estrechas.
 - Cada campo obligatorio tiene:
   - `<label>` asociada.
@@ -97,8 +100,8 @@ Estos contratos describen el comportamiento observable esperado. No imponen una 
   - Estado vacío adecuado.
 - La lista ocupa el ancho disponible; no comparte fila con un formulario.
 - Filas:
-  - Proveedor: nombre, código/RUT, categoría, contacto, acciones ver/editar/eliminar.
-  - Orden: folio, proveedor, empleado, fechas, estado, total, acciones ver/editar/eliminar.
+  - Proveedor: nombre, código/RUT o identificación extranjera, Rubro(s), Origen, contacto, acciones ver/editar/eliminar.
+  - Orden: folio, proveedor, empleado, fechas, estado, total, acciones ver/editar/eliminar. La acción ver abre el detalle como vista propia.
   - Producto: nombre, categoría, unidad, stock, acciones editar/eliminar.
 - Acciones con iconos tienen nombre accesible; también pueden tener texto visible.
 - Orden de tabla:
@@ -113,15 +116,17 @@ Estos contratos describen el comportamiento observable esperado. No imponen una 
   - El estado vacío no rompe la tabla ni los controles.
 - Filtros:
   - Órdenes: estado, proveedor, fecha desde, fecha hasta, solo atrasadas.
-  - Proveedores: categoría.
+  - Proveedores: uno o más Rubros (coincidencia OR) y Origen; no se usa el campo de texto `category`.
   - Productos: categoría.
   - Los filtros se reflejan en la lista y en el resumen de filtros activos.
+  - No se ofrecen filtros ni columnas sobre datos restringidos por `004`.
 - Al abrir desde una tarjeta del dashboard, la lista muestra el filtro preaplicado y permite limpiarlo.
 - En móvil, la tabla permite ver y usar acciones sin desplazamiento horizontal bloqueante; si se usa scroll, la primera columna/acciones permanecen accesibles.
 
 ## 5. Contrato del dashboard
 
 - Las tarjetas de proveedores, productos y órdenes son controles navegables (botón o enlace con semántica correcta).
+- Cada tarjeta respeta el permiso de vista de su lista destino y las acciones rápidas respetan los permisos de `004`; una tarjeta o acción sin permiso no es navegable ni abre la vista.
 - El desglose por estado muestra badge con texto y color y es navegable.
 - Activar una tarjeta:
   - Proveedores → vista de proveedores.
@@ -193,7 +198,7 @@ Estos contratos describen el comportamiento observable esperado. No imponen una 
   - Nombres con sufijo si ya existen.
 - Dataset mínimo:
   - 3 proveedores.
-  - 2 empleados.
+  - Al menos un empleado por cada cargo existente en el directorio de usuarios y en los empleados registrados.
   - 3 categorías.
   - 6 productos.
   - 6 órdenes: `borrador`, `pendiente`, `aprobado`, `recibido`, `cancelado` y al menos una atrasada no terminal.
@@ -201,6 +206,7 @@ Estos contratos describen el comportamiento observable esperado. No imponen una 
 - Usa las APIs existentes; no escribe claves nuevas ni campos nuevos.
 - `recibido` se logra con la transición real y aplica stock.
 - `cancelado` se logra con una transición permitida.
+- Si el rol activo no tiene permiso para aprobar, recibir o cancelar, la carga no usa esas transiciones como vía alternativa: se limita a los estados alcanzables y lo informa.
 - Si falla:
   - Los datos existentes permanecen intactos.
   - Se intenta limpiar lo creado en orden inverso de dependencia.
@@ -252,3 +258,29 @@ Con 500 proveedores, 2.000 órdenes, 500 productos y hasta 50 líneas por orden:
 - Las validaciones y mensajes existentes se conservan.
 - Las claves de `localStorage` no cambian.
 - La suite completa debe pasar antes de cerrar.
+- Se conservan los ajustes post-revisión de 001: Rubro múltiple, Origen, condiciones de pago cerradas y ausencia de `targetDate`.
+- Se conservan los ajustes post-revisión de 002: sin campos manuales ni selector de Estado, fecha de emisión automática al aprobar y «Sin emitir» en borrador/pendiente.
+- Se conservan los permisos y denominaciones de 004: «Solicitud de compra» / «Orden de Compra emitida», aprobar/rechazar, empleado solicitante y límite de crédito restringido.
+
+## 12. Contrato de detalle, categorías y navegación
+
+### Detalle de orden
+
+- El detalle es una vista propia; no se renderiza debajo de la lista ni de otra pantalla.
+- Al activar una orden desde la lista, se muestra solo el detalle y se registra el origen para el retorno.
+- La vista ofrece el botón «Volver a Órdenes de Compra», que restaura la lista con sus filtros y orden y devuelve el foco a un control equivalente.
+- Cuando el detalle no está activo, permanece oculto con `display: none` efectivo y fuera del orden de tabulación.
+- Respeta la denominación por estado, la fecha de emisión, el empleado de solo lectura para `comprador`, la ausencia del límite de crédito para `comprador` y las acciones autorizadas por `004`.
+
+### Categorías de Productos
+
+- La pantalla Productos incluye una pestaña o sección «Categorías» con listado, alta, edición y eliminación.
+- La unicidad del nombre no distingue mayúsculas y la eliminación se bloquea si la categoría está referenciada, según 001.
+- El formulario de producto solo permite seleccionar una categoría existente; no ofrece controles para crearla.
+- Las acciones se ocultan cuando el rol no tiene `products.manage` y se rechazan en el servicio.
+
+### Navegación
+
+- El orden de la barra lateral es Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda.
+- La visibilidad de cada acceso respeta la matriz de permisos de `004` y conserva `aria-current` en la vista activa.
+- El detalle de orden no agrega un acceso propio en la barra lateral.

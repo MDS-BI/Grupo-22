@@ -232,6 +232,58 @@
 
 ---
 
+## Phase 10: Ajustes post-revisión
+
+**Purpose**: Restituir y verificar el diseño de 003 frente a lo implementado en 001, 002 y 004: detalle como vista propia, listas a ancho completo con panel lateral, formularios en dos columnas, categorías separadas en Productos, orden de navegación, permisos en interfaz y servicio y alineación de campos y etiquetas.
+
+**Prerequisites**: Fases 1-9 completadas; 001, 002 y 004 implementados con sus ajustes post-revisión. Si algún módulo de 003 no existe, la tarea se implementa sobre el archivo planificado y se valida al integrarse.
+
+**Nota de precedencia**: Las tareas de esta fase precisan y, en caso de conflicto, prevalecen sobre las tareas anteriores de 003. No se renumera, reordena ni desmarca ninguna tarea existente.
+
+**Tareas existentes que requieren ajuste de texto al ejecutarse** (se listan aquí y no se reescriben en silencio):
+
+- **T010**: al extraer plantillas, conservar solo los campos vigentes de 001/002 y no incluir la creación de categorías dentro del formulario de producto.
+- **T011**: la acción «ver» de una OC abre el detalle como vista propia, no un bloque debajo de la lista.
+- **T012/T013**: el refactor debe mantener lista a ancho completo, panel lateral y, en Productos, la gestión de Categorías separada del formulario.
+- **T017/T018**: las pruebas actualizadas deben cubrir también detalle propio, sección Categorías y campos vigentes.
+- **T020/T023/T026**: los filtros de Proveedores operan sobre Rubro(s) y Origen, no sobre el campo de texto `category`.
+- **T037/T044**: el detalle y sus acciones deben respetar la vista propia, las denominaciones y los permisos de 004.
+- **T051/T052/T053**: la demo crea al menos un empleado por cargo existente y respeta los permisos en sus transiciones y acción.
+- **T058**: la auditoría de accesibilidad incluye pestañas de Categorías, detalle propio y controles ocultos fuera del orden de tabulación.
+- **T070a/T070b/T070c**: las pruebas de no regresión deben cubrir los campos vigentes de 001/002 y los permisos de 004.
+
+### Tests for Phase 10
+
+- [ ] T071 [P] Escribir pruebas de integración del detalle como vista propia en `tests/integration/purchasing-order-detail-view.test.js`: al abrir una OC se oculta la lista y cualquier otra vista, el detalle no queda debajo, "Volver a Órdenes de Compra" restaura lista, filtros, orden y foco, y el detalle inactivo no es accesible.
+- [ ] T072 [P] Ampliar `tests/integration/purchasing-lists-panel.test.js` para verificar listas a ancho completo, "+ Nuevo" y panel lateral en Proveedores, Solicitudes y Órdenes de Compra y Productos, sin layout de lista y formulario en dos columnas.
+- [ ] T073 [P] Ampliar `tests/integration/purchasing-forms-panel.test.js` para verificar formularios en dos columnas por secciones, una columna en móvil, campos vigentes de 001/002 y ausencia de campos retirados.
+- [ ] T074 [P] Escribir pruebas de integración de la sección "Categorías" en Productos en `tests/integration/product-categories.test.js`: listado, alta, edición, eliminación, unicidad sin distinguir mayúsculas, bloqueo por referencia y ausencia de alta de categorías en el formulario de producto.
+- [ ] T075 [P] Escribir pruebas de integración del orden de la barra lateral en `tests/integration/navigation-order.test.js`: Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda, con visibilidad por rol y sin afectar `aria-current`.
+- [ ] T076 [P] Escribir pruebas de integración de los permisos de 004 sobre "+ Nuevo", panel lateral, tarjetas, filtros/orden, datos de demostración y detalle en `tests/integration/purchasing-rbac-003.test.js`, incluyendo rechazo en servicio, error persistente y no mutación.
+- [ ] T077 [P] Ampliar `tests/unit/purchasing-demo-data.test.js` y `tests/integration/purchasing-demo-data.test.js`: al menos un empleado por cargo existente, unicidad y límites de estados según los permisos del rol.
+- [ ] T078 [P] Escribir pruebas de alineación con 001/002 en `tests/integration/purchasing-post-review-alignment.test.js`: Rubro múltiple y Origen en Proveedores, filtros por Rubro, campos retirados de OC, fecha de emisión automática y etiquetas Rubro/Categoría y Solicitud/Orden emitida.
+- [ ] T078a [P] Agregar aserciones de accesibilidad de la fase en `tests/integration/purchasing-order-detail-view.test.js`, `tests/integration/product-categories.test.js` y `tests/integration/navigation-order.test.js`: foco al abrir y volver del detalle, pestañas de Categorías con semántica y teclado, y controles ocultos fuera del orden de tabulación.
+
+### Implementation for Phase 10
+
+- [ ] T079 Corregir `index.html`, `src/styles.css` y `src/app.js` para que el detalle sea una vista propia: las vistas inactivas DEBEN quedar con `display: none` efectivo, sin apilar el detalle bajo la lista, y abrirse al activar una fila de OC.
+- [ ] T080 Añadir el botón "Volver a Órdenes de Compra" en `src/purchase-order-detail.js` y su manejador en `src/app.js`, restaurando filtros, orden y foco de la lista.
+- [ ] T081 Verificar y restituir en `src/purchasing-list-view.js`, `src/app.js`, `src/product-catalog.js`, `index.html` y `src/styles.css` las listas a ancho completo con "+ Nuevo" y el panel lateral, eliminando restos del layout lista/formulario en dos columnas.
+- [ ] T082 Verificar y restituir las plantillas de formulario en `index.html` y `src/app.js`: dos columnas por secciones, una columna en móvil, campos vigentes de 001/002 y sin campos reintroducidos.
+- [ ] T083 Implementar la pestaña o sección "Categorías" en la pantalla Productos en `index.html`, `src/product-catalog.js` y `src/styles.css`, y retirar la creación de categorías del formulario de producto, conservando `canManage` de 004.
+- [ ] T084 Reordenar la barra lateral en `index.html` y ajustar etiquetas y visibilidad en `src/app.js` y `src/module-config.js`: Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda.
+- [ ] T085 Aplicar los permisos de 004 en `src/ui-side-panel.js`, `src/purchasing-list-view.js`, `src/purchasing-list-query.js`, `src/purchasing-demo-data.js`, `src/purchase-order-detail.js`, `src/app.js` y `src/product-catalog.js`: alta/edición, tarjetas, filtros restringidos, demo, detalle y revalidación en servicio.
+- [ ] T086 Ajustar los datos de demostración en `src/purchasing-demo-data.js` para crear al menos un empleado por cargo existente, respetar los permisos en las transiciones y mantener unicidad y carga aditiva.
+- [ ] T087 Alinear filtros y columnas con 001/002 en `src/purchasing-list-query.js`, `src/purchasing-list-view.js`, `src/app.js` y `src/product-catalog.js`: Rubro múltiple con coincidencia OR, Origen, Categoría de producto y ausencia de filtros restringidos por 004.
+- [ ] T088 Actualizar las pruebas existentes afectadas por el detalle propio, la sección Categorías, el orden de navegación y los campos vigentes en `tests/integration/create-entity.test.js`, `tests/integration/edit-delete-entity.test.js`, `tests/integration/add-document.test.js`, `tests/integration/manage-document.test.js`, `tests/integration/purchase-order-flow.test.js`, `tests/integration/purchase-order-lines.test.js`, `tests/integration/purchase-order-employee.test.js`, `tests/integration/product-catalog.test.js`, `tests/integration/dashboard.test.js` y `tests/integration/search-entities.test.js`.
+- [ ] T089 Agregar estilos de detalle propio, pestañas de Categorías, panel restituido y foco/contraste en `src/styles.css`.
+- [ ] T090 Actualizar `README.md` y `specs/003-purchasing-ux-improvements/quickstart.md` con el detalle como vista propia, la sección Categorías, el orden de navegación y los permisos de 004.
+- [ ] T091 Ejecutar `npm test -- --run`, `npm run build` y `npm run lint` desde `package.json`, corregir regresiones y completar la validación manual de `quickstart.md`.
+
+**Checkpoint**: El diseño de 003 queda restituido y verificado frente a 001/002/004, con detalle propio, categorías separadas, navegación ordenada y permisos aplicados en interfaz y servicio.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -245,6 +297,7 @@
 - **US5 (Phase 7)**: depende de US2 (dashboard) y US3 (confirmación/toasts).
 - **US6 (Phase 8)**: depende de US1-US5.
 - **Polish (Phase 9)**: depende de todas las historias deseadas.
+- **Ajustes post-revisión (Phase 10)**: depende de Polish y de 001, 002 y 004 implementados con sus ajustes post-revisión.
 
 ### User Story Dependencies
 
@@ -274,6 +327,7 @@
 - US5: T049/T050 en paralelo; T050a tras T050; T051 en paralelo con T052; T054 en paralelo con T052/T053.
 - US6: T057 en paralelo con T058-T060; T057a tras T057.
 - Polish: T062 y T064 en paralelo; T070a-T070c en paralelo; T070d tras T070a-T070c.
+- Ajustes post-revisión: T071-T078a en paralelo; T079 antes de T080; T084, T086 y T087 pueden ejecutarse en paralelo solo si no comparten archivo; T088 tras T081-T087; T089-T091 al final.
 
 ---
 
@@ -351,6 +405,7 @@ Task: "Agregar estilos de foco/contraste en src/styles.css"
 6. US5 -> validar demo y entregar.
 7. US6 -> validar accesibilidad/responsive y entregar.
 8. Polish -> rendimiento, documentación y gates finales.
+9. Ajustes post-revisión -> restituir detalle propio, categorías, navegación, permisos y alineación con 001/002/004.
 
 ### Parallel Team Strategy
 
@@ -372,3 +427,5 @@ Task: "Agregar estilos de foco/contraste en src/styles.css"
 - No cambiar modelo de datos, claves de storage, estados ni transiciones.
 - No usar `window.confirm`, `alert` ni `prompt` en la implementación final.
 - Ejecutar `npm test -- --run`, `npm run build` y `npm run lint` antes de cerrar.
+- Phase 10 no renumera, reordena ni desmarca tareas anteriores; conserva el historial de las fases 1-9.
+- Ninguna tarea de 003 puede reintroducir campos retirados por 001/002 ni omitir los permisos de 004 en interfaz y servicio.

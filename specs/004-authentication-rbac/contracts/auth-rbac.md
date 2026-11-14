@@ -36,8 +36,8 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 | `roleLabel(role)` | Rol | Etiqueta visible o el valor original | — |
 | `permissionsFor(role)` | Rol | `Set` de permisos | — |
 | `can(permission, sessionOrRole)` | Permiso y sesión o rol | `true` si el rol tiene el permiso | — |
-| `transitionPermission(currentStatus, nextStatus)` | Estado de origen y estado destino (o solo destino para compatibilidad) | Permiso asociado o `null` | — |
-| `canTransitionTo(currentStatus, nextStatus, sessionOrRole)` | Estado de origen, destino y sesión o rol | `true` si puede ejecutar la transición | — |
+| `transitionPermission(currentStatus, nextStatus)` | Estado de origen y estado destino, ambos obligatorios | Permiso asociado o `null` si falta alguno o la transición no está definida | — |
+| `canTransitionTo(currentStatus, nextStatus, sessionOrRole)` | Estado de origen, estado destino y sesión o rol | `true` solo si ambos estados están presentes y el rol tiene el permiso | — |
 | `login(userId)` | `userId` | Sesión persistida | `USER_ID_REQUIRED`, `USER_NOT_FOUND`, `USER_INACTIVE` |
 | `getSession()` | — | Sesión vigente o `null` | — |
 | `clearSession()` | — | — | — |
@@ -54,6 +54,7 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 ### Contrato de sesión
 
 - La sesión contiene `{ userId, nombre, role, loginAt }`.
+- La Sesión no almacena `cargo`; el nombre y el cargo del empleado solicitante se obtienen del registro de Usuario resuelto por `userId`.
 - `login` siembra el directorio antes de buscar y no permite usuarios inactivos.
 - `getSession` re-resuelve el usuario en el directorio vigente:
   - Si no existe o está inactivo, elimina la sesión y retorna `null`.
@@ -68,8 +69,8 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 - `can` acepta una sesión (`{ role }`) o un nombre de rol.
 - `can` retorna `false` si no hay rol o el rol es inexistente.
 - `administrador` recibe todos los permisos declarados.
-- Las transiciones se mapean por estado de origen y destino, no por acción textual.
-- `cancelado` requiere `orders.cancel` cuando el origen es `borrador` y `orders.reject` cuando el origen es `pendiente`; una invocación con un solo estado destino conserva el mapeo histórico a `orders.cancel` por compatibilidad.
+- Las transiciones se mapean por estado de origen y destino, no por acción textual: `borrador` → `pendiente` = `orders.submit`; `borrador` → `cancelado` = `orders.cancel`; `pendiente` → `aprobado` = `orders.approve`; `pendiente` → `cancelado` = `orders.reject`; `aprobado` → `recibido` = `orders.receive`.
+- La resolución exige siempre estado de origen y estado destino. Si falta el estado de origen, `transitionPermission` y `canTransitionTo` rechazan la transición y no conceden permiso por defecto. No existe una ruta de compatibilidad por estado de destino.
 - `orders.reject` existe solo para `administrador` y `gerente`.
 
 ## Contrato de Política de Acceso (`src/access-policy.js`)
@@ -100,11 +101,11 @@ Módulo puro, sin DOM, compartido por la interfaz y los servicios. Recibe la ses
 
 | Estado actual | Acción | Permiso | Efecto |
 |---|---|---|---|
-| `borrador` | Enviar a revisión | `orders.submit` | `pendiente`; sin fecha de emisión |
+| `borrador` | Enviar a aprobación | `orders.submit` | `pendiente`; sin fecha de emisión |
 | `borrador` | Cancelar | `orders.cancel` | `cancelado`; etiqueta «Solicitud de compra» |
 | `pendiente` | Aprobar | `orders.approve` | `aprobado`; etiqueta «Orden de Compra emitida»; completa `startDate` solo si falta |
 | `pendiente` | Rechazar (cancelar) | `orders.reject` | `cancelado`; etiqueta «Solicitud de compra»; sin fecha de emisión nueva |
-| `aprobado` | Marcar recibida | `orders.receive` | `recibido`; conserva etiqueta y fecha de emisión |
+| `aprobado` | Recibir | `orders.receive` | `recibido`; conserva etiqueta y fecha de emisión |
 | `recibido` / `cancelado` | — | — | Sin acciones |
 
 **Reglas**:
@@ -112,7 +113,7 @@ Módulo puro, sin DOM, compartido por la interfaz y los servicios. Recibe la ses
 - `comprador` no puede ejecutar `orders.approve` ni `orders.reject`; su intento se rechaza con `PERMISSION_DENIED` y no muta estado, historial ni stock.
 - `orders.cancel` no habilita cancelar una solicitud `pendiente`; para ese estado se exige `orders.reject`.
 - La etiqueta se recalcula al cambiar el estado y se usa en listas, tarjetas, filtros, panel lateral, detalle, impresión, confirmaciones y notificaciones.
-- La fecha de emisión se muestra junto a «Orden de Compra emitida» y usa `startDate` de `002`; una fecha válida existente nunca se sobrescribe.
+- La fecha de emisión se muestra junto a «Orden de Compra emitida» y usa `startDate` de `002`; si el documento no está aprobado, el detalle y la impresión muestran «Sin emitir». Una fecha válida existente nunca se sobrescribe.
 
 ## Contrato del Límite de Crédito
 
@@ -132,12 +133,14 @@ Módulo puro, sin DOM, compartido por la interfaz y los servicios. Recibe la ses
 
 | Rol | Asignación | Editable | Validación de servicio |
 |---|---|---|---|
-| `comprador` | Automática mediante `Usuario.id_empleado` | No; solo lectura | Fuerza el vínculo propio; otro `id_empleado` → `PERMISSION_DENIED` |
+| `comprador` | Automática mediante `Usuario.id_empleado`; un solo empleado propio por comprador y como máximo un usuario por empleado | No; solo lectura | Fuerza el vínculo propio; otro `id_empleado` → `PERMISSION_DENIED` |
 | `administrador` | Selección desde empleados registrados | Sí | Exige un empleado existente |
 | `gerente` | Selección desde empleados registrados | Sí | Exige un empleado existente |
 | `bodeguero` / `consulta` | Sin creación ni edición | No aplica | No aplica |
 
-- `ensureRequesterEmployee` busca por nombre normalizado, crea el empleado una sola vez si falta y persiste el vínculo en `erp_auth:users`.
+- `ensureRequesterEmployee` resuelve el vínculo por `userId`; si no existe, crea un empleado nuevo con el nombre y el cargo del Usuario de la sesión y persiste el vínculo en `erp_auth:users`. No reutiliza empleados por coincidencia de nombre.
+- Cada `comprador` tiene exactamente un empleado propio; un empleado puede estar vinculado como máximo a un usuario. Dos compradores con el mismo nombre obtienen empleados distintos.
+- El nombre y el cargo se obtienen del registro de Usuario resuelto por `userId`; la entidad Sesión no cambia.
 - El vínculo se reutiliza en todas las solicitudes del mismo `comprador`; no se duplica por nombre.
 - El empleado solicitante sigue siendo obligatorio conforme a `002`.
 
@@ -198,6 +201,8 @@ Módulo puro, sin DOM, compartido por la interfaz y los servicios. Recibe la ses
 - El detalle, las listas, las tarjetas, los filtros y las notificaciones usan la denominación derivada del estado.
 - El `comprador` nunca recibe el límite de crédito ni un selector editable de empleado.
 - La impresión requiere `orders.print` tanto para mostrar el botón como para ejecutar la acción.
+- El rol `consulta` puede imprimir (FR-020); en la matriz vigente los cinco roles tienen `orders.print`, por lo que no existe un rol de prueba sin ese permiso.
+- El detalle y la impresión muestran «Solicitud de compra» u «Orden de Compra emitida» según el estado, la fecha de emisión o «Sin emitir» cuando no está aprobada, el empleado solicitante, ocultan el límite de crédito al `comprador` y solo renderizan las acciones permitidas para el rol.
 - La edición de líneas requiere `documents.update` y que la orden no sea terminal.
 - El catálogo sin `products.manage` no permite alta, edición, eliminación ni creación de categoría, aunque se invoque la función directamente.
 - Todo elemento oculto por permisos DEBE tener `display: none` efectivo en el estilo computado; el atributo `hidden` por sí solo no es suficiente si otra regla CSS define `display`.

@@ -38,7 +38,7 @@ Resultado esperado:
 1. Ir a **Proveedores**.
 2. Verificar que la lista ocupa el ancho disponible y que `+ Nuevo` está visible.
 3. Activar `+ Nuevo`: se abre el panel lateral, el foco entra en el primer campo y el fondo no es interactuable.
-4. Verificar secciones, grilla de dos columnas (una en móvil), campos obligatorios marcados y errores junto a cada campo al guardar vacío.
+4. Verificar secciones, grilla de dos columnas (una en móvil), campos obligatorios marcados y errores junto a cada campo al guardar vacío. En Proveedor, comprobar Rubro múltiple y Origen dentro de Datos generales; en Producto, comprobar que la categoría solo se selecciona y no se crea en el formulario.
 5. Completar y guardar: aparece toast de éxito, se cierra el panel y la lista se actualiza.
 6. Editar un registro, cambiar un campo y cerrar con Esc: aparece confirmación.
 7. Cancelar la confirmación: el panel sigue abierto con los cambios.
@@ -56,7 +56,7 @@ Resultado esperado:
 5. Ordenar por cada columna visible (folio, proveedor, empleado, fechas, estado, total); verificar `aria-sort` y alternancia asc/desc.
 6. Activar `Limpiar filtros`: vuelven todos los registros.
 7. Verificar estado vacío sin registros y sin coincidencias; cada uno ofrece la acción correcta.
-8. Repetir filtros/orden en **Proveedores** (categoría) y **Productos** (categoría).
+8. Repetir filtros/orden en **Proveedores** (uno o más Rubros y Origen) y **Productos** (Categoría).
 9. Verificar badges de estado con texto y color en lista y detalle.
 
 ### 3. Dashboard
@@ -82,7 +82,7 @@ Resultado esperado:
 ### 5. Datos de demostración
 
 1. Con `localStorage` limpio, activar **Cargar datos de demostración**.
-2. Verificar que se crean al menos 3 proveedores, 2 empleados, 3 categorías, 6 productos y 6 órdenes.
+2. Verificar que se crean al menos 3 proveedores, un empleado por cada cargo existente, 3 categorías, 6 productos y 6 órdenes.
 3. Verificar que existen los cinco estados y al menos una orden atrasada.
 4. Verificar que las órdenes tienen líneas y totales coherentes.
 5. Con datos existentes, activar de nuevo: aparece confirmación.
@@ -108,6 +108,17 @@ Resultado esperado:
    - Dashboard ≤500 ms.
    - Panel ≤200 ms.
 
+### 8. Detalle, categorías y navegación post-revisión
+
+1. Ir a **Solicitudes y Órdenes de Compra** y activar una fila: se abre el detalle como vista propia, sin quedar debajo de la lista ni de otras pantallas.
+2. Verificar que el detalle muestra "Volver a Órdenes de Compra" y que al volver se conservan filtros, orden y foco.
+3. Comprobar que el detalle inactivo no ocupa espacio ni es alcanzable con Tab.
+4. En el detalle, verificar la denominación por estado ("Solicitud de compra" u "Orden de Compra emitida"), la fecha de emisión o "Sin emitir", y que no aparecen acciones que el rol no puede ejecutar.
+5. Ir a **Productos** y abrir la pestaña o sección **Categorías**: crear, editar y eliminar una categoría; verificar unicidad y bloqueo si está referenciada.
+6. Verificar que el formulario de producto solo permite seleccionar una categoría existente y que no contiene controles para crearla.
+7. Comprobar el orden de la barra lateral: Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda.
+8. Ingresar con cada rol de 004 y verificar que "+ Nuevo", panel, tarjetas, filtros, demo y detalle respetan sus permisos en la interfaz y en el servicio.
+
 ## Pruebas específicas
 
 ```powershell
@@ -121,6 +132,11 @@ npx vitest run tests/integration/purchasing-dashboard-filters.test.js
 npx vitest run tests/integration/purchasing-demo-data.test.js
 npx vitest run tests/integration/purchasing-accessibility.test.js
 npx vitest run tests/integration/purchasing-performance.test.js
+npx vitest run tests/integration/purchasing-order-detail-view.test.js
+npx vitest run tests/integration/product-categories.test.js
+npx vitest run tests/integration/navigation-order.test.js
+npx vitest run tests/integration/purchasing-rbac-003.test.js
+npx vitest run tests/integration/purchasing-post-review-alignment.test.js
 ```
 
 ## Checklist de aceptación
@@ -134,7 +150,13 @@ npx vitest run tests/integration/purchasing-performance.test.js
 - [ ] Estados vacíos con acción útil.
 - [ ] Toasts de éxito 5 s y errores persistentes; confirmaciones propias.
 - [ ] Iconos SVG inline y accesibles.
-- [ ] Demo aditiva con todos los estados y al menos una atrasada.
+- [ ] Demo aditiva con todos los estados, al menos una atrasada y un empleado por cargo existente.
+- [ ] Detalle de OC como vista propia, con "Volver a Órdenes de Compra" y filtros/orden restaurados.
+- [ ] Listas a ancho completo con "+ Nuevo" y panel lateral restituidos; formularios en dos columnas por secciones.
+- [ ] Pestaña o sección "Categorías" en Productos; el formulario de producto solo selecciona categorías existentes.
+- [ ] Barra lateral en orden Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos, Búsqueda.
+- [ ] Elementos de 003 respetan los permisos de 004 en interfaz y servicio.
+- [ ] Sin campos retirados por 001/002 reintroducidos (Rubro múltiple, Origen, sin campos manuales de OC, fecha de emisión automática).
 - [ ] Sin cambios de modelo/reglas/claves de storage.
 - [ ] Accesibilidad y responsive verificados.
 - [ ] Rendimiento verificado con 500 proveedores y 2.000 órdenes.

@@ -73,7 +73,7 @@ Como **responsable del flujo de compras**, quiero que las acciones de cambio de 
 2. **Dada** una orden pendiente, **cuando** el usuario tiene permiso de aprobación, **entonces** puede aprobarla.
 3. **Dada** una orden aprobada, **cuando** el usuario tiene permiso de recepción, **entonces** puede marcarla como recibida.
 4. **Dada** una orden en un estado cancelable, **cuando** el usuario tiene permiso de cancelación, **entonces** puede cancelarla.
-5. **Dada** una orden cuyo estado destino no está autorizado para el rol, **cuando** el usuario abre el detalle, **entonces** esa acción no aparece entre los botones.
+5. **Dada** una transición cuyo estado de origen y destino no está autorizado para el rol, **cuando** el usuario abre el detalle, **entonces** esa acción no aparece entre los botones.
 6. **Dado** un intento de ejecutar una transición no autorizada por cualquier vía, **cuando** el sistema procesa la acción, **entonces** la rechaza, informa la falta de permisos y no modifica la orden.
 7. **Dada** una orden terminal, **cuando** cualquier rol la consulta, **entonces** no se ofrecen transiciones, aunque el rol tenga permisos de flujo.
 
@@ -127,7 +127,8 @@ Como **usuario autenticado**, quiero cerrar mi sesión para que la aplicación v
 - **Vista actual no permitida tras cambiar de rol**: se redirige a la primera vista autorizada.
 - **Comprador intenta aprobar o rechazar desde la consola o forzando el botón**: la operación se rechaza, no se modifica el estado, no se agrega historial y no se altera el stock.
 - **Comprador intenta asignar otro empleado solicitante manipulando el payload**: se rechaza el guardado completo sin modificar la solicitud.
-- **Comprador sin empleado vinculado**: se crea una sola vez un empleado con su nombre y cargo, se persiste el vínculo y se reutiliza en las siguientes solicitudes.
+- **Comprador sin empleado vinculado**: se crea una sola vez un empleado nuevo con el nombre y cargo del Usuario de la sesión, se persiste el vínculo por `userId` y se reutiliza en las siguientes solicitudes.
+- **Dos compradores con el mismo nombre**: cada uno recibe un empleado propio distinto; no se reutiliza un empleado por coincidencia de nombre y un empleado no puede quedar vinculado a más de un usuario.
 - **Comprador edita un proveedor con límite de crédito**: el valor persistido se conserva; si el payload intenta modificarlo, se rechaza la operación.
 - **Aprobación de una solicitud sin fecha de emisión**: se completa `startDate` con la fecha del cambio de estado.
 - **Aprobación de una solicitud con fecha de emisión válida**: la fecha se conserva y no se recalcula.
@@ -166,8 +167,8 @@ Como **usuario autenticado**, quiero cerrar mi sesión para que la aplicación v
 - **FR-018**: El rol `comprador` DEBE poder crear y editar proveedores, crear, editar y eliminar órdenes, enviar a revisión y cancelar, pero NO DEBE eliminar proveedores, aprobar, recibir ni gestionar productos.
 - **FR-019**: El rol `bodeguero` DEBE ver panel, órdenes, productos y búsqueda, recibir órdenes y gestionar productos y stock, pero NO DEBE ver proveedores ni crear, editar o eliminar órdenes.
 - **FR-020**: El rol `consulta` DEBE tener acceso de solo lectura a panel, proveedores, órdenes, productos y búsqueda, y DEBE poder imprimir órdenes.
-- **FR-021**: El sistema DEBE mapear cada estado destino de una transición a un permiso: `pendiente` a envío, `aprobado` a aprobación, `recibido` a recepción y `cancelado` a cancelación.
-- **FR-022**: El sistema NO DEBE conceder una transición cuando el rol carezca del permiso correspondiente.
+- **FR-021**: El sistema DEBE mapear cada transición por estado de origen y destino al permiso ya definido en la matriz: `borrador` → `pendiente` = `orders.submit` (enviar a aprobación); `borrador` → `cancelado` = `orders.cancel`; `pendiente` → `aprobado` = `orders.approve` (aprobar); `pendiente` → `cancelado` = `orders.reject`; `aprobado` → `recibido` = `orders.receive` (recibir).
+- **FR-022**: El sistema NO DEBE conceder una transición cuando falte el estado de origen o el estado destino, la transición no esté definida o el rol carezca del permiso correspondiente. La resolución DEBE exigir siempre ambos estados y NO DEBE autorizar por defecto una transición a partir del estado de destino únicamente.
 
 **Matriz normativa de permisos por rol**:
 
@@ -191,6 +192,8 @@ Como **usuario autenticado**, quiero cerrar mi sesión para que la aplicación v
 | `products.manage` | ✓ | ✓ | — | ✓ | — |
 | `search.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `orders.print` | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+**Asignación de transiciones**: `borrador` → `pendiente` usa `orders.submit`; `borrador` → `cancelado` usa `orders.cancel`; `pendiente` → `aprobado` usa `orders.approve`; `pendiente` → `cancelado` usa `orders.reject`; `aprobado` → `recibido` usa `orders.receive`.
 
 El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de órdenes conserva las reglas de negocio del módulo `002`.
 
@@ -230,13 +233,13 @@ El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de 
 - **FR-043**: La denominación DEBE derivarse del estado persistido, actualizarse al cambiar de estado sin recargar y NO DEBE depender del rol del usuario.
 - **FR-044**: El rol `comprador` DEBE poder crear, editar, enviar a aprobación y cancelar solicitudes en `borrador`; NO DEBE poder aprobar ni rechazar solicitudes en `pendiente`.
 - **FR-045**: Solo los roles `gerente` y `administrador` DEBEN poder aprobar una solicitud en `pendiente`.
-- **FR-046**: Solo los roles `gerente` y `administrador` DEBEN poder rechazar (cancelar) una solicitud en `pendiente`; el `comprador` solo DEBE poder cancelar solicitudes en `borrador`.
+- **FR-046**: Solo los roles `gerente` y `administrador` DEBEN poder ejecutar `pendiente` → `cancelado` con `orders.reject`; el `comprador` solo DEBE poder ejecutar `borrador` → `cancelado` con `orders.cancel` y NO DEBE poder rechazar una solicitud en `pendiente`. La evaluación DEBE exigir el estado de origen y el estado destino; sin estado de origen, la transición se rechaza y no se concede permiso por defecto.
 - **FR-047**: Al aprobar una solicitud, el servicio DEBE registrar la fecha de emisión en el campo `startDate` definido por `002` usando la fecha del cambio de estado en America/Santiago cuando el campo esté vacío, y DEBE conservar la fecha válida ya informada. La fecha de emisión DEBE mostrarse junto a la denominación «Orden de Compra emitida».
 
 #### Empleado solicitante
 
 - **FR-048**: Para el rol `comprador`, el empleado solicitante DEBE asignarse automáticamente al propio usuario y DEBE mostrarse como dato de solo lectura, sin selector editable, en el formulario o panel lateral de la solicitud.
-- **FR-049**: El sistema DEBE resolver el empleado propio del `comprador` mediante un vínculo `id_empleado` en su registro de Usuario. Si el vínculo no existe, DEBE crear una sola vez un empleado con el nombre y el cargo de la sesión, reutilizarlo en adelante y persistir el vínculo.
+- **FR-049**: El sistema DEBE resolver el empleado propio del `comprador` mediante un vínculo `id_empleado` en su registro de Usuario, usando el `userId` de la sesión. Cada `comprador` DEBE tener exactamente un empleado propio y un empleado DEBE estar vinculado como máximo a un usuario. Si el vínculo no existe, DEBE crear un empleado nuevo con el nombre y el cargo del Usuario de la sesión, persistir el vínculo y reutilizarlo en adelante. NO DEBE reutilizar empleados por coincidencia de nombre.
 - **FR-050**: Para los roles `administrador` y `gerente`, el empleado solicitante DEBE seleccionarse de la lista de empleados registrados y DEBE seguir siendo obligatorio.
 - **FR-051**: El servicio DEBE forzar el `id_empleado` propio en las altas y ediciones de solicitudes del `comprador` y DEBE rechazar con `PERMISSION_DENIED` cualquier intento de asignar otro empleado, sin guardar ni modificar la solicitud.
 
@@ -252,7 +255,7 @@ El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de 
 - **FR-056**: El panel lateral DEBE abrirse en modo creación o edición solo con el permiso correspondiente; una apertura forzada sin permiso DEBE rechazarse con un mensaje de error, sin abrir el panel ni modificar datos.
 - **FR-057**: Las tarjetas clicables del panel DEBEN respetar el permiso de vista de su lista destino; una tarjeta sin acceso NO DEBE ser navegable ni abrir la vista, y DEBE ocultarse o deshabilitarse de forma accesible.
 - **FR-058**: Los filtros y el orden DEBEN respetar la visibilidad por rol y NO DEBEN ofrecer filtros, columnas ni resúmenes sobre datos restringidos, como el límite de crédito o el empleado solicitante para el `comprador`.
-- **FR-059**: La vista de detalle DEBE respetar la denominación por estado, las acciones de aprobar y rechazar solo para `gerente` y `administrador`, el empleado de solo lectura para `comprador`, la ausencia del límite de crédito para `comprador` y las mismas reglas de acción que el servicio.
+- **FR-059**: La vista de detalle y la impresión DEBEN respetar la denominación por estado, la fecha de emisión o «Sin emitir» cuando la solicitud no esté aprobada, el empleado solicitante, las acciones de aprobar y rechazar solo para `gerente` y `administrador`, el empleado de solo lectura para `comprador`, la ausencia del límite de crédito para `comprador` y las mismas reglas de acción que el servicio.
 - **FR-060**: Las listas y la vista de detalle NO DEBEN renderizar una acción que el servicio vaya a rechazar; si la acción se invoca por otra vía, DEBE producirse un error persistente y no un mensaje de éxito.
 
 #### Defensa en servicios y feedback
@@ -267,12 +270,12 @@ El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de 
 - **Sesión**: Vínculo temporal entre la aplicación y un usuario autenticado. Contiene `userId`, nombre, rol y marca de ingreso; se persiste en `localStorage`.
 - **Rol**: Perfil de acceso que agrupa un conjunto de permisos. Los roles son `administrador`, `gerente`, `comprador`, `bodeguero` y `consulta`.
 - **Permiso**: Acción o vista autorizada, identificada por una clave estable (por ejemplo, `documents.create` u `orders.approve`).
-- **Transición de Estado**: Cambio del ciclo de vida de una orden de compra que requiere un permiso específico según el estado destino.
+- **Transición de Estado**: Cambio del ciclo de vida de una orden de compra que requiere un permiso específico según el estado de origen y el estado destino.
 - **Solicitud de Compra**: Denominación visible de un documento en `borrador` o `pendiente`; no es una entidad persistida distinta de la Orden de Compra de `002`.
 - **Orden de Compra Emitida**: Denominación visible de un documento en `aprobado` o `recibido`; conserva la misma entidad y claves de la Orden de Compra de `002`.
 - **Empleado Solicitante Vinculado**: Vínculo estable entre un Usuario `comprador` y un Empleado registrado, usado para asignar automáticamente el solicitante de sus solicitudes.
 
-**Relaciones**: un usuario tiene exactamente un rol; un rol agrupa cero o más permisos; una sesión referencia exactamente un usuario; una transición de estado requiere exactamente un permiso; un usuario `comprador` se vincula con exactamente un empleado solicitante propio; una «Solicitud de Compra» y una «Orden de Compra Emitida» son el mismo documento en estados distintos.
+**Relaciones**: un usuario tiene exactamente un rol; un rol agrupa cero o más permisos; una sesión referencia exactamente un usuario; una transición de estado requiere exactamente un permiso; un usuario `comprador` se vincula con exactamente un empleado solicitante propio, vinculado por `userId`, y un empleado solicitante puede estar vinculado como máximo a un usuario; una «Solicitud de Compra» y una «Orden de Compra Emitida» son el mismo documento en estados distintos.
 
 ## Criterios de Éxito *(obligatorio)*
 
@@ -309,7 +312,8 @@ El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de 
 - «Solicitud de compra» y «Orden de Compra emitida» son denominaciones visibles derivadas del estado; no crean entidades, tipos ni claves nuevas.
 - `002` define `startDate` como fecha de emisión y la exige al guardar; esta revisión no altera esa validación y solo completa el valor automáticamente cuando falta.
 - El vínculo `id_empleado` del `comprador` es un campo opcional de `erp_auth:users`; no modifica las claves ni el esquema de empleados de `002`.
-- El empleado propio del `comprador` se crea una sola vez si no existe; no se ofrece administración visual de ese vínculo.
+- El empleado propio del `comprador` se crea una sola vez si no existe, con el nombre y cargo del Usuario de la sesión, y se vincula por `userId`; no se reutiliza por nombre y no se ofrece administración visual de ese vínculo.
+- La entidad Session no cambia ni almacena `cargo`; el nombre y el cargo del empleado solicitante se obtienen del registro de Usuario resuelto por `userId`.
 - `creditLimit` sigue persistiéndose para los demás roles; el `comprador` no lo ve ni puede cambiarlo, y sus ediciones conservan el valor existente.
 - La visibilidad incondicional de «+ Nuevo» descrita en `003` queda subordinada a la matriz de permisos de esta funcionalidad.
 - La validación de permisos en los servicios usa la sesión vigente; sin sesión se conserva el comportamiento permisivo para pruebas y usos internos.

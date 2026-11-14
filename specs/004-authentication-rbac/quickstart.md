@@ -35,9 +35,10 @@ npm run lint
 Cobertura mínima esperada:
 
 - Unitarias: siembra del directorio, login por User ID, normalización, rechazo de usuarios inválidos o inactivos, cierre de sesión y re-resolución de rol.
-- Unitarias: permisos por rol y mapeo de estados destino a permisos.
+- Unitarias: permisos por rol y mapeo de transiciones por estado de origen y destino a permisos.
 - Integración: puerta de acceso, error de acceso, restauración de sesión, cierre de sesión y despliegue de interfaz por rol.
 - Integración: compatibilidad de las pruebas existentes que inicializan la aplicación sin sesión.
+- Rendimiento: prueba automatizada con `performance.now()` que exige ≤ 50 ms como promedio de 100 ejecuciones para la resolución de sesión y permisos sobre el volumen de prueba definido.
 
 ## Usuarios de Demostración
 
@@ -90,7 +91,7 @@ Cobertura mínima esperada:
 2. Verificar la navegación y los formularios de proveedor, orden y producto.
 3. Abrir una orden pendiente y una aprobada.
 
-**Resultado esperado**: puede aprobar, recibir y cancelar; gestiona proveedores, órdenes y productos; la interfaz es equivalente a la del administrador salvo por los permisos no diferenciados.
+**Resultado esperado**: puede aprobar, rechazar, recibir y cancelar; gestiona proveedores, órdenes y productos; la interfaz es equivalente a la del administrador salvo por los permisos no diferenciados.
 
 ### 5. Validar el rol Comprador
 
@@ -106,6 +107,7 @@ Cobertura mínima esperada:
 - No ve botones de aprobación ni de recepción.
 - Puede imprimir órdenes.
 - El catálogo no muestra formulario ni acciones de producto.
+- El empleado solicitante se muestra como dato de solo lectura con el nombre y cargo del Usuario de la sesión, sin reutilizar empleados por nombre.
 
 ### 6. Validar el rol Bodeguero
 
@@ -169,13 +171,27 @@ Cobertura mínima esperada:
 
 **Resultado esperado**: no hay regresiones y los datos de negocio se conservan.
 
+### 12. Validar detalle, impresión y empleado solicitante
+
+1. Abrir una solicitud en `borrador` o `pendiente` con un usuario `comprador`, `gerente` o `administrador`.
+2. Verificar la denominación «Solicitud de compra», la fecha de emisión «Sin emitir» y el empleado solicitante.
+3. Abrir la impresión de la solicitud y comprobar los mismos datos.
+4. Aprobar la solicitud e ingresar con `COMP-001` para abrir el detalle y la impresión.
+
+**Resultado esperado**:
+- En `borrador` y `pendiente` se muestra «Solicitud de compra» y «Sin emitir».
+- En `aprobado` se muestra «Orden de Compra emitida» con la fecha de emisión.
+- El empleado solicitante aparece en el detalle y en la impresión; para `comprador` es de solo lectura y se corresponde con el Usuario resuelto por `userId`.
+- El límite de crédito no se muestra al `comprador`.
+- Solo se muestran las acciones permitidas para el rol.
+
 ## Criterios de Aceptación de la Validación
 
 - Un User ID registrado y activo abre la aplicación con nombre y rol correctos.
 - Un User ID vacío, desconocido o inactivo mantiene la pantalla de acceso con un mensaje claro.
 - La sesión se conserva entre recargas y se elimina al cerrar sesión.
 - Las vistas y acciones visibles coinciden con la matriz de permisos de cada rol.
-- Las transiciones de estado ofrecidas corresponden al ciclo de vida y al permiso del rol.
+- Las transiciones de estado ofrecidas corresponden al ciclo de vida y al permiso del estado de origen y destino.
 - Las operaciones no autorizadas se rechazan sin modificar datos.
 - El catálogo de productos respeta el permiso de gestión.
 - Los módulos `001` y `002` siguen funcionando y sus pruebas pasan.

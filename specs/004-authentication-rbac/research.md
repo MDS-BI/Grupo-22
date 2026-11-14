@@ -48,7 +48,7 @@ Resolver las decisiones técnicas necesarias para incorporar inicio de sesión p
 
 ### D7 - Derivar las transiciones de estado desde el ciclo canónico y filtrarlas por permiso
 
-- **Decisión**: Las acciones de estado se obtienen con `getAvailableActionItems(status)` del dominio de Compras y luego se filtran por el permiso asociado al estado destino (`pendiente` → envío, `aprobado` → aprobación, `recibido` → recepción, `cancelado` → cancelación). El detalle recibe `allowedNextStatuses`; el manejador de la transición vuelve a comprobar el permiso.
+- **Decisión**: Las acciones de estado se obtienen con `getAvailableActionItems(status)` del dominio de Compras y luego se filtran por el permiso asociado a la transición por estado de origen y destino: `borrador` → `pendiente` = `orders.submit`; `borrador` → `cancelado` = `orders.cancel`; `pendiente` → `aprobado` = `orders.approve`; `pendiente` → `cancelado` = `orders.reject`; `aprobado` → `recibido` = `orders.receive`. El detalle recibe `allowedNextStatuses`; el manejador de la transición vuelve a comprobar el permiso.
 - **Justificación**: Evita reimplementar el ciclo de vida y garantiza que el RBAC solo reduzca las acciones ya válidas, sin abrir transiciones que el dominio rechazaría.
 - **Alternativas consideradas**: Duplicar la matriz de estados en `auth.js`; se descarta porque dos fuentes de verdad pueden divergir. Filtrar solo en el DOM; se descarta por la capa 3 de D5.
 
@@ -66,7 +66,7 @@ Resolver las decisiones técnicas necesarias para incorporar inicio de sesión p
 
 ### D10 - Probar con Vitest y jsdom la matriz de roles y las guardas
 
-- **Decisión**: Mantener Vitest + jsdom. Añadir pruebas unitarias de normalización, login, sesión, resolución dinámica de rol, permisos y mapeo de transiciones, y pruebas de integración para la puerta de acceso, restauración de sesión, cierre de sesión y despliegue de interfaz por rol.
+- **Decisión**: Mantener Vitest + jsdom. Añadir pruebas unitarias de normalización, login, sesión, resolución dinámica de rol, permisos y mapeo de transiciones, y pruebas de integración para la puerta de acceso, restauración de sesión, cierre de sesión y despliegue de interfaz por rol. Una prueba automatizada mide con `performance.now()` la resolución de sesión y permisos y exige ≤ 50 ms como promedio de 100 ejecuciones sobre el volumen de prueba definido.
 - **Justificación**: Es el arnés existente, no requiere infraestructura nueva y permite verificar tanto la lógica pura como el DOM y los efectos de los manejadores.
 - **Alternativas consideradas**: Pruebas end-to-end con navegador real; se posponen porque no hay Playwright ni Cypress configurados.
 
