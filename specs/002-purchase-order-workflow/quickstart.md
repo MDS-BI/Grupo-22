@@ -11,7 +11,7 @@
 - Node.js y npm instalados.
 - Dependencias del proyecto instaladas.
 - Navegador moderno con soporte de `localStorage`.
-- Datos mínimos: un proveedor, un empleado, una categoría y al menos dos productos con stock inicial.
+- Datos mínimos: un proveedor Nacional y uno Extranjero con origen y condición de pago definidos en 001, un empleado, una categoría y al menos dos productos con stock inicial.
 
 ## Preparación
 
@@ -36,23 +36,29 @@ Cobertura mínima esperada:
 
 - Unitarias: subtotales, neto, IVA, total, redondeo y transiciones válidas e inválidas.
 - Unitarias: planificación de recepción, idempotencia y recuperación de transacciones.
+- Unitarias: IVA y moneda según origen, formato con símbolo, fecha de emisión automática y máscara de fechas.
 - Integración: alta, edición y eliminación de líneas con recálculo de totales.
+- Integración: formulario sin campos manuales ni selector Estado, totales de solo lectura y condición de pago predeterminada.
 - Integración: botones de estado, historial, recepción única de stock y persistencia.
-- Integración: vista imprimible con contenido completo y sin controles de aplicación.
+- Integración: fecha de emisión al aprobar, «Sin emitir» antes de aprobar y máscara `dd-mm-aaaa`.
+- Integración: vista imprimible con contenido completo, moneda e impuesto correctos y sin controles de aplicación.
 
 ## Escenarios Manuales
 
 ### 1. Crear una orden con líneas y verificar totales
 
-1. Abrir la sección de órdenes de compra y crear una orden en borrador con proveedor, empleado, folio y fechas válidas.
-2. Agregar dos productos con cantidades y precios unitarios distintos.
-3. Verificar que cada línea muestra su subtotal.
-4. Verificar que el neto es la suma de los subtotales, el IVA es el 19 % del neto y el total es neto + IVA.
-5. Editar la cantidad de una línea y comprobar que los tres importes se actualizan.
-6. Eliminar una línea y comprobar que los importes se recalculan sin ella.
-7. Intentar guardar una orden sin líneas y comprobar que el sistema lo impide.
+1. Abrir la sección de órdenes de compra y crear una orden en borrador seleccionando un proveedor Nacional, un empleado y un folio.
+2. Verificar que el formulario no muestra cantidad, subtotal, descuento, impuesto, importe total, notas, estado ni fecha de emisión.
+3. Ingresar la fecha de entrega con el formato `dd-mm-aaaa` y verificar que la condición de pago aparece con el valor predeterminado del proveedor.
+4. Agregar dos productos con cantidades y precios unitarios distintos.
+5. Verificar que cada línea muestra su subtotal.
+6. Verificar que el neto es la suma de los subtotales, el IVA es el 19 % del neto y el total es neto + IVA, y que los importes son de solo lectura.
+7. Editar la cantidad de una línea y comprobar que los tres importes se actualizan automáticamente sin permitir su edición.
+8. Eliminar una línea y comprobar que los importes se recalculan sin ella.
+9. Verificar que el título de la sección de líneas es «Detalle de compra».
+10. Intentar guardar una orden sin líneas y comprobar que el sistema lo impide.
 
-**Resultado esperado**: la orden queda guardada con líneas, totales correctos y validaciones visibles.
+**Resultado esperado**: la orden queda guardada con líneas, totales de solo lectura correctos, condición de pago predeterminada y validaciones visibles.
 
 ### 2. Recorrer el flujo de estados
 
@@ -120,9 +126,59 @@ Cobertura mínima esperada:
 
 **Resultado esperado**: el sistema rechaza la transición con `NO_LINES`, mantiene el estado `borrador` y no agrega historial.
 
+### 9. Validar proveedor Nacional
+
+1. Crear una orden con un proveedor de origen Nacional.
+2. Verificar que el impuesto aplicado es IVA del 19 %.
+3. Verificar que la moneda queda fija en CLP y no se ofrece selector de moneda.
+4. Verificar que los montos se muestran con el símbolo de CLP.
+
+**Resultado esperado**: la orden Nacional usa IVA del 19 %, CLP fija y el símbolo de su moneda.
+
+### 10. Validar proveedor Extranjero
+
+1. Crear una orden con un proveedor de origen Extranjero.
+2. Verificar que la OC no aplica IVA y que el IVA de importación no forma parte de los totales.
+3. Verificar que la moneda se puede seleccionar entre USD y EUR.
+4. Seleccionar cada moneda y comprobar que los montos se muestran con su símbolo.
+
+**Resultado esperado**: la orden Extranjera no aplica IVA, permite USD/EUR y muestra el símbolo correspondiente.
+
+### 11. Validar condición de pago predeterminada
+
+1. Seleccionar un proveedor con una condición de pago conocida.
+2. Verificar que las opciones corresponden a la lista fija del proveedor y que su valor aparece preseleccionado.
+3. Cambiar la condición de pago, guardar y recargar la orden.
+
+**Resultado esperado**: la condición de pago se elige desde la lista fija, inicia con el valor del proveedor y se conserva al guardar.
+
+### 12. Validar fecha de emisión automática
+
+1. Crear una orden nueva y verificar que inicia en `borrador` sin selector de Estado.
+2. Consultar el detalle y la impresión: la fecha de emisión debe mostrarse como «Sin emitir».
+3. Enviar la orden a revisión y verificar que sigue mostrando «Sin emitir».
+4. Aprobar la orden y verificar que la fecha de emisión corresponde a la fecha del día.
+5. Verificar que la fecha de emisión no es editable en el formulario y que aparece en el detalle y en la impresión.
+
+**Resultado esperado**: la fecha de emisión solo se asigna al aprobar y se muestra únicamente en detalle e impresión.
+
+### 13. Validar máscara de fecha y título
+
+1. Ingresar la fecha de entrega con el formato `dd-mm-aaaa` y comprobar que se acepta.
+2. Verificar que internamente la fecha se guarda en ISO 8601.
+3. Intentar ingresar una fecha inválida con la máscara y comprobar que se rechaza con un mensaje claro.
+4. Verificar que el título de la sección es «Detalle de compra».
+
+**Resultado esperado**: las fechas ingresadas usan `dd-mm-aaaa`, se persisten en ISO y el título es el correcto.
+
 ## Criterios de Aceptación de la Validación
 
-- Los totales son correctos con dos decimales internos y se muestran en CLP sin decimales.
+- Los totales son correctos con dos decimales internos, se muestran en solo lectura y usan el símbolo de la moneda: CLP sin decimales y USD/EUR con dos decimales.
+- El IVA es del 19 % para proveedores Nacionales y 0 % en la OC para proveedores Extranjeros.
+- El formulario no muestra cantidad, subtotal, descuento, impuesto, importe total, notas, estado ni fecha de emisión.
+- La condición de pago se elige desde la lista fija del proveedor con su valor como predeterminado.
+- La fecha de emisión se asigna automáticamente al aprobar y se muestra como «Sin emitir» en borrador y pendiente.
+- Las fechas ingresadas usan máscara `dd-mm-aaaa` y persisten en ISO.
 - Una orden sin líneas no puede guardarse ni enviarse a revisión.
 - Solo se ofrecen las transiciones permitidas por el estado actual.
 - El stock se aplica exactamente una vez por orden recibida.

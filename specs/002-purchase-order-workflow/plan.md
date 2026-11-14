@@ -10,6 +10,8 @@ La extensión se implementa sobre la SPA Vite/JavaScript existente. Agrega un ed
 
 La recepción se ejecuta como una transacción local con diario de recuperación para cumplir la regla de todo o nada. La interfaz reutiliza el marco, la terminología, los estilos, la sanitización y el arnés de pruebas existentes.
 
+Los ajustes post-revisión eliminan los campos manuales de importes y notas del formulario, dejan los totales en solo lectura, aplican IVA y moneda según el origen del proveedor definido en 001, toman las condiciones de pago de la lista fija del proveedor, asignan la fecha de emisión automáticamente al aprobar, eliminan el selector de estado y usan una máscara `dd-mm-aaaa` para las fechas ingresadas.
+
 ## Contexto Técnico
 
 **Lenguaje/Versión**: JavaScript ES2022, HTML5, CSS.
@@ -27,6 +29,8 @@ La recepción se ejecuta como una transacción local con diario de recuperación
 - `erp_purchasing:order-metadata`: empleado solicitante, `stock_aplicado` y `appliedAt`.
 - `erp_purchasing:status-history`: historial append-only de estados.
 - `erp_purchasing:transactions`: diario de transacciones para recuperación.
+
+La fecha de emisión (`startDate`), la moneda (`currency`) y la condición de pago (`paymentTerms`) se manejan en la cabecera base `erp_base_module:documents`; no se crean claves nuevas para los ajustes post-revisión.
 
 **Pruebas**: Vitest con jsdom. Pruebas unitarias para dominio y pruebas de integración para flujos de interfaz, persistencia y recuperación.
 
@@ -47,6 +51,9 @@ La recepción se ejecuta como una transacción local con diario de recuperación
 
 - Sin backend, autenticación, roles ni permisos diferenciados.
 - Una sola bodega y sin recepciones parciales.
+- El IVA y la moneda se determinan por el origen del proveedor definido en 001: Nacional → CLP con IVA del 19 %; Extranjero → USD o EUR sin IVA en la OC.
+- El IVA de importación de proveedores extranjeros queda fuera de alcance.
+- Los importes calculados son de solo lectura y no se capturan en la cabecera de la orden.
 - Se conservan las claves y la semántica de los campos del módulo base.
 - Todo contenido introducido por el usuario se sanitiza antes de insertarse en el DOM.
 - La interfaz debe cumplir WCAG 2.1 AA.
@@ -76,7 +83,12 @@ No se identifican violaciones que requieran justificación de complejidad.
 ### Incluido
 
 - Editor de líneas con producto, cantidad, precio unitario y subtotal derivado.
-- Cálculo automático de neto, IVA del 19 % y total con dos decimales internos y visualización CLP sin decimales.
+- Cálculo automático de neto, impuesto y total con dos decimales internos y visualización según la moneda de la orden.
+- Formulario de OC sin campos manuales de importes ni notas, con los totales calculados en solo lectura.
+- Impuesto y moneda según el origen del proveedor: IVA del 19 % y CLP para Nacional; sin IVA en la OC y USD o EUR para Extranjero.
+- Condiciones de pago desde la lista fija del proveedor, con su valor como predeterminado.
+- Fecha de emisión automática al aprobar y representación «Sin emitir» antes de aprobar.
+- Fechas ingresadas por el usuario con máscara `dd-mm-aaaa` y persistencia interna en ISO.
 - Acciones de estado contextuales según el ciclo canónico de Compras.
 - Recepción de órdenes aprobadas con actualización única de stock.
 - Historial append-only con estado anterior, estado nuevo y fecha/hora.
@@ -89,6 +101,9 @@ No se identifican violaciones que requieran justificación de complejidad.
 
 - Autenticación, roles, permisos y registro del actor de cada cambio.
 - Recepciones parciales, devoluciones, múltiples bodegas y transferencias de stock.
+- IVA de importación, liquidación aduanera y pagos internacionales.
+- Edición manual de importes calculados, estado y fecha de emisión.
+- Selección manual de moneda para proveedores nacionales.
 - Sincronización entre pestañas, dispositivos o usuarios.
 - Generación de PDF en servidor, firma electrónica y envío por correo.
 - Facturación, pagos, presupuestos y ventas.
@@ -115,11 +130,13 @@ Las decisiones completas están en [research.md](research.md). Resumen:
 
 El detalle está en [data-model.md](data-model.md). Entidades principales:
 
-- **Orden de Compra**: cabecera base más metadatos de empleado y stock aplicado.
-- **Detalle de Compra**: línea con producto, cantidad, costo unitario y subtotal derivado.
+- **Orden de Compra**: cabecera base más metadatos de empleado y stock aplicado; incluye moneda y condición de pago, y la fecha de emisión se asigna al aprobar.
+- **Detalle de Compra**: línea con producto, cantidad, costo unitario y subtotal derivado; los importes calculados no se editan.
 - **Producto**: nombre, unidad, categoría y stock entero no negativo.
+- **Proveedor**: dato maestro de 001; su origen Nacional o Extranjero determina el IVA y la moneda de la orden.
 - **Cambio de Estado**: registro inmutable de transición.
 - **Transacción de Recepción**: diario temporal para atomicidad y recuperación.
+- **Regla de importes**: subtotal, neto, impuesto y total son derivados, de solo lectura y se muestran con el símbolo de la moneda.
 
 ### Contratos
 
@@ -128,6 +145,7 @@ El detalle está en [contracts/purchase-order-workflow.md](contracts/purchase-or
 - Operaciones de almacenamiento de órdenes, líneas, estados y recepción.
 - Atomicidad, idempotencia e historial.
 - Acciones de interfaz, matriz de estados y contrato de impresión.
+- Cabecera y cálculos post-revisión: campos permitidos, totales de solo lectura, IVA/moneda según origen, condiciones de pago, fecha de emisión y fechas enmascaradas.
 - Códigos de error y reglas de accesibilidad.
 
 ### Quickstart
@@ -205,6 +223,10 @@ tests/
 - Idempotencia de recepción con `stock_aplicado`.
 - Recuperación de transacciones `prepared` y `applied`.
 - Reglas de legado para órdenes sin metadatos.
+- Regla de IVA y moneda según origen del proveedor.
+- Formato monetario con símbolo CLP, USD y EUR.
+- Fecha de emisión automática al aprobar y representación «Sin emitir».
+- Conversión de fechas `dd-mm-aaaa` a ISO.
 
 ### Integración
 
@@ -218,6 +240,12 @@ tests/
 - Abrir la vista imprimible y comprobar contenido, ausencia de navegación y estilos de impresión.
 - Verificar persistencia de líneas, totales, metadatos, historial y `stock_aplicado`.
 - Verificar que una orden histórica sin metadatos se muestra en modo legado.
+- Comprobar el formulario sin campos manuales ni selector Estado y con totales de solo lectura.
+- Verificar impuesto y moneda para proveedores Nacionales y Extranjeros.
+- Verificar la condición de pago predeterminada del proveedor desde la lista fija.
+- Verificar la máscara de fecha de entrega y su persistencia ISO.
+- Verificar la fecha de emisión automática al aprobar y «Sin emitir» antes de aprobar.
+- Verificar el título «Detalle de compra» y la impresión con moneda e impuesto correctos.
 
 ### Rendimiento
 
@@ -260,6 +288,19 @@ Se generará con `/speckit.tasks` e incluirá, como mínimo:
 7. Completar el mantenimiento mínimo de productos y stock requerido para operar la extensión.
 8. Añadir pruebas unitarias y de integración, verificar rendimiento, accesibilidad, build y regresiones.
 
+### Fase 9 — Ajustes post-revisión
+
+Se detalla en `tasks.md` como Phase 9 e incluye:
+
+1. Eliminar del formulario de OC cantidad, subtotal, descuento, impuesto, importe total, notas y selector de estado.
+2. Mostrar subtotal de línea, neto, impuesto y total como valores calculados de solo lectura.
+3. Resolver IVA y moneda según el origen del proveedor: Nacional con IVA 19 % y CLP; Extranjero sin IVA y USD/EUR.
+4. Tomar las condiciones de pago desde la lista fija del proveedor con su valor como predeterminado.
+5. Asignar la fecha de emisión automáticamente al aprobar y mostrar «Sin emitir» en borrador y pendiente.
+6. Usar el título «Detalle de compra».
+7. Capturar la fecha de entrega con máscara `dd-mm-aaaa` y persistirla en ISO.
+8. Actualizar pruebas, estilos, lint y build.
+
 ## Riesgos y Decisiones Abiertas
 
 | Riesgo o decisión | Tratamiento |
@@ -268,7 +309,9 @@ Se generará con `/speckit.tasks` e incluirá, como mínimo:
 | Dos pestañas podrían competir por una recepción | La marca `stock_aplicado` y la validación de estado reducen el riesgo; la sincronización entre pestañas está fuera de alcance y se documenta como limitación. |
 | El mantenedor visual de productos no está completo en la rama actual | Se incluye una interfaz mínima de consulta y mantenimiento de productos y stock como dependencia habilitante (D8), sin crear una nueva historia de usuario. |
 | Órdenes históricas sin metadatos | Se muestran como legado de solo lectura; no se infiere stock aplicado ni se inventan empleados (D10). |
-| Precisión monetaria | Dos decimales internos y visualización CLP sin decimales; pruebas con tolerancia y comparación del total persistido. |
+| El origen del proveedor y la lista fija de condiciones de pago provienen de 001 | Se consumen como datos maestros; si faltan o son inválidos, se bloquea el guardado con un mensaje claro. |
+| Precisión monetaria y formato por origen | Dos decimales internos; CLP sin decimales y USD/EUR con dos decimales; IVA según origen; pruebas con tolerancia y comparación del total persistido. |
+| Fecha de emisión dependiente del momento de aprobación | Se asigna con la fecha local America/Santiago al pasar a `aprobado` y se prueba el cambio de estado. |
 | La impresión varía según el navegador | Se valida el contenido y la ocultación de controles con jsdom; la calidad tipográfica final se revisa manualmente. |
 | Crecimiento de `app.js` | La nueva lógica se separa en módulos de dominio, almacenamiento y vistas. |
 
