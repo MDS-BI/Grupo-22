@@ -4,7 +4,9 @@
 
 **Creada**: 2026-11-08
 
-**Estado**: Implementada
+**Actualizada**: 2026-11-14
+
+**Estado**: Implementada (ajustes post-revisión del 2026-11-14 pendientes de implementación)
 
 **Entrada**: Extensión del módulo de Compras para incorporar el ingreso mediante **User ID**, la resolución del rol del usuario desde un directorio local y el despliegue de vistas, acciones y transiciones de estado según los permisos del rol, manteniendo la persistencia en `localStorage`, la interfaz en español y la arquitectura SPA existente.
 
@@ -123,6 +125,17 @@ Como **usuario autenticado**, quiero cerrar mi sesión para que la aplicación v
 - **Dispositivo compartido**: al cerrar sesión se elimina la sesión local; el directorio de usuarios permanece.
 - **Intentos de acción sin permiso**: se rechazan en el manejador aunque el botón se haya mostrado u ocultado manualmente.
 - **Vista actual no permitida tras cambiar de rol**: se redirige a la primera vista autorizada.
+- **Comprador intenta aprobar o rechazar desde la consola o forzando el botón**: la operación se rechaza, no se modifica el estado, no se agrega historial y no se altera el stock.
+- **Comprador intenta asignar otro empleado solicitante manipulando el payload**: se rechaza el guardado completo sin modificar la solicitud.
+- **Comprador sin empleado vinculado**: se crea una sola vez un empleado con su nombre y cargo, se persiste el vínculo y se reutiliza en las siguientes solicitudes.
+- **Comprador edita un proveedor con límite de crédito**: el valor persistido se conserva; si el payload intenta modificarlo, se rechaza la operación.
+- **Aprobación de una solicitud sin fecha de emisión**: se completa `startDate` con la fecha del cambio de estado.
+- **Aprobación de una solicitud con fecha de emisión válida**: la fecha se conserva y no se recalcula.
+- **Botón "+ Nuevo" de `003` visible sin permiso de creación**: se oculta, no se puede abrir el panel y una apertura forzada se rechaza.
+- **Tarjeta del panel que apunta a una vista no permitida**: no es navegable y no abre la lista.
+- **Filtro o columna sobre un campo restringido**: no se ofrece en la interfaz y un intento forzado no revela el valor.
+- **Acción rechazada con el feedback de `003`**: se muestra un error persistente y nunca una notificación de éxito.
+- **Carga de datos de demostración con un rol sin permiso de aprobación**: no debe crear órdenes aprobadas para ese rol ni servir como vía alternativa de aprobación.
 
 ## Requisitos *(obligatorio)*
 
@@ -173,12 +186,15 @@ Como **usuario autenticado**, quiero cerrar mi sesión para que la aplicación v
 | `orders.approve` | ✓ | ✓ | — | — | — |
 | `orders.receive` | ✓ | ✓ | — | ✓ | — |
 | `orders.cancel` | ✓ | ✓ | ✓ | — | — |
+| `orders.reject` | ✓ | ✓ | — | — | — |
 | `products.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `products.manage` | ✓ | ✓ | — | ✓ | — |
 | `search.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `orders.print` | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de órdenes conserva las reglas de negocio del módulo `002`.
+
+`orders.reject` habilita rechazar (cancelar) una solicitud en `pendiente`; `orders.cancel` conserva la cancelación de solicitudes en `borrador`. El `comprador` mantiene `orders.cancel` y no recibe `orders.reject`. La paridad entre `gerente` y `administrador` se mantiene, y ambos incorporan el nuevo permiso.
 
 #### Control de acceso en la interfaz
 
@@ -207,6 +223,44 @@ El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de 
 - **FR-039**: El sistema DEBE mantener el comportamiento de `initApp()` sin sesión para no romper el arranque directo usado por pruebas y usos internos; `boot()` DEBE aplicar el login real.
 - **FR-040**: El sistema DEBE mantener la interfaz, los mensajes y la terminología en español.
 
+#### Solicitud de compra y emisión
+
+- **FR-041**: Mientras un documento esté en estado `borrador` o `pendiente`, el sistema DEBE mostrarlo como «Solicitud de compra» en listas, tarjetas, filtros, panel lateral, detalle, impresión, confirmaciones, notificaciones y títulos de acción.
+- **FR-042**: Cuando una solicitud se apruebe, el sistema DEBE mostrarla como «Orden de Compra emitida» en todos los lugares anteriores y DEBE conservar esa denominación en los estados `aprobado` y `recibido`. Una solicitud cancelada antes de la aprobación DEBE conservar la denominación «Solicitud de compra».
+- **FR-043**: La denominación DEBE derivarse del estado persistido, actualizarse al cambiar de estado sin recargar y NO DEBE depender del rol del usuario.
+- **FR-044**: El rol `comprador` DEBE poder crear, editar, enviar a aprobación y cancelar solicitudes en `borrador`; NO DEBE poder aprobar ni rechazar solicitudes en `pendiente`.
+- **FR-045**: Solo los roles `gerente` y `administrador` DEBEN poder aprobar una solicitud en `pendiente`.
+- **FR-046**: Solo los roles `gerente` y `administrador` DEBEN poder rechazar (cancelar) una solicitud en `pendiente`; el `comprador` solo DEBE poder cancelar solicitudes en `borrador`.
+- **FR-047**: Al aprobar una solicitud, el servicio DEBE registrar la fecha de emisión en el campo `startDate` definido por `002` usando la fecha del cambio de estado en America/Santiago cuando el campo esté vacío, y DEBE conservar la fecha válida ya informada. La fecha de emisión DEBE mostrarse junto a la denominación «Orden de Compra emitida».
+
+#### Empleado solicitante
+
+- **FR-048**: Para el rol `comprador`, el empleado solicitante DEBE asignarse automáticamente al propio usuario y DEBE mostrarse como dato de solo lectura, sin selector editable, en el formulario o panel lateral de la solicitud.
+- **FR-049**: El sistema DEBE resolver el empleado propio del `comprador` mediante un vínculo `id_empleado` en su registro de Usuario. Si el vínculo no existe, DEBE crear una sola vez un empleado con el nombre y el cargo de la sesión, reutilizarlo en adelante y persistir el vínculo.
+- **FR-050**: Para los roles `administrador` y `gerente`, el empleado solicitante DEBE seleccionarse de la lista de empleados registrados y DEBE seguir siendo obligatorio.
+- **FR-051**: El servicio DEBE forzar el `id_empleado` propio en las altas y ediciones de solicitudes del `comprador` y DEBE rechazar con `PERMISSION_DENIED` cualquier intento de asignar otro empleado, sin guardar ni modificar la solicitud.
+
+#### Límite de crédito de proveedores
+
+- **FR-052**: El sistema NO DEBE mostrar el límite de crédito al rol `comprador` en el formulario o panel lateral, las listas, las tarjetas, los filtros, el detalle de proveedor, la búsqueda, la impresión ni las notificaciones. El campo DEBE quedar oculto con `display: none` efectivo o ausente del DOM.
+- **FR-053**: El sistema DEBE mostrar el límite de crédito a los roles `administrador`, `gerente` y `consulta` cuando su permiso de vista de proveedores lo permita, en modo de solo lectura para `consulta`.
+- **FR-054**: Al guardar un proveedor como `comprador`, el servicio DEBE conservar el límite de crédito persistido y DEBE rechazar con `PERMISSION_DENIED` cualquier payload que intente crear o modificar el campo, sin mutar el proveedor ni mostrar una notificación de éxito.
+
+#### Integración con la experiencia de `003`
+
+- **FR-055**: El botón «+ Nuevo» de cada lista DEBE mostrarse solo cuando el rol tenga el permiso de creación correspondiente; sin permiso DEBE ocultarse con `display: none` efectivo y quedar fuera del orden de tabulación. Esta regla prevalece sobre la visibilidad incondicional descrita en `003`.
+- **FR-056**: El panel lateral DEBE abrirse en modo creación o edición solo con el permiso correspondiente; una apertura forzada sin permiso DEBE rechazarse con un mensaje de error, sin abrir el panel ni modificar datos.
+- **FR-057**: Las tarjetas clicables del panel DEBEN respetar el permiso de vista de su lista destino; una tarjeta sin acceso NO DEBE ser navegable ni abrir la vista, y DEBE ocultarse o deshabilitarse de forma accesible.
+- **FR-058**: Los filtros y el orden DEBEN respetar la visibilidad por rol y NO DEBEN ofrecer filtros, columnas ni resúmenes sobre datos restringidos, como el límite de crédito o el empleado solicitante para el `comprador`.
+- **FR-059**: La vista de detalle DEBE respetar la denominación por estado, las acciones de aprobar y rechazar solo para `gerente` y `administrador`, el empleado de solo lectura para `comprador`, la ausencia del límite de crédito para `comprador` y las mismas reglas de acción que el servicio.
+- **FR-060**: Las listas y la vista de detalle NO DEBEN renderizar una acción que el servicio vaya a rechazar; si la acción se invoca por otra vía, DEBE producirse un error persistente y no un mensaje de éxito.
+
+#### Defensa en servicios y feedback
+
+- **FR-061**: Todo servicio de negocio que cree o edite proveedores, cree o edite solicitudes, asigne el empleado solicitante o ejecute transiciones de estado DEBE revalidar el permiso del rol antes de operar, aunque la interfaz haya omitido el control.
+- **FR-062**: Cuando una operación se rechace por permisos, el sistema DEBE mostrar una notificación de error persistente, NO DEBE mostrar una notificación de éxito, NO DEBE cerrar el panel ni descartar los datos ingresados y NO DEBE modificar la entidad, el historial ni el stock.
+- **FR-063**: Las operaciones rechazadas por permisos NO DEBEN registrarse en el historial de estados ni en el diario de transacciones, y el comportamiento permisivo de `initApp()` sin sesión DEBE conservarse para pruebas y usos internos.
+
 ### Entidades Clave
 
 - **Usuario**: Persona registrada en el directorio local. Se identifica por un `userId` único y contiene nombre, cargo, rol y estado activo.
@@ -214,8 +268,11 @@ El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de 
 - **Rol**: Perfil de acceso que agrupa un conjunto de permisos. Los roles son `administrador`, `gerente`, `comprador`, `bodeguero` y `consulta`.
 - **Permiso**: Acción o vista autorizada, identificada por una clave estable (por ejemplo, `documents.create` u `orders.approve`).
 - **Transición de Estado**: Cambio del ciclo de vida de una orden de compra que requiere un permiso específico según el estado destino.
+- **Solicitud de Compra**: Denominación visible de un documento en `borrador` o `pendiente`; no es una entidad persistida distinta de la Orden de Compra de `002`.
+- **Orden de Compra Emitida**: Denominación visible de un documento en `aprobado` o `recibido`; conserva la misma entidad y claves de la Orden de Compra de `002`.
+- **Empleado Solicitante Vinculado**: Vínculo estable entre un Usuario `comprador` y un Empleado registrado, usado para asignar automáticamente el solicitante de sus solicitudes.
 
-**Relaciones**: un usuario tiene exactamente un rol; un rol agrupa cero o más permisos; una sesión referencia exactamente un usuario; una transición de estado requiere exactamente un permiso.
+**Relaciones**: un usuario tiene exactamente un rol; un rol agrupa cero o más permisos; una sesión referencia exactamente un usuario; una transición de estado requiere exactamente un permiso; un usuario `comprador` se vincula con exactamente un empleado solicitante propio; una «Solicitud de Compra» y una «Orden de Compra Emitida» son el mismo documento en estados distintos.
 
 ## Criterios de Éxito *(obligatorio)*
 
@@ -230,6 +287,12 @@ El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de 
 - **SC-007**: El cierre de sesión elimina la sesión persistida y devuelve a la pantalla de acceso en el 100 % de los casos.
 - **SC-008**: Al menos el 90 % de los usuarios de prueba identifica su rol y las acciones disponibles sin ayuda.
 - **SC-009**: La suite completa de pruebas, el build y el lint finalizan sin errores tras la integración.
+- **SC-010**: El 100 % de los documentos en `borrador` o `pendiente` se muestra como «Solicitud de compra» y el 100 % de los documentos en `aprobado` o `recibido` como «Orden de Compra emitida», en todas las superficies listadas.
+- **SC-011**: El 100 % de los intentos del `comprador` de aprobar o rechazar una solicitud `pendiente` se rechaza sin modificar el estado, el historial ni el stock.
+- **SC-012**: El 100 % de las órdenes aprobadas tiene una fecha de emisión visible y conserva una fecha válida conforme a `002`.
+- **SC-013**: El 0 % de las vistas del `comprador` expone el límite de crédito y el 100 % de sus ediciones de proveedores conserva el valor persistido.
+- **SC-014**: El 100 % de las solicitudes creadas o editadas por el `comprador` usa su empleado propio, incluso ante un payload manipulado.
+- **SC-015**: El 100 % de los elementos de `003` listados respeta la matriz de permisos y el 100 % de las operaciones rechazadas muestra un error persistente sin falsos éxitos.
 
 ## Supuestos
 
@@ -243,3 +306,12 @@ El `comprador` puede eliminar órdenes, pero no proveedores. La eliminación de 
 - Se conservan las reglas de negocio, las claves de datos y el comportamiento del módulo base y de la extensión de órdenes de compra.
 - La interfaz sigue las convenciones visuales y de accesibilidad del marco existente.
 - Las pruebas existentes que llaman a `initApp()` sin sesión deben seguir funcionando con acceso completo; el login real se aplica en `boot()`.
+- «Solicitud de compra» y «Orden de Compra emitida» son denominaciones visibles derivadas del estado; no crean entidades, tipos ni claves nuevas.
+- `002` define `startDate` como fecha de emisión y la exige al guardar; esta revisión no altera esa validación y solo completa el valor automáticamente cuando falta.
+- El vínculo `id_empleado` del `comprador` es un campo opcional de `erp_auth:users`; no modifica las claves ni el esquema de empleados de `002`.
+- El empleado propio del `comprador` se crea una sola vez si no existe; no se ofrece administración visual de ese vínculo.
+- `creditLimit` sigue persistiéndose para los demás roles; el `comprador` no lo ve ni puede cambiarlo, y sus ediciones conservan el valor existente.
+- La visibilidad incondicional de «+ Nuevo» descrita en `003` queda subordinada a la matriz de permisos de esta funcionalidad.
+- La validación de permisos en los servicios usa la sesión vigente; sin sesión se conserva el comportamiento permisivo para pruebas y usos internos.
+- Las notificaciones de error por permisos siguen el contrato de `003`: son persistentes hasta que el usuario las descarte manualmente.
+- La carga de datos de demostración de `003` no es una vía de aprobación: un rol sin permiso de aprobación no debe crear órdenes `aprobado` por esa acción.

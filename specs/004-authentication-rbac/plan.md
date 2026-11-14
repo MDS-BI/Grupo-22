@@ -1,16 +1,18 @@
 # Plan de Implementación: Autenticación por User ID y RBAC
 
-**Rama**: `004-authentication-rbac` | **Fecha**: 2026-11-08 | **Especificación**: [spec.md](spec.md)
+**Rama**: `004-authentication-rbac` | **Fecha**: 2026-11-08 | **Actualizado**: 2026-11-14 | **Especificación**: [spec.md](spec.md)
 
-**Entrada**: Extensión del módulo de Compras para incorporar inicio de sesión por User ID, directorio local de usuarios, resolución de roles y permisos, y control de acceso a vistas, acciones, catálogo y transiciones de estado, conservando la arquitectura SPA, la persistencia en `localStorage` y el comportamiento de los módulos `001` y `002`.
+**Entrada**: Extensión del módulo de Compras para incorporar inicio de sesión por User ID, directorio local de usuarios, resolución de roles y permisos, y control de acceso a vistas, acciones, catálogo y transiciones de estado, conservando la arquitectura SPA, la persistencia en `localStorage` y el comportamiento de los módulos `001` y `002`. Los ajustes post-revisión del 2026-11-14 añaden la denominación por estado, la separación entre aprobar y rechazar, el empleado solicitante vinculado, la restricción del límite de crédito y la defensa en servicios.
 
 ## Resumen
 
 La extensión se implementa sobre la SPA Vite/JavaScript existente. Añade un módulo de autenticación (`src/auth.js`) con el directorio de usuarios, la sesión activa, el catálogo de permisos y la resolución de roles. La interfaz incorpora una pantalla de acceso y una sección de sesión en la barra superior, y el arranque de producción (`boot()`) decide entre login e inicialización.
 
-El control de acceso se aplica en tres capas: navegación y botones, renderizado condicional de formularios y acciones, y guardas en los manejadores de eventos. Las transiciones de estado se filtran combinando el ciclo canónico de Compras con el permiso del estado destino. El catálogo de productos admite un modo de solo lectura para roles sin gestión.
+El control de acceso se aplica en tres capas: navegación y botones, renderizado condicional de formularios y acciones, y guardas en los manejadores de eventos. Las transiciones de estado se filtran combinando el ciclo canónico de Compras con el permiso del estado de origen y destino. El catálogo de productos admite un modo de solo lectura para roles sin gestión.
 
 No se modifican las claves, entidades ni reglas del módulo base ni de la extensión de órdenes de compra. La autenticación agrega dos claves propias: `erp_auth:users` y `erp_auth:session`.
+
+Los ajustes post-revisión refuerzan el RBAC en una cuarta capa: reglas de negocio reutilizables en `src/access-policy.js` que validan el rol y el estado actual antes de mutar proveedores, solicitudes o transiciones. La misma política alimenta la interfaz para que nunca se renderice una acción que el servicio vaya a rechazar. La denominación «Solicitud de compra» / «Orden de Compra emitida» se deriva del estado persistido, y el vínculo `Usuario.id_empleado` resuelve el empleado solicitante del `comprador` sin duplicarlo.
 
 ## Contexto Técnico
 
@@ -74,8 +76,14 @@ No se identifican violaciones que requieran justificación de complejidad.
 - Cierre de sesión.
 - Catálogo central de permisos y matriz de roles.
 - Control de acceso a navegación, botones, formularios, acciones de fila, impresión, edición de líneas y catálogo.
-- Filtrado de transiciones de estado por permiso del estado destino.
+- Filtrado de transiciones de estado por permiso del estado de origen y destino.
 - Guardas en manejadores de eventos con mensaje uniforme de permisos.
+- Denominación visible derivada del estado: «Solicitud de compra» y «Orden de Compra emitida», incluida la fecha de emisión.
+- Separación entre aprobar (`orders.approve`) y rechazar (`orders.reject`) solicitudes `pendiente`; el `comprador` solo cancela `borrador`.
+- Empleado solicitante automático y de solo lectura para el `comprador`, con vínculo persistido `Usuario.id_empleado`; selección manual para `administrador` y `gerente`.
+- Límite de crédito oculto para el `comprador` y conservado en sus ediciones de proveedores.
+- Integración de los elementos de `003` (`+ Nuevo`, panel lateral, tarjetas, filtros y detalle) con la matriz de permisos.
+- Defensa en servicios con feedback de error persistente y sin falsos éxitos.
 - Pruebas unitarias y de integración.
 - Documentación en `README.md`.
 
@@ -99,7 +107,7 @@ Las decisiones completas están en [research.md](research.md). Resumen:
 - **D4**: Re-resolución dinámica del rol al leer la sesión.
 - **D5**: Control en tres capas: visibilidad, renderizado condicional y guardas en manejadores.
 - **D6**: `initApp()` permisivo sin sesión; `boot()` aplica el login real.
-- **D7**: Transiciones derivadas del ciclo canónico y filtradas por permiso del estado destino.
+- **D7**: Transiciones derivadas del ciclo canónico y filtradas por permiso del estado de origen y destino.
 - **D8**: Catálogo de productos con modo de solo lectura.
 - **D9**: Login integrado en la SPA y el marco existentes.
 - **D10**: Pruebas con Vitest y jsdom.
@@ -110,11 +118,14 @@ Las decisiones completas están en [research.md](research.md). Resumen:
 
 El detalle está en [data-model.md](data-model.md). Entidades y conceptos principales:
 
-- **Usuario**: `userId`, `nombre`, `cargo`, `role`, `activo`.
+- **Usuario**: `userId`, `nombre`, `cargo`, `role`, `activo`, `id_empleado` opcional.
 - **Sesión**: `userId`, `nombre`, `role`, `loginAt`.
 - **Rol**: `administrador`, `gerente`, `comprador`, `bodeguero`, `consulta`.
-- **Permiso**: claves estables para vistas, acciones y transiciones.
-- **Mapeo de transiciones**: estado destino → permiso requerido.
+- **Permiso**: claves estables para vistas, acciones y transiciones, incluido `orders.reject`.
+- **Mapeo de transiciones**: estado de origen y destino → permiso requerido.
+- **Denominación visible**: `borrador` y `pendiente` → «Solicitud de compra»; `aprobado` y `recibido` → «Orden de Compra emitida».
+- **Campo restringido**: `creditLimit` oculto y no editable para `comprador`.
+- **Empleado solicitante**: vínculo `Usuario.id_empleado` para `comprador`; selección manual para `administrador` y `gerente`.
 
 ### Contratos
 
@@ -125,6 +136,9 @@ El detalle está en [contracts/auth-rbac.md](contracts/auth-rbac.md). Cubre:
 - Contrato de arranque (`boot()` vs. `initApp()`).
 - Contrato de la pantalla de acceso y errores.
 - Accesibilidad y limitaciones de seguridad.
+- Contrato de aprobación y rechazo según estado actual.
+- Contrato del empleado solicitante y del límite de crédito restringido.
+- Contrato de defensa en servicios y de integración con `003`.
 
 ### Quickstart
 
@@ -155,6 +169,7 @@ src/
 ├── main.js                    # arranque de la aplicación
 ├── app.js                     # boot(), login/logout, gating de vistas y acciones
 ├── auth.js                    # directorio, sesión, roles, permisos y transiciones
+├── access-policy.js           # reglas puras de rol/estado y vínculo del empleado solicitante
 ├── styles.css                 # estilos de acceso, sesión y utilidades
 ├── product-catalog.js         # catálogo con modo de solo lectura
 ├── purchase-order-detail.js   # detalle con acciones, impresión y edición filtradas
@@ -162,12 +177,14 @@ src/
 
 tests/
 ├── unit/
-│   └── auth.test.js
+│   ├── auth.test.js
+│   └── access-policy.test.js
 └── integration/
-    └── auth-rbac.test.js
+    ├── auth-rbac.test.js
+    └── auth-rbac-post-review.test.js
 ```
 
-**Decisión de Estructura**: La lógica de identidad y permisos se aísla en `src/auth.js` para poder probarla sin DOM. `src/app.js` actúa como punto de integración y mantiene las guardas de interfaz. Los módulos de vista reciben opciones explícitas (`canManage`, `canPrint`, `canEditLines`, `allowedNextStatuses`) en lugar de consultar la sesión directamente, lo que preserva su bajo acoplamiento y permite probarlos de forma aislada.
+**Decisión de Estructura**: La lógica de identidad y permisos se aísla en `src/auth.js` para poder probarla sin DOM. Las reglas post-revisión que combinan rol, estado y campos restringidos se concentran en `src/access-policy.js`, también sin DOM, para que interfaz y servicios compartan una única fuente de verdad. `src/app.js` actúa como punto de integración y mantiene las guardas de interfaz. Los módulos de vista reciben opciones explícitas (`canManage`, `canPrint`, `canEditLines`, `allowedNextStatuses`, `documentLabel`, `canEditEmployee`, `showCreditLimit`) en lugar de consultar la sesión directamente, lo que preserva su bajo acoplamiento y permite probarlos de forma aislada.
 
 ## Reevaluación de la Constitución Post-Diseño
 
@@ -194,7 +211,19 @@ tests/
 - Permisos de consulta: solo lectura e impresión.
 - Administrador con todos los permisos declarados.
 - Paridad explícita entre `gerente` y `administrador`.
-- Mapeo de estados destino a permisos.
+- Mapeo de estados de origen y destino a permisos, incluido `pendiente` → rechazo con `orders.reject`.
+- Matriz de denominación por estado y fecha de emisión conservada o completada.
+- Reglas del empleado solicitante: vínculo propio del `comprador`, selección manual de `administrador`/`gerente` y rechazo de payload manipulado.
+- Reglas del límite de crédito: ocultamiento para `comprador` y conservación del valor persistido.
+- Reglas de integración con `003`: visibilidad de `+ Nuevo`, panel lateral, tarjetas, filtros y detalle.
+
+### Unitarias de política (`tests/unit/access-policy.test.js`)
+
+- Respuestas de `canCreateDocument`, `canEditDocument`, `canApprove`, `canReject` y `canCancel` por rol y estado.
+- Resolución idempotente de `ensureRequesterEmployee(session, adapters)`, incluida la creación única y la reutilización.
+- Rechazo de `creditLimit` manipulado y conservación del valor persistido en actualizaciones del `comprador`.
+- Etiqueta visible y presencia de fecha de emisión por estado.
+- Comportamiento permisivo cuando no hay sesión, consistente con `initApp()`.
 
 ### Integración (`tests/integration/auth-rbac.test.js`)
 
@@ -209,6 +238,16 @@ tests/
 - Administrador y gerente: despliegue completo de vistas, formularios, transiciones y edición de líneas.
 - Rechazo uniforme con `No tienes permisos para ejecutar esta acción.` y sin mutar datos para transiciones, impresión, eliminación de línea, altas, ediciones y eliminaciones de proveedores, órdenes y productos no autorizados.
 - Compatibilidad: las pruebas existentes que llaman a `initApp()` sin sesión siguen pasando.
+- Comprador: «Solicitud de compra» en `borrador`/`pendiente`, sin botones de aprobar o rechazar, sin `creditLimit`, con empleado de solo lectura.
+- Gerente y administrador: aprobar y rechazar disponibles solo en `pendiente`, con «Orden de Compra emitida» y fecha de emisión tras aprobar.
+- Rechazo de payload manipulado de empleado y de límite de crédito sin mutación ni notificación de éxito.
+- Integración con `003`: `+ Nuevo` oculto sin permiso, panel lateral cerrado ante apertura forzada, tarjetas y filtros restringidos y detalle coherente con el servicio.
+
+### Integración post-revisión (`tests/integration/auth-rbac-post-review.test.js`)
+
+- Recorrido completo por rol de las superficies de `003` y de las acciones de aprobación/rechazo.
+- Verificación de que toda operación rechazada muestra error persistente, conserva el panel y no registra historial ni transacciones.
+- Verificación de que la carga de datos de demostración no crea órdenes aprobadas para roles sin permiso de aprobación.
 
 ### Rendimiento
 
@@ -245,6 +284,18 @@ Detalladas en [tasks.md](tasks.md). Incluyen:
 7. Actualizar `README.md`.
 8. Verificar pruebas, build y lint.
 
+### Fase 3 - Ajustes post-revisión
+
+Detalladas en [tasks.md](tasks.md), Phase 9. Incluyen:
+
+1. Ampliar `src/auth.js` con `orders.reject` y el mapeo de transición sensible al estado de origen.
+2. Crear `src/access-policy.js` con las reglas de creación, edición, aprobación, rechazo, empleado solicitante y límite de crédito.
+3. Extender `index.html` y `src/app.js` para la denominación por estado, el empleado de solo lectura, el límite de crédito restringido y la fecha de emisión.
+4. Integrar los elementos de `003` (`+ Nuevo`, panel lateral, tarjetas, filtros y detalle) con la matriz de permisos.
+5. Añadir feedback persistente de error y defensas en los servicios de proveedores y solicitudes.
+6. Escribir pruebas unitarias de política e integración post-revisión.
+7. Actualizar documentación de la funcionalidad y verificar pruebas, build y lint.
+
 ## Riesgos y Decisiones Abiertas
 
 | Riesgo o decisión | Tratamiento |
@@ -255,13 +306,20 @@ Detalladas en [tasks.md](tasks.md). Incluyen:
 | Directorio editable sin pantalla administrativa | Se administra por código o `saveUsers`; la administración visual queda fuera de alcance. |
 | Cambios de rol durante la sesión | La siguiente lectura de sesión aplica el rol vigente y redirige si la vista actual deja de estar permitida. |
 | Regresiones en pruebas existentes | El control de acceso se aplica solo cuando hay sesión; la suite base se ejecuta sin ella y debe seguir pasando. |
+| Doble fuente de verdad entre interfaz y servicios | Las reglas de rol/estado viven en `src/access-policy.js`; la interfaz y los servicios consumen la misma función y las pruebas comparan ambos caminos. |
+| `002` no define una fecha de emisión automática | Se usa `startDate` como fecha de emisión y solo se completa al aprobar cuando está vacía; una fecha válida existente se conserva. Se documenta como supuesto. |
+| El `comprador` no tiene empleado vinculado al inicio | `ensureRequesterEmployee` crea y persiste el vínculo una sola vez usando el nombre y cargo de la sesión; se prueba la idempotencia. |
+| Payload manipulado de `creditLimit` o `id_empleado` | El servicio revalida y rechaza con `PERMISSION_DENIED` sin mutar la entidad ni mostrar éxito. |
+| `003` aún no implementado | Las tareas referencian los archivos planificados de `003`; la verificación se ejecuta cuando esos módulos existan y se documenta la dependencia. |
+| Datos de demostración de `003` con órdenes aprobadas | Se verifica que la acción de demo no cree órdenes `aprobado` para roles sin `orders.approve`; se corrige o restringe en la integración. |
 
 ## Seguimiento de Complejidad
 
 No se introducen nuevos proyectos, servidores ni dependencias de ejecución. La complejidad adicional se limita a:
 
 - Un módulo de autenticación dedicado, necesario para separar identidad y permisos de la lógica de negocio.
+- Un módulo de política de acceso (`src/access-policy.js`) compartido por interfaz y servicios, que evita duplicar reglas de rol/estado.
 - Una pantalla de acceso y una sección de sesión en el marco existente.
-- Opciones de permiso explícitas en dos módulos de vista, necesarias para evitar que consulten la sesión global.
+- Opciones de permiso explícitas en los módulos de vista, necesarias para evitar que consulten la sesión global.
 
 No hay violaciones de la constitución que requieran una justificación adicional.

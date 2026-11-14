@@ -2,12 +2,13 @@
 
 **Rama**: `004-authentication-rbac`
 **Fecha**: 2026-11-08
+**Actualizado**: 2026-11-14
 **Especificación**: [spec.md](../spec.md)
 **Modelo de datos**: [data-model.md](../data-model.md)
 
 ## Alcance
 
-La funcionalidad es una aplicación web local sin API externa. Los contratos documentan las interfaces internas de autenticación, los permisos por rol, el control de acceso observable en la interfaz y los límites de seguridad de la solución.
+La funcionalidad es una aplicación web local sin API externa. Los contratos documentan las interfaces internas de autenticación, los permisos por rol, el control de acceso observable en la interfaz y los límites de seguridad de la solución. Los ajustes post-revisión del 2026-11-14 añaden contratos de denominación por estado, aprobación y rechazo, empleado solicitante, límite de crédito restringido, integración con `003` y defensa en servicios.
 
 ## Contrato de Almacenamiento
 
@@ -35,8 +36,8 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 | `roleLabel(role)` | Rol | Etiqueta visible o el valor original | — |
 | `permissionsFor(role)` | Rol | `Set` de permisos | — |
 | `can(permission, sessionOrRole)` | Permiso y sesión o rol | `true` si el rol tiene el permiso | — |
-| `transitionPermission(nextStatus)` | Estado destino | Permiso asociado o `null` | — |
-| `canTransitionTo(nextStatus, sessionOrRole)` | Estado destino y sesión o rol | `true` si puede ejecutar la transición | — |
+| `transitionPermission(currentStatus, nextStatus)` | Estado de origen y estado destino (o solo destino para compatibilidad) | Permiso asociado o `null` | — |
+| `canTransitionTo(currentStatus, nextStatus, sessionOrRole)` | Estado de origen, destino y sesión o rol | `true` si puede ejecutar la transición | — |
 | `login(userId)` | `userId` | Sesión persistida | `USER_ID_REQUIRED`, `USER_NOT_FOUND`, `USER_INACTIVE` |
 | `getSession()` | — | Sesión vigente o `null` | — |
 | `clearSession()` | — | — | — |
@@ -67,7 +68,92 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 - `can` acepta una sesión (`{ role }`) o un nombre de rol.
 - `can` retorna `false` si no hay rol o el rol es inexistente.
 - `administrador` recibe todos los permisos declarados.
-- Las transiciones se mapean por estado destino y no por acción textual.
+- Las transiciones se mapean por estado de origen y destino, no por acción textual.
+- `cancelado` requiere `orders.cancel` cuando el origen es `borrador` y `orders.reject` cuando el origen es `pendiente`; una invocación con un solo estado destino conserva el mapeo histórico a `orders.cancel` por compatibilidad.
+- `orders.reject` existe solo para `administrador` y `gerente`.
+
+## Contrato de Política de Acceso (`src/access-policy.js`)
+
+Módulo puro, sin DOM, compartido por la interfaz y los servicios. Recibe la sesión vigente; si no hay sesión, conserva el comportamiento permisivo de `initApp()`.
+
+| Operación | Entrada | Salida | Errores esperados |
+|---|---|---|---|
+| `documentLabel(status)` | Estado persistido | «Solicitud de compra» para `borrador`/`pendiente`/`cancelado`; «Orden de Compra emitida» para `aprobado`/`recibido` | — |
+| `canCreateDocument(session)` | Sesión o `null` | `true` con `documents.create` o sin sesión | — |
+| `canEditDocument(session, status)` | Sesión y estado actual | `true` con `documents.update` y estado editable, o sin sesión | — |
+| `canApprove(session, status)` | Sesión y estado actual | `true` solo en `pendiente` con `orders.approve` | — |
+| `canReject(session, status)` | Sesión y estado actual | `true` solo en `pendiente` con `orders.reject` | — |
+| `canCancel(session, status)` | Sesión y estado actual | `true` en `borrador` con `orders.cancel`; `true` en `pendiente` con `orders.reject`; sin sesión, `true` | — |
+| `canViewCreditLimit(session)` | Sesión o `null` | `true` para `administrador`, `gerente` y `consulta`; `false` para `comprador`; `true` sin sesión | — |
+| `sanitizeEntityPayload(session, payload, persisted)` | Sesión, payload entrante y entidad persistida | Payload saneado; conserva `creditLimit` persistido para `comprador` | `PERMISSION_DENIED` si el `comprador` intenta cambiarlo |
+| `ensureRequesterEmployee(session, adapters)` | Sesión `comprador` y adaptadores de empleados/usuarios | Empleado vinculado, creado una sola vez si falta | — |
+| `resolveRequesterForSave(session, requestedId, adapters)` | Sesión, `id_empleado` solicitado y adaptadores | `id_empleado` permitido | `PERMISSION_DENIED` si el `comprador` envía otro; `VALIDATION_ERROR` si `administrador`/`gerente` omiten un empleado existente |
+| `emissionDateFor(order, now)` | Orden y fecha de referencia | `startDate` válido existente o fecha `YYYY-MM-DD` en America/Santiago | — |
+
+**Invariantes**:
+
+- La política no crea transiciones nuevas: solo filtra las que el ciclo canónico de `002` ya permite para el estado actual.
+- La interfaz y los servicios invocan la misma función para una misma decisión; no se duplican condiciones de rol en los manejadores.
+- Sin sesión, todas las operaciones mantienen el comportamiento permisivo histórico, salvo las que dependen de un usuario concreto (`ensureRequesterEmployee`, `resolveRequesterForSave`), que no aplican.
+
+## Contrato de Aprobación, Rechazo y Emisión
+
+| Estado actual | Acción | Permiso | Efecto |
+|---|---|---|---|
+| `borrador` | Enviar a revisión | `orders.submit` | `pendiente`; sin fecha de emisión |
+| `borrador` | Cancelar | `orders.cancel` | `cancelado`; etiqueta «Solicitud de compra» |
+| `pendiente` | Aprobar | `orders.approve` | `aprobado`; etiqueta «Orden de Compra emitida»; completa `startDate` solo si falta |
+| `pendiente` | Rechazar (cancelar) | `orders.reject` | `cancelado`; etiqueta «Solicitud de compra»; sin fecha de emisión nueva |
+| `aprobado` | Marcar recibida | `orders.receive` | `recibido`; conserva etiqueta y fecha de emisión |
+| `recibido` / `cancelado` | — | — | Sin acciones |
+
+**Reglas**:
+
+- `comprador` no puede ejecutar `orders.approve` ni `orders.reject`; su intento se rechaza con `PERMISSION_DENIED` y no muta estado, historial ni stock.
+- `orders.cancel` no habilita cancelar una solicitud `pendiente`; para ese estado se exige `orders.reject`.
+- La etiqueta se recalcula al cambiar el estado y se usa en listas, tarjetas, filtros, panel lateral, detalle, impresión, confirmaciones y notificaciones.
+- La fecha de emisión se muestra junto a «Orden de Compra emitida» y usa `startDate` de `002`; una fecha válida existente nunca se sobrescribe.
+
+## Contrato del Límite de Crédito
+
+| Rol | Formulario / panel | Listas, tarjetas, filtros y detalle | Escritura |
+|---|---|---|---|
+| `administrador` | Visible | Visible | Permitida |
+| `gerente` | Visible | Visible | Permitida |
+| `consulta` | No aplica | Visible en solo lectura | No permitida |
+| `comprador` | Oculto con `display: none` efectivo o ausente del DOM | Oculto | Conserva el valor persistido; cambio intentado → `PERMISSION_DENIED` |
+| `bodeguero` | Sin acceso a proveedores | Sin acceso | No aplica |
+
+- El `comprador` no recibe el valor en el payload de edición; si lo envía, el servicio lo rechaza sin mutar el proveedor ni mostrar éxito.
+- Los filtros, columnas, resúmenes y la búsqueda no ofrecen el campo al `comprador`.
+- Un control oculto no debe ser accesible por teclado ni por tecnologías de asistencia.
+
+## Contrato del Empleado Solicitante
+
+| Rol | Asignación | Editable | Validación de servicio |
+|---|---|---|---|
+| `comprador` | Automática mediante `Usuario.id_empleado` | No; solo lectura | Fuerza el vínculo propio; otro `id_empleado` → `PERMISSION_DENIED` |
+| `administrador` | Selección desde empleados registrados | Sí | Exige un empleado existente |
+| `gerente` | Selección desde empleados registrados | Sí | Exige un empleado existente |
+| `bodeguero` / `consulta` | Sin creación ni edición | No aplica | No aplica |
+
+- `ensureRequesterEmployee` busca por nombre normalizado, crea el empleado una sola vez si falta y persiste el vínculo en `erp_auth:users`.
+- El vínculo se reutiliza en todas las solicitudes del mismo `comprador`; no se duplica por nombre.
+- El empleado solicitante sigue siendo obligatorio conforme a `002`.
+
+## Contrato de Integración con `003`
+
+| Elemento de `003` | Permiso o regla | Comportamiento sin permiso |
+|---|---|---|
+| Botón «+ Nuevo» de cada lista | Permiso de creación de la lista | Oculto con `display: none`; fuera del orden de tabulación |
+| Apertura del panel lateral en creación/edición | Permiso de creación o edición | Se rechaza con error persistente; el panel no se abre |
+| Tarjeta clicable del panel | Permiso de vista de la lista destino | No navegable; oculta o deshabilitada de forma accesible |
+| Filtros, columnas y resúmenes | Visibilidad por rol del campo | No se ofrece el filtro ni se revela el valor |
+| Vista de detalle | Permisos de acción y campos restringidos | No renderiza acciones rechazables ni campos ocultos |
+| Notificaciones de `003` | Resultado real de la operación | Error persistente; nunca éxito falso |
+
+- La visibilidad incondicional de «+ Nuevo» descrita en `003` queda subordinada a la matriz de permisos de esta funcionalidad.
+- La carga de datos de demostración de `003` no debe crear órdenes `aprobado` para roles sin `orders.approve`.
 
 ## Contrato de Control de Acceso en la Interfaz
 
@@ -84,12 +170,19 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 | `#action-new-document` | `documents.create` | Oculto |
 | `#action-open-entities` | `entities.view` | Oculto |
 | `#action-find` | `search.view` | Oculto |
+| «+ Nuevo» de cualquier lista de `003` | Permiso de creación de la lista | Oculto con `display: none` y fuera del orden de tabulación |
+| Panel lateral de `003` en creación/edición | Permiso de creación o edición | No se abre; error persistente ante apertura forzada |
+| Tarjetas clicables del panel de `003` | Permiso de vista de la lista destino | No navegables; ocultas o deshabilitadas de forma accesible |
+| Filtros, columnas y resúmenes de `003` | Visibilidad por rol del campo | No se ofrecen ni revelan campos restringidos |
 | `#entity-form` | `entities.create` u `entities.update` | Oculto |
 | `#document-form` | `documents.create` u `documents.update` | Oculto |
+| Campo `#creditLimit` | `administrador`, `gerente`, `consulta` | Oculto con `display: none` efectivo o ausente del DOM para `comprador` |
+| Selector de empleado solicitante | `administrador` o `gerente` | Solo lectura con el empleado propio para `comprador` |
 | Acciones `edit` / `delete` de proveedor | `entities.update` / `entities.delete` | No se renderizan |
 | Acciones `edit` / `delete` de orden | `documents.update` / `documents.delete` | No se renderizan |
 | Botón `print-order` | `orders.print` | Oculto |
-| Acciones `transition` | Permiso del estado destino | No se renderizan |
+| Acciones `transition` | Permiso del estado de origen y destino | No se renderizan |
+| Acciones de aprobar y rechazar | `orders.approve` / `orders.reject` en `pendiente` | No se renderizan |
 | Eliminación de línea en detalle | `documents.update` | Oculta |
 | Formulario y acciones del catálogo | `products.manage` | No se renderizan; catálogo en solo lectura |
 | `#session-info` | Sesión activa | Oculto |
@@ -101,7 +194,9 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 
 - Si la vista actual deja de estar permitida, se muestra la primera vista permitida en el orden `dashboard`, `entities`, `documents`, `products`, `search`.
 - Las vistas `order-detail` y `print` requieren `documents.view`.
-- El detalle de orden combina las acciones válidas del ciclo de vida con los permisos del rol; nunca muestra una acción que el dominio no permita.
+- El detalle de orden combina las acciones válidas del ciclo de vida con los permisos del rol y el estado actual; nunca muestra una acción que el dominio no permita.
+- El detalle, las listas, las tarjetas, los filtros y las notificaciones usan la denominación derivada del estado.
+- El `comprador` nunca recibe el límite de crédito ni un selector editable de empleado.
 - La impresión requiere `orders.print` tanto para mostrar el botón como para ejecutar la acción.
 - La edición de líneas requiere `documents.update` y que la orden no sea terminal.
 - El catálogo sin `products.manage` no permite alta, edición, eliminación ni creación de categoría, aunque se invoque la función directamente.
@@ -110,8 +205,11 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 ### Contrato de defensa de acciones
 
 - Toda operación de alta, edición, eliminación, impresión o transición comprueba el permiso en su manejador antes de operar.
-- Si falta el permiso, se muestra el mensaje `No tienes permisos para ejecutar esta acción.` y no se modifica ningún dato.
-- Ocultar un control no reemplaza la comprobación en el manejador.
+- Los servicios de proveedores, solicitudes y transiciones revalidan la política de acceso antes de mutar datos, aunque la interfaz haya omitido el control.
+- Si falta el permiso, se muestra una notificación de error persistente con el mensaje `No tienes permisos para ejecutar esta acción.` y no se modifica ningún dato.
+- Una operación rechazada no registra historial de estados ni transacciones, no altera el stock, no cierra el panel y no descarta los datos ingresados.
+- Ocultar un control no reemplaza la comprobación en el manejador ni en el servicio.
+- La validación usa la sesión vigente; sin sesión se conserva el comportamiento permisivo de `initApp()`.
 
 ### Contrato de arranque
 
@@ -153,8 +251,9 @@ La funcionalidad es una aplicación web local sin API externa. Los contratos doc
 | `USER_NOT_FOUND` | El User ID no está registrado en el sistema. |
 | `USER_INACTIVE` | El usuario está inactivo; contacta al administrador. |
 | `PERMISSION_DENIED` | No tienes permisos para ejecutar esta acción. |
+| `VALIDATION_ERROR` | Revisa los datos obligatorios antes de guardar. |
 
-Los errores de inicio de sesión se muestran en `#login-error`. Los errores de permisos se muestran en el área de feedback de la vista correspondiente.
+Los errores de inicio de sesión se muestran en `#login-error`. Los errores de permisos se muestran como notificación persistente en el área de feedback de la vista correspondiente, sin cerrar el panel ni descartar los datos ingresados.
 
 ## Contrato de Accesibilidad
 
@@ -163,6 +262,9 @@ Los errores de inicio de sesión se muestran en `#login-error`. Los errores de p
 - Los botones de sesión y cierre tienen texto comprensible.
 - La lista de usuarios de ayuda usa elementos de lista y `code` para el identificador.
 - Los controles ocultos por permisos no deben quedar accesibles por navegación de teclado.
+- El límite de crédito oculto para el `comprador` no se expone a tecnologías de asistencia ni a la inspección del formulario.
+- Las tarjetas no navegables y los botones deshabilitados deben comunicar su estado de forma accesible.
+- Las notificaciones de error persistentes usan `aria-live` y conservan el foco en el contexto de la operación.
 
 ## Fuera de Contrato
 

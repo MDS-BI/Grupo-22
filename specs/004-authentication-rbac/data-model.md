@@ -2,12 +2,13 @@
 
 **Rama**: `004-authentication-rbac`
 **Fecha**: 2026-11-08
+**Actualizado**: 2026-11-14
 **Especificación**: [spec.md](spec.md)
 **Contexto base**: [Modelo de datos del módulo base](../001-erp-base-module/data-model.md) y [Modelo de datos de órdenes de compra](../002-purchase-order-workflow/data-model.md)
 
 ## Alcance del Modelo
 
-Esta extensión añade dos entidades persistidas propias de la identidad (**Usuario** y **Sesión**) y dos conceptos derivados no persistidos (**Rol** y **Permiso**). No modifica las entidades, claves ni relaciones del módulo base ni de la extensión de órdenes de compra. Las decisiones de autorización se calculan en memoria a partir del rol del usuario autenticado.
+Esta extensión añade dos entidades persistidas propias de la identidad (**Usuario** y **Sesión**) y dos conceptos derivados no persistidos (**Rol** y **Permiso**). Los ajustes post-revisión del 2026-11-14 añaden un campo opcional de vínculo (`Usuario.id_empleado`), reglas de denominación por estado, restricciones de campo y reglas de autorización en servicios. No se modifican las entidades, claves ni relaciones del módulo base ni de la extensión de órdenes de compra. Las decisiones de autorización se calculan en memoria a partir del rol del usuario autenticado.
 
 ## Claves de Persistencia
 
@@ -38,6 +39,7 @@ Persona registrada en el directorio local. Se persiste como un elemento del arre
 | `cargo` | string | Opcional; puede quedar vacío |
 | `role` | string | Obligatorio; uno de los cinco roles; si es desconocido se normaliza a `consulta` |
 | `activo` | boolean | Por defecto `true`; un usuario inactivo no puede autenticarse |
+| `id_empleado` | string \| null | Opcional; FK a Empleado de `002`; vínculo propio del `comprador`; si falta se resuelve o crea una sola vez y se persiste |
 
 **Invariantes**:
 
@@ -45,6 +47,8 @@ Persona registrada en el directorio local. Se persiste como un elemento del arre
 - Todo usuario persistido debe tener un rol válido tras la normalización.
 - Un usuario inactivo no puede iniciar sesión ni mantener una sesión vigente.
 - El directorio nunca queda vacío tras el arranque: si falta, está vacío o no contiene usuarios válidos, se siembran los usuarios de demostración.
+- Un usuario `comprador` con actividad de solicitudes debe tener un `id_empleado` válido y único que lo represente como empleado solicitante.
+- El `id_empleado` de un usuario no `comprador` puede ser `null`; los roles `administrador` y `gerente` eligen el empleado en cada solicitud.
 
 **Usuarios de demostración**:
 
@@ -55,6 +59,8 @@ Persona registrada en el directorio local. Se persiste como un elemento del arre
 | `COMP-001` | Camila Vega | Compradora | `comprador` | `true` |
 | `BOD-001` | Diego Fuentes | Jefe de Bodega | `bodeguero` | `true` |
 | `CONS-001` | Ana Pérez | Analista de Compras | `consulta` | `true` |
+
+**Nota de vínculo**: `COMP-001` no fija un `id_empleado` en la semilla. Al iniciar sesión o crear su primera solicitud, el sistema busca un empleado cuyo nombre normalizado coincida con el de la sesión; si no existe, crea uno con su nombre y cargo y persiste el vínculo en `erp_auth:users`. Los demás usuarios de demostración mantienen `id_empleado` nulo.
 
 ### Sesión
 
@@ -105,9 +111,10 @@ Capacidad atómica no persistida. Se identifica por una clave estable.
 | `documents.update` | Editar órdenes y sus líneas. |
 | `documents.delete` | Eliminar órdenes de compra. |
 | `orders.submit` | Enviar una orden a revisión (`pendiente`). |
-| `orders.approve` | Aprobar una orden (`aprobado`). |
+| `orders.approve` | Aprobar una solicitud (`aprobado`). |
 | `orders.receive` | Recibir una orden (`recibido`). |
-| `orders.cancel` | Cancelar una orden (`cancelado`). |
+| `orders.cancel` | Cancelar una solicitud en `borrador` (`cancelado`). |
+| `orders.reject` | Rechazar (cancelar) una solicitud en `pendiente` (`cancelado`). |
 | `products.view` | Ver productos y stock. |
 | `products.manage` | Crear, editar, eliminar productos, categorías y ajustar stock. |
 | `search.view` | Ver y usar la búsqueda. |
@@ -130,6 +137,7 @@ Capacidad atómica no persistida. Se identifica por una clave estable.
 | `orders.approve` | ✓ | ✓ | — | — | — |
 | `orders.receive` | ✓ | ✓ | — | ✓ | — |
 | `orders.cancel` | ✓ | ✓ | ✓ | — | — |
+| `orders.reject` | ✓ | ✓ | — | — | — |
 | `products.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `products.manage` | ✓ | ✓ | — | ✓ | — |
 | `search.view` | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -137,17 +145,69 @@ Capacidad atómica no persistida. Se identifica por una clave estable.
 
 **Regla explícita de borrado**: `comprador` puede eliminar órdenes (`documents.delete`) pero no proveedores (`entities.delete`). `bodeguero` y `consulta` no pueden eliminar ninguno de los dos. La eliminación de órdenes sigue las reglas de negocio del módulo `002`.
 
+**Regla de aprobación y rechazo**: solo `administrador` y `gerente` aprueban (`orders.approve`) y rechazan (`orders.reject`) una solicitud `pendiente`. El `comprador` conserva `orders.cancel` para cancelar solicitudes en `borrador`, pero no puede cancelar una solicitud `pendiente`.
+
 ## Mapeo de Transiciones a Permisos
 
-| Estado destino | Acción visible | Permiso requerido |
-|---|---|---|
-| `pendiente` | Enviar a revisión | `orders.submit` |
-| `aprobado` | Aprobar | `orders.approve` |
-| `recibido` | Marcar recibida | `orders.receive` |
-| `cancelado` | Cancelar | `orders.cancel` |
-| `borrador` | — (estado inicial) | — |
+| Estado actual | Estado destino | Acción visible | Permiso requerido |
+|---|---|---|---|
+| `borrador` | `pendiente` | Enviar a revisión | `orders.submit` |
+| `pendiente` | `aprobado` | Aprobar | `orders.approve` |
+| `borrador` | `cancelado` | Cancelar | `orders.cancel` |
+| `pendiente` | `cancelado` | Rechazar (cancelar) | `orders.reject` |
+| `aprobado` | `recibido` | Marcar recibida | `orders.receive` |
+| `recibido` / `cancelado` | — | Sin acciones | — |
 
-El permiso filtra las acciones que el ciclo canónico de Compras ya considera válidas para el estado actual. No crea transiciones nuevas ni relaja las reglas del dominio.
+El permiso filtra las acciones que el ciclo canónico de Compras ya considera válidas para el estado actual. No crea transiciones nuevas ni relaja las reglas del dominio. La cancelación es sensible al estado actual: `orders.cancel` no habilita rechazar una solicitud `pendiente`.
+
+## Denominación Visible por Estado
+
+La denominación es una etiqueta derivada del estado persistido, no una entidad ni una clave nueva.
+
+| Estado | Denominación visible |
+|---|---|
+| `borrador` | Solicitud de compra |
+| `pendiente` | Solicitud de compra |
+| `aprobado` | Orden de Compra emitida |
+| `recibido` | Orden de Compra emitida |
+| `cancelado` | Solicitud de compra |
+
+**Invariantes**:
+
+- La etiqueta se recalcula al cambiar el estado y no depende del rol que consulta.
+- Las listas, tarjetas, filtros, panel lateral, detalle, impresión, confirmaciones y notificaciones usan la misma etiqueta.
+- Al aprobar, la fecha de emisión se toma de `startDate` de `002`; si está vacía, se completa con la fecha del cambio de estado en America/Santiago. Una fecha válida existente se conserva.
+
+## Campo Restringido: Límite de Crédito
+
+| Rol | Formulario / panel | Listas y tarjetas | Detalle, búsqueda e impresión | Escritura |
+|---|---|---|---|---|
+| `administrador` | Visible | Visible | Visible | Permitida |
+| `gerente` | Visible | Visible | Visible | Permitida |
+| `consulta` | No aplica | Visible en solo lectura | Visible en solo lectura | No permitida |
+| `comprador` | Oculto | Oculto | Oculto | Valor persistido conservado; intento de cambio rechazado con `PERMISSION_DENIED` |
+| `bodeguero` | Sin acceso a proveedores | Sin acceso | Sin acceso | No aplica |
+
+**Invariantes**:
+
+- Para el `comprador`, el campo no se renderiza o queda con `display: none` efectivo; no se expone a tecnologías de asistencia ni a inspección del formulario.
+- Al actualizar un proveedor como `comprador`, `creditLimit` se conserva tal como está persistido; no se borra ni se sobrescribe con un valor vacío.
+- Un payload del `comprador` que incluya un `creditLimit` distinto del persistido se rechaza sin mutar el proveedor.
+
+## Empleado Solicitante
+
+| Rol | Asignación | Editable | Validación de servicio |
+|---|---|---|---|
+| `comprador` | Automática al propio usuario mediante `Usuario.id_empleado` | No; se muestra como dato de solo lectura | Fuerza el vínculo propio y rechaza cualquier otro `id_empleado` con `PERMISSION_DENIED` |
+| `administrador` | Selección manual desde `erp_purchasing:employees` | Sí | Exige un empleado registrado y existente |
+| `gerente` | Selección manual desde `erp_purchasing:employees` | Sí | Exige un empleado registrado y existente |
+| `bodeguero` / `consulta` | Sin creación ni edición de solicitudes | No aplica | No aplica |
+
+**Invariantes**:
+
+- El empleado solicitante sigue siendo obligatorio conforme a `002`.
+- El empleado propio del `comprador` se crea una sola vez si no existe y se reutiliza; no se duplica por nombre en cada solicitud.
+- El vínculo `Usuario.id_empleado` no se elimina al cerrar sesión y no modifica el esquema de empleados de `002`.
 
 ## Relaciones y Cardinalidades
 
@@ -156,7 +216,8 @@ El permiso filtra las acciones que el ciclo canónico de Compras ya considera v�
 | Rol | 1 | Usuario | 1..N; cada usuario tiene exactamente un rol |
 | Rol | 1 | Permiso | 0..N; cada rol agrupa un conjunto de permisos |
 | Usuario | 1 | Sesión | 0..1; cada navegador mantiene como máximo una sesión activa |
-| Estado destino | 1 | Permiso | 1; cada transición exige exactamente un permiso |
+| Usuario (`comprador`) | 1 | Empleado | 0..1; vínculo propio del empleado solicitante, resuelto o creado una sola vez |
+| Estado actual + destino | 1 | Permiso | 1; cada transición exige exactamente un permiso según el estado de origen |
 
 ## Estados de la Sesión
 
@@ -173,6 +234,9 @@ El permiso filtra las acciones que el ciclo canónico de Compras ya considera v�
 - `role` se normaliza a minúsculas; si no está en `ROLE_DEFINITIONS`, se usa `consulta`.
 - `activo` es `false` solo cuando el valor es explícitamente `false` o `active` es `false`; en cualquier otro caso es `true`.
 - `nombre` vacío se reemplaza por el `userId`.
+- `id_empleado` se normaliza con `String(value).trim()`; una cadena vacía equivale a `null`.
+- Si `id_empleado` referencia un empleado inexistente o pertenece a otro usuario, se descarta y se vuelve a resolver el vínculo propio del `comprador`.
+- Solo el `comprador` puede tener un `id_empleado` resuelto automáticamente; para los demás roles el campo se conserva como `null` salvo que se asigne explícitamente.
 - Una sesión sin `userId` se considera inválida.
 - Los datos corruptos en `localStorage` se ignoran y se usan los valores por defecto.
 

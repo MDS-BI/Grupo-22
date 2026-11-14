@@ -183,6 +183,40 @@
 
 ---
 
+## Phase 9: Ajustes post-revisión
+
+**Purpose**: Incorporar la denominación por estado, la separación entre aprobar y rechazar, el empleado solicitante vinculado, la restricción del límite de crédito y la defensa en servicios, propagando estas reglas a la experiencia de `003`.
+
+**Prerequisites**: Phase 8 completada y módulos de `003` disponibles (`src/ui-side-panel.js`, `src/ui-feedback.js`, `src/purchasing-list-view.js`, `src/purchasing-list-query.js`, `src/purchasing-status.js`, `src/purchasing-demo-data.js`). Si algún módulo de `003` aún no existe, la tarea de integración se ejecuta sobre el archivo planificado y se verifica al integrarse.
+
+### Tests for Phase 9
+
+- [ ] T056 [P] Ampliar `tests/unit/auth.test.js` con `orders.reject`, la matriz de roles y el mapeo de transición sensible al estado de origen (`borrador` → `cancelado` con `orders.cancel`; `pendiente` → `cancelado` con `orders.reject`).
+- [ ] T057 [P] Crear `tests/unit/access-policy.test.js` con las reglas de creación, edición, aprobación, rechazo, cancelación, etiqueta por estado, fecha de emisión, límite de crédito y empleado solicitante, incluido el comportamiento permisivo sin sesión.
+- [ ] T058 [P] Crear `tests/integration/auth-rbac-post-review.test.js` con la denominación «Solicitud de compra» / «Orden de Compra emitida» en listas, tarjetas, filtros, panel lateral, detalle, impresión y notificaciones, y con la fecha de emisión tras aprobar.
+- [ ] T059 [P] Añadir pruebas de integración de que el `comprador` no ve ni ejecuta aprobar o rechazar, y de que sus intentos forzados se rechazan sin mutar estado, historial ni stock.
+- [ ] T060 [P] Añadir pruebas de integración del empleado solicitante: asignación automática y de solo lectura para `comprador`, creación única del vínculo, selección manual para `administrador`/`gerente` y rechazo de payload manipulado.
+- [ ] T061 [P] Añadir pruebas de integración del límite de crédito: oculto para `comprador` en formulario, listas, tarjetas, filtros, detalle, búsqueda, impresión y notificaciones; conservación del valor persistido y rechazo de cambios.
+- [ ] T062 [P] Añadir pruebas de integración de las superficies de `003` (`+ Nuevo`, panel lateral, tarjetas, filtros y detalle) y del feedback persistente sin falsos éxitos.
+
+### Implementation for Phase 9
+
+- [ ] T063 Añadir `ORDERS_REJECT: 'orders.reject'` a `PERMISSIONS`, incluirlo en `gerente` (el `administrador` lo hereda de `Object.values(PERMISSIONS)`) y hacer que `transitionPermission` y `canTransitionTo` reciban el estado de origen en `src/auth.js`.
+- [ ] T064 Crear `src/access-policy.js` con `documentLabel`, `canCreateDocument`, `canEditDocument`, `canApprove`, `canReject`, `canCancel`, `canViewCreditLimit`, `sanitizeEntityPayload`, `ensureRequesterEmployee`, `resolveRequesterForSave` y `emissionDateFor`.
+- [ ] T065 Añadir en `index.html` los puntos de extensión para la etiqueta de documento, la fecha de emisión, el empleado de solo lectura y el contenedor de feedback persistente, conservando los identificadores existentes.
+- [ ] T066 Integrar en `src/app.js` la etiqueta por estado, la fecha de emisión, el empleado de solo lectura para `comprador`, la selección manual para `administrador`/`gerente` y el ocultamiento efectivo del límite de crédito.
+- [ ] T067 Añadir en `src/storage.js` la guarda de servicio que conserva `creditLimit` y rechaza con `PERMISSION_DENIED` un payload del `comprador` que intente crearlo o modificarlo, sin mutar el proveedor.
+- [ ] T068 Añadir en `src/purchasing-storage.js` las guardas de servicio para altas, ediciones, aprobación, rechazo y cancelación según el estado actual, incluida la asignación forzada del empleado propio y el completado de `startDate` solo cuando falte.
+- [ ] T069 Implementar en `src/app.js` y en el módulo de feedback de `003` la notificación persistente de error, sin cierre del panel, sin descarte de datos y sin notificación de éxito ante rechazos.
+- [ ] T070 Integrar las reglas en `src/ui-side-panel.js`, `src/purchasing-list-view.js`, `src/purchasing-list-query.js` y `src/purchasing-demo-data.js`: visibilidad de «+ Nuevo», apertura del panel, tarjetas navegables, filtros/columnas restringidos y datos de demostración sin aprobaciones no autorizadas.
+- [ ] T071 [P] Añadir en `src/styles.css` los estilos de la etiqueta por estado, el dato de empleado de solo lectura y el ocultamiento efectivo del límite de crédito y de las acciones restringidas.
+- [ ] T072 [P] Actualizar `README.md` y `specs/004-authentication-rbac/quickstart.md` con la denominación por estado, los nuevos permisos, el empleado solicitante y el límite de crédito restringido.
+- [ ] T073 Ejecutar `npm test -- --run`, `npm run build` y `npm run lint`, y recorrer los escenarios post-revisión de `quickstart.md` con los cinco usuarios de demostración.
+
+**Checkpoint**: Los ajustes post-revisión se aplican de forma coherente en interfaz y servicios, con pruebas unitarias, de integración, build y lint correctos.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -196,6 +230,7 @@
   - **US4**: requiere US2 para el control de formularios y acciones.
   - **US5**: requiere US1 para la sesión activa.
 - **Polish (Phase 8)**: depende de todas las historias.
+- **Ajustes post-revisión (Phase 9)**: depende de Polish y de los módulos planificados de `003`.
 
 ### User Story Dependencies
 
@@ -211,6 +246,7 @@
 - El módulo de autenticación se implementó antes de la integración en `app.js`.
 - La integración en `app.js` se completó antes de los ajustes de estilos.
 - La verificación de pruebas, build y lint se realizó al cierre.
+- En Phase 9, las pruebas T056-T062 se escriben antes de la implementación T063-T071; la verificación T073 se ejecuta al final.
 
 ### Parallel Opportunities
 
@@ -221,6 +257,7 @@
 - US4: T033 y T034; T039 puede ejecutarse con T035-T038.
 - US5: T040 y T041.
 - Polish: T044, T045, T046 y T047.
+- Ajustes post-revisión: T056-T062 en paralelo; T071 y T072 pueden ejecutarse con T063-T070 si no tocan los mismos archivos.
 
 ---
 
@@ -268,6 +305,7 @@ Task: "Pruebas del despliegue de consulta en tests/integration/auth-rbac.test.js
 4. Añadir US4 → solo lectura y gestión de productos.
 5. Añadir US5 → cierre de sesión.
 6. Polish → documentación, accesibilidad y verificación completa.
+7. Ajustes post-revisión → denominación por estado, aprobación/rechazo, empleado solicitante, límite de crédito y defensa en servicios.
 
 ### Parallel Team Strategy
 
@@ -291,3 +329,6 @@ Task: "Pruebas del despliegue de consulta en tests/integration/auth-rbac.test.js
 - El acceso completo de `initApp()` sin sesión es intencional para compatibilidad de pruebas; `boot()` es el punto de entrada de producción.
 - No se incluye administración visual de usuarios ni recuperación de credenciales.
 - Evitar tareas que toquen el mismo archivo en paralelo.
+- Phase 9 no renumera ni reordena tareas existentes y conserva sus marcas de completado.
+- Las tareas de Phase 9 referencian los módulos planificados de `003`; si aún no existen, se implementan sobre esos archivos y se validan al integrarse.
+- Toda operación rechazada por permisos debe mostrar error persistente y no registrar historial ni transacciones.
