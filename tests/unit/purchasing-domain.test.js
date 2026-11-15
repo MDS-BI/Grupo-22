@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   calculateLineSubtotal,
   calculateOrderTotals,
@@ -11,8 +11,15 @@ import {
   planReceipt,
   isOverdue,
   normalizeRut,
+  PAYMENT_TERMS,
+  SUPPLIER_ORIGINS,
+  paymentTermLabel,
+  isValidPaymentTerm,
+  isValidSupplierOrigin,
   PURCHASING_ERRORS
 } from '../../src/domain/purchasing.js';
+import { normalizeConfig, PURCHASING_CONFIG, setActiveConfig } from '../../src/module-config.js';
+import { validateEntity } from '../../src/storage.js';
 
 describe('purchasing domain', () => {
   it('calculates line subtotals and order totals with 19 percent IVA', () => {
@@ -90,5 +97,41 @@ describe('purchasing domain', () => {
 
   it('normalizes Chilean RUT values', () => {
     expect(normalizeRut('12.345.678-9')).toBe('12345678-9');
+  });
+});
+
+describe('post-review supplier domain rules', () => {
+  const base = { name: 'Proveedor Uno', code: '11.111.111-1', category: 'Insumos' };
+
+  beforeEach(() => {
+    setActiveConfig(normalizeConfig(PURCHASING_CONFIG).config);
+  });
+
+  it('exposes the fixed payment term list and labels legacy values', () => {
+    expect(PAYMENT_TERMS).toEqual(['Contado', '30 días', '60 días', '90 días']);
+    expect(isValidPaymentTerm('Contado')).toBe(true);
+    expect(isValidPaymentTerm('neto 30')).toBe(false);
+    expect(paymentTermLabel('Contado')).toBe('Contado');
+    expect(paymentTermLabel('neto 30')).toBe('Otra (valor anterior)');
+    expect(validateEntity({ ...base, paymentTerms: 'neto 30' }).errors.paymentTerms).toBeDefined();
+    expect(validateEntity({ ...base, paymentTerms: 'Contado' }).valid).toBe(true);
+  });
+
+  it('requires a valid supplier origin', () => {
+    expect(SUPPLIER_ORIGINS).toEqual(['Nacional', 'Extranjero']);
+    expect(isValidSupplierOrigin('Nacional')).toBe(true);
+    expect(validateEntity({ ...base, paymentTerms: 'Contado', origin: '' }).errors.origin).toContain('obligatorio');
+    expect(validateEntity({ ...base, paymentTerms: 'Contado', origin: 'Otro' }).errors.origin).toBeDefined();
+    expect(validateEntity({ ...base, paymentTerms: 'Contado', origin: 'Nacional' }).valid).toBe(true);
+  });
+
+  it('validates RUT for national suppliers and foreign tax id for foreign ones', () => {
+    const national = validateEntity({ ...base, code: '12.345.678-9', paymentTerms: 'Contado', origin: 'Nacional' });
+    expect(national.errors.code).toContain('módulo 11');
+    expect(validateEntity({ ...base, code: '12.345.678-5', paymentTerms: 'Contado', origin: 'Nacional' }).valid).toBe(true);
+    const foreignMissing = validateEntity({ ...base, code: '', paymentTerms: 'Contado', origin: 'Extranjero' });
+    expect(foreignMissing.errors.foreignTaxId).toContain('obligatoria');
+    const foreign = validateEntity({ ...base, code: 'not-a-rut', paymentTerms: 'Contado', origin: 'Extranjero', foreignTaxId: 'TAX-1' });
+    expect(foreign.valid).toBe(true);
   });
 });

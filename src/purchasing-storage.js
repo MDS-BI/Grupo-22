@@ -4,7 +4,14 @@ import {
   addDocument,
   updateDocument,
   deleteDocument,
-  loadEntities
+  loadEntities,
+  loadRubros,
+  saveRubros,
+  findRubroByName,
+  addRubro,
+  updateRubro,
+  deleteRubro,
+  ensureRubro
 } from './storage.js';
 import {
   calculateOrderTotals,
@@ -715,5 +722,7 @@ export const listOrders = listPurchaseOrdersWithActions;
 export const getOrderDetail = getPurchaseOrderDetail;
 export const saveOrder = savePurchaseOrder;
 export const deleteOrder = deletePurchaseOrder;
+
+export { loadRubros, saveRubros, findRubroByName, addRubro, updateRubro, deleteRubro, ensureRubro };
 
 export { KEYS };

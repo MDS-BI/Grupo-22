@@ -191,3 +191,24 @@ describe('module-config', () => {
     });
   });
 });
+
+describe('post-review supplier labels', () => {
+  it('declares Rubro labels for suppliers while keeping product Categoría', () => {
+    const { config, errors } = normalizeConfig(PURCHASING_CONFIG);
+    expect(errors).toEqual([]);
+    expect(config.labels.supplierCategory).toBe('Rubro');
+    expect(config.labels.supplierCategories).toBe('Rubros');
+    expect(config.labels.category).toBe('Categoría');
+    expect(config.labels.categories).toBe('Categorías');
+  });
+
+  it('accepts custom supplier category labels and defaults them otherwise', () => {
+    const custom = normalizeConfig({ labels: { supplierCategory: 'Giro', supplierCategories: 'Giros' } });
+    expect(custom.errors).toEqual([]);
+    expect(custom.config.labels.supplierCategory).toBe('Giro');
+    expect(custom.config.labels.supplierCategories).toBe('Giros');
+    const fallback = normalizeConfig({});
+    expect(fallback.config.labels.supplierCategory).toBe('Categoría');
+    expect(fallback.config.labels.supplierCategories).toBe('Categorías');
+  });
+});

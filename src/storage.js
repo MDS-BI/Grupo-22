@@ -1,7 +1,14 @@
 import { getConfig, BASE_FIELDS, withArticle, withIndefiniteArticle } from './module-config.js';
+import {
+  PAYMENT_TERMS,
+  isValidPaymentTerm,
+  validateCreditLimitField,
+  validateSupplierTaxIdentity
+} from './domain/purchasing.js';
 
 const ENTITY_KEY = 'erp_base_module:entities';
 const DOCUMENT_KEY = 'erp_base_module:documents';
+const RUBRO_KEY = 'erp_purchasing:rubros';
 const EXTENSION_KEYS = [
   'erp_purchasing:purchase-order-lines',
   'erp_purchasing:order-metadata',
@@ -64,8 +71,93 @@ function validDate(value) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
+function rubroKey(value) {
+  return text(value).toLowerCase();
+}
+
+export function loadRubros() {
+  return read(RUBRO_KEY);
+}
+
+export function saveRubros(rubros) {
+  write(RUBRO_KEY, rubros);
+}
+
+export function findRubroByName(name) {
+  const key = rubroKey(name);
+  if (!key) return null;
+  return loadRubros().find(rubro => rubroKey(rubro.nombre ?? rubro.name) === key) || null;
+}
+
+export function addRubro(input = {}) {
+  const nombre = text(input.nombre ?? input.name);
+  if (!nombre) throw new Error('El nombre del Rubro es obligatorio');
+  if (findRubroByName(nombre)) throw new Error('El Rubro ya existe');
+  const timestamp = now();
+  const id = uid('rubro');
+  const rubro = { id, id_rubro: id, nombre, createdAt: timestamp, updatedAt: timestamp };
+  saveRubros([...loadRubros(), rubro]);
+  return rubro;
+}
+
+export function updateRubro(id, updates = {}) {
+  const rubros = loadRubros();
+  const index = rubros.findIndex(rubro => (rubro.id_rubro || rubro.id) === id);
+  if (index < 0) throw new Error('No se encontró el Rubro');
+  const nombre = text(updates.nombre ?? updates.name ?? rubros[index].nombre);
+  if (!nombre) throw new Error('El nombre del Rubro es obligatorio');
+  const duplicate = rubros.some(
+    (rubro, position) => position !== index && rubroKey(rubro.nombre ?? rubro.name) === rubroKey(nombre)
+  );
+  if (duplicate) throw new Error('El Rubro ya existe');
+  rubros[index] = { ...rubros[index], nombre, updatedAt: now() };
+  saveRubros(rubros);
+  return rubros[index];
+}
+
+export function deleteRubro(id) {
+  const rubros = loadRubros();
+  const referenced = read(ENTITY_KEY).some(
+    entity => Array.isArray(entity.rubro_ids) && entity.rubro_ids.map(String).includes(String(id))
+  );
+  if (referenced) throw new Error('No se puede eliminar un Rubro asignado a un proveedor');
+  const next = rubros.filter(rubro => (rubro.id_rubro || rubro.id) !== id);
+  if (next.length === rubros.length) throw new Error('No se encontró el Rubro');
+  saveRubros(next);
+  return true;
+}
+
+export function ensureRubro(name) {
+  return findRubroByName(name) || addRubro({ nombre: name });
+}
+
+function migrateSupplierRubros(entities) {
+  if (getConfig().moduleName !== 'Adquisiciones y Compras') return entities;
+  const rubros = loadRubros();
+  let changed = false;
+  const next = entities.map(entity => {
+    if (Array.isArray(entity.rubro_ids) && entity.rubro_ids.filter(Boolean).length) return entity;
+    const category = text(entity.category);
+    if (!category) return entity;
+    let rubro = rubros.find(item => rubroKey(item.nombre ?? item.name) === rubroKey(category));
+    if (!rubro) {
+      const timestamp = now();
+      const id = uid('rubro');
+      rubro = { id, id_rubro: id, nombre: category, createdAt: timestamp, updatedAt: timestamp };
+      rubros.push(rubro);
+    }
+    changed = true;
+    return { ...entity, rubro_ids: [rubro.id_rubro || rubro.id] };
+  });
+  if (changed) {
+    saveRubros(rubros);
+    write(ENTITY_KEY, next);
+  }
+  return next;
+}
+
 export function loadEntities() {
-  return read(ENTITY_KEY);
+  return migrateSupplierRubros(read(ENTITY_KEY));
 }
 
 export function saveEntities(entities) {
@@ -74,29 +166,65 @@ export function saveEntities(entities) {
 
 export function validateEntity(input = {}) {
   const errors = {};
+  const config = getConfig();
+  const inPurchasing = config.moduleName === 'Adquisiciones y Compras';
+  const origin = text(input.origin);
+  const foreign = inPurchasing && origin === 'Extranjero';
   const name = text(input.name);
   const code = text(input.code);
   if (!name) errors.name = 'El nombre es obligatorio';
-  if (!code) errors.code = 'El código es obligatorio';
+  if (!code && !foreign) errors.code = 'El código es obligatorio';
   if (input.email !== undefined && text(input.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(input.email))) {
     errors.email = 'El correo electrónico debe tener un formato válido';
   }
-  if (input.creditLimit !== undefined && input.creditLimit !== '' && (!Number.isFinite(Number(input.creditLimit)) || Number(input.creditLimit) < 0)) {
-    errors.creditLimit = 'El límite de crédito debe ser un número no negativo';
-  }
+  const creditLimit = validateCreditLimitField(input.creditLimit);
+  if (!creditLimit.valid) errors.creditLimit = creditLimit.message;
   if (input.targetDate !== undefined && text(input.targetDate) && !validDate(text(input.targetDate))) {
     errors.targetDate = 'La fecha debe tener formato YYYY-MM-DD y ser una fecha válida';
   }
 
-  const config = getConfig();
-  const inPurchasing = config.moduleName === 'Adquisiciones y Compras';
   if (inPurchasing) {
-    if (!validateRut(code)) errors.code = 'El RUT no es válido según módulo 11, incluida la K';
-    if (!text(input.category)) errors.category = 'La categoría es obligatoria';
-    if (!text(input.paymentTerms)) errors.paymentTerms = 'La condición de pago es obligatoria';
-    const duplicate = loadEntities().some(entity => entity.id !== input.id && normalizeRut(entity.code) === normalizeRut(code));
-    if (code && !duplicate && validateRut(code) && duplicate) errors.code = 'El RUT ya existe';
-    if (duplicate) errors.code = 'El RUT ya existe';
+    if (!foreign && code) {
+      if (!validateRut(code)) {
+        errors.code = 'El RUT no es válido según módulo 11, incluida la K';
+      } else {
+        const duplicate = loadEntities().some(
+          entity => entity.id !== input.id && normalizeRut(entity.code) === normalizeRut(code)
+        );
+        if (duplicate) errors.code = 'El RUT ya existe';
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'origin')) {
+      const identity = validateSupplierTaxIdentity(
+        { origin, code, foreignTaxId: input.foreignTaxId },
+        { validateRut }
+      );
+      if (identity.errors.origin) errors.origin = identity.errors.origin;
+      if (foreign && identity.errors.foreignTaxId) errors.foreignTaxId = identity.errors.foreignTaxId;
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'rubro_ids')) {
+      const ids = Array.isArray(input.rubro_ids) ? input.rubro_ids.filter(Boolean).map(String) : [];
+      const rubros = loadRubros();
+      if (!ids.length) {
+        errors.rubro_ids = 'Debes seleccionar al menos un Rubro';
+      } else if (ids.some(id => !rubros.some(rubro => String(rubro.id_rubro || rubro.id) === id))) {
+        errors.rubro_ids = 'Uno o más Rubros seleccionados no existen';
+      }
+    } else if (!text(input.category)) {
+      errors.category = 'La categoría es obligatoria';
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'paymentTerms')) {
+      const terms = text(input.paymentTerms);
+      if (!terms) {
+        errors.paymentTerms = 'La condición de pago es obligatoria';
+      } else if (!isValidPaymentTerm(terms)) {
+        const stored = input.id ? read(ENTITY_KEY).find(entity => entity.id === input.id) : null;
+        const unchangedLegacy = stored && text(stored.paymentTerms) === terms;
+        if (!unchangedLegacy) {
+          errors.paymentTerms = `La condición de pago debe ser una de: ${PAYMENT_TERMS.join(', ')}`;
+        }
+      }
+    }
   }
 
   for (const field of config.customFields.filter(item => item.target === 'entity')) {
@@ -118,7 +246,8 @@ export function addEntity(input) {
   const result = validateEntity(input);
   if (!result.valid) throw new Error(Object.values(result.errors).join('. '));
   const timestamp = now();
-  const purchasing = getConfig().moduleName === 'Adquisiciones y Compras';
+  const config = getConfig();
+  const purchasing = config.moduleName === 'Adquisiciones y Compras';
   const entity = {
     id: uid('entity'),
     entity_id: uid('ent'),
@@ -132,10 +261,16 @@ export function addEntity(input) {
     ...(input.targetDate !== undefined ? { targetDate: text(input.targetDate) } : {}),
     ...(input.creditLimit !== undefined && input.creditLimit !== '' ? { creditLimit: Number(input.creditLimit) } : {}),
     ...(input.paymentTerms !== undefined ? { paymentTerms: text(input.paymentTerms) } : {}),
+    ...(purchasing && input.origin !== undefined ? { origin: text(input.origin) } : {}),
+    ...(purchasing && input.foreignTaxId !== undefined ? { foreignTaxId: text(input.foreignTaxId) } : {}),
     createdAt: timestamp,
     updatedAt: timestamp
   };
-  const config = getConfig();
+  let rubroIds = Array.isArray(input.rubro_ids) ? input.rubro_ids.filter(Boolean).map(String) : [];
+  if (purchasing && !rubroIds.length && text(input.category)) {
+    rubroIds = [ensureRubro(text(input.category)).id_rubro];
+  }
+  if (rubroIds.length) entity.rubro_ids = rubroIds;
   for (const field of config.customFields.filter(item => item.target === 'entity')) {
     if (input[field.key] !== undefined) entity[field.key] = field.type === 'number' ? Number(input[field.key]) : input[field.key];
   }
@@ -155,10 +290,20 @@ export function updateEntity(id, updates) {
   for (const key of Object.keys(next)) {
     if (!allowed.has(key)) delete next[key];
   }
+  next.name = text(next.name);
+  const purchasing = config.moduleName === 'Adquisiciones y Compras';
+  next.code = purchasing ? normalizeRut(next.code) : text(next.code);
+  if (next.category !== undefined) next.category = text(next.category);
+  if (next.origin !== undefined) next.origin = text(next.origin);
+  if (next.foreignTaxId !== undefined) next.foreignTaxId = text(next.foreignTaxId);
+  if (next.paymentTerms !== undefined) next.paymentTerms = text(next.paymentTerms);
+  if (Array.isArray(next.rubro_ids)) next.rubro_ids = next.rubro_ids.filter(Boolean).map(String);
+  if (purchasing && (!Array.isArray(next.rubro_ids) || !next.rubro_ids.length) && text(next.category)) {
+    next.rubro_ids = [ensureRubro(text(next.category)).id_rubro];
+  }
+  if (Array.isArray(next.rubro_ids) && !next.rubro_ids.length) delete next.rubro_ids;
   const result = validateEntity({ ...next, id });
   if (!result.valid) throw new Error(Object.values(result.errors).join('. '));
-  next.name = text(next.name);
-  next.code = getConfig().moduleName === 'Adquisiciones y Compras' ? normalizeRut(next.code) : text(next.code);
   if (next.creditLimit !== undefined && next.creditLimit !== '') next.creditLimit = Number(next.creditLimit);
   for (const field of config.customFields.filter(item => item.target === 'entity')) {
     if (next[field.key] !== undefined && next[field.key] !== '' && field.type === 'number') next[field.key] = Number(next[field.key]);
@@ -181,12 +326,26 @@ export function normalizeSearchText(value) {
   return text(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-export function searchEntities(term) {
+export function searchEntities(term, options = {}) {
   const query = normalizeSearchText(term);
-  if (!query) return loadEntities();
-  return loadEntities().filter(entity => normalizeSearchText(
-    Object.entries(entity).map(([key, value]) => typeof value === 'object' ? '' : `${key}:${value}`).join(' ')
-  ).includes(query));
+  const selectedRubros = Array.isArray(options.rubroIds) ? options.rubroIds.filter(Boolean).map(String) : [];
+  const rubros = loadRubros();
+  const rubroName = id => {
+    const rubro = rubros.find(item => String(item.id_rubro || item.id) === String(id));
+    return rubro ? rubro.nombre || rubro.name || '' : '';
+  };
+  let entities = loadEntities();
+  if (selectedRubros.length) {
+    entities = entities.filter(
+      entity => Array.isArray(entity.rubro_ids) && entity.rubro_ids.some(id => selectedRubros.includes(String(id)))
+    );
+  }
+  if (!query) return entities;
+  return entities.filter(entity => {
+    const rubroNames = Array.isArray(entity.rubro_ids) ? entity.rubro_ids.map(rubroName).filter(Boolean).join(' ') : '';
+    const haystack = `${Object.entries(entity).map(([key, value]) => typeof value === 'object' ? '' : `${key}:${value}`).join(' ')} ${rubroNames}`;
+    return normalizeSearchText(haystack).includes(query);
+  });
 }
 
 export function loadDocuments() {
@@ -337,6 +496,7 @@ export function deleteDocumentsForEntity(entityId) {
 export function clearAll() {
   saveEntities([]);
   saveDocuments([]);
+  saveRubros([]);
 }
 
 export { normalizeRut, uid };

@@ -365,22 +365,22 @@
 
 ### Pruebas para los ajustes post-revisión
 
-- [ ] T082 [P] [US1] Añadir pruebas unitarias para el límite de crédito (0 aceptado, negativo rechazado con mensaje asociado al campo) en tests/unit/storage.test.js (FR-061)
-- [ ] T083 [P] [US1] Añadir pruebas unitarias para el catálogo de Rubros, la selección múltiple obligatoria y la migración de categoría en texto a Rubro en tests/unit/purchasing-storage.test.js (FR-063, FR-064, FR-065, FR-066)
-- [ ] T084 [P] [US1] Añadir pruebas unitarias para la lista fija de condiciones de pago, el valor heredado "Otra (valor anterior)", el Origen y la regla RUT/Identificación tributaria extranjera en tests/unit/purchasing-domain.test.js (FR-067, FR-068, FR-069, FR-070)
-- [ ] T085 [P] [US1] Añadir pruebas de integración del formulario de Proveedor: etiqueta Rubro, multi-selección, crédito, condiciones fijas, origen y ausencia de Fecha objetivo en tests/integration/create-entity.test.js (FR-061, FR-062, FR-064, FR-067, FR-069, FR-070, FR-071)
-- [ ] T086 [P] [US4] Añadir pruebas de integración de búsqueda por uno o más Rubros en tests/integration/search-entities.test.js (FR-072)
-- [ ] T087 [P] Añadir pruebas unitarias para las etiquetas "Rubro"/"Rubros" del Proveedor y "Categoría" intacta en Productos en tests/unit/module-config.test.js (FR-062)
+- [X] T082 [P] [US1] Añadir pruebas unitarias para el límite de crédito (0 aceptado, negativo rechazado con mensaje asociado al campo) en tests/unit/storage.test.js (FR-061)
+- [X] T083 [P] [US1] Añadir pruebas unitarias para el catálogo de Rubros, la selección múltiple obligatoria y la migración de categoría en texto a Rubro en tests/unit/purchasing-storage.test.js (FR-063, FR-064, FR-065, FR-066)
+- [X] T084 [P] [US1] Añadir pruebas unitarias para la lista fija de condiciones de pago, el valor heredado "Otra (valor anterior)", el Origen y la regla RUT/Identificación tributaria extranjera en tests/unit/purchasing-domain.test.js (FR-067, FR-068, FR-069, FR-070)
+- [X] T085 [P] [US1] Añadir pruebas de integración del formulario de Proveedor: etiqueta Rubro, multi-selección, crédito, condiciones fijas, origen y ausencia de Fecha objetivo en tests/integration/create-entity.test.js (FR-061, FR-062, FR-064, FR-067, FR-069, FR-070, FR-071)
+- [X] T086 [P] [US4] Añadir pruebas de integración de búsqueda por uno o más Rubros en tests/integration/search-entities.test.js (FR-072)
+- [X] T087 [P] Añadir pruebas unitarias para las etiquetas "Rubro"/"Rubros" del Proveedor y "Categoría" intacta en Productos en tests/unit/module-config.test.js (FR-062)
 
 ### Implementación de los ajustes post-revisión
 
-- [ ] T088 [US1] Añadir las etiquetas `supplierCategory` y `supplierCategories` a los valores predeterminados y a Compras en src/module-config.js, manteniendo `category`/`categories` para Productos (FR-062)
-- [ ] T089 [US1] Crear el catálogo de Rubros con CRUD, unicidad sin distinguir mayúsculas y migración de categorías en texto en src/purchasing-storage.js y src/storage.js (FR-063, FR-065, FR-066)
-- [ ] T090 [US1] Implementar las validaciones de límite de crédito, al menos un Rubro, condición de pago permitida, Origen y RUT/Identificación tributaria extranjera en src/domain/purchasing.js y src/storage.js (FR-061, FR-064, FR-067, FR-069, FR-070)
-- [ ] T091 [US1] Actualizar el formulario de Proveedor con Rubro multi-selección, condiciones de pago fijas, Origen, Identificación tributaria extranjera, límite de crédito con error bajo el campo y sin Fecha objetivo en index.html y src/app.js (FR-061, FR-062, FR-064, FR-067, FR-069, FR-070, FR-071)
-- [ ] T092 [US1] Persistir `rubro_ids` y la migración al cargar, y mostrar "Otra (valor anterior)" en el listado/edición de Proveedores en src/storage.js y src/app.js (FR-065, FR-066, FR-068, FR-071)
-- [ ] T093 [US4] Adaptar la búsqueda para filtrar por uno o más Rubros seleccionados en src/storage.js y src/app.js (FR-072)
-- [ ] T094 Agregar `"type": "module"` a package.json y verificar que `npm run build`, `npm test` y `npm run lint` siguen funcionando sin la advertencia MODULE_TYPELESS_PACKAGE_JSON (FR-073)
+- [X] T088 [US1] Añadir las etiquetas `supplierCategory` y `supplierCategories` a los valores predeterminados y a Compras en src/module-config.js, manteniendo `category`/`categories` para Productos (FR-062)
+- [X] T089 [US1] Crear el catálogo de Rubros con CRUD, unicidad sin distinguir mayúsculas y migración de categorías en texto en src/purchasing-storage.js y src/storage.js (FR-063, FR-065, FR-066)
+- [X] T090 [US1] Implementar las validaciones de límite de crédito, al menos un Rubro, condición de pago permitida, Origen y RUT/Identificación tributaria extranjera en src/domain/purchasing.js y src/storage.js (FR-061, FR-064, FR-067, FR-069, FR-070)
+- [X] T091 [US1] Actualizar el formulario de Proveedor con Rubro multi-selección, condiciones de pago fijas, Origen, Identificación tributaria extranjera, límite de crédito con error bajo el campo y sin Fecha objetivo en index.html y src/app.js (FR-061, FR-062, FR-064, FR-067, FR-069, FR-070, FR-071)
+- [X] T092 [US1] Persistir `rubro_ids` y la migración al cargar, y mostrar "Otra (valor anterior)" en el listado/edición de Proveedores en src/storage.js y src/app.js (FR-065, FR-066, FR-068, FR-071)
+- [X] T093 [US4] Adaptar la búsqueda para filtrar por uno o más Rubros seleccionados en src/storage.js y src/app.js (FR-072)
+- [X] T094 Agregar `"type": "module"` a package.json y verificar que `npm run build`, `npm test` y `npm run lint` siguen funcionando sin la advertencia MODULE_TYPELESS_PACKAGE_JSON (FR-073)
 
 **Punto de control**: Los ajustes post-revisión están implementados y verificados; la suite completa, el build y el lint pasan con la configuración ESM.
 

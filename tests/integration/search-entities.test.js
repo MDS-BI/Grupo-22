@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { normalizeConfig, DEFAULT_CONFIG } from '../../src/module-config.js';
-import { addEntity } from '../../src/storage.js';
+import { addEntity, addRubro } from '../../src/storage.js';
 
 const html = fs.readFileSync(fileURLToPath(new URL('../../index.html', import.meta.url)), 'utf8');
 
@@ -81,5 +81,29 @@ describe('User Story 8 - search and find entities quickly', () => {
     qs('search-input').value = 'later';
     qs('search-input').dispatchEvent(new dom.window.Event('input', { bubbles: true }));
     expect(qs('search-results-list').querySelectorAll('.entity-item').length).toBe(1);
+  });
+
+  it('filters entities by one or more selected Rubros', () => {
+    const insumos = addRubro({ nombre: 'Insumos' });
+    const servicios = addRubro({ nombre: 'Servicios' });
+    addEntity({ name: 'Insumos SA', code: 'IN-1', rubro_ids: [insumos.id_rubro] });
+    addEntity({ name: 'Servicios SA', code: 'SV-1', rubro_ids: [servicios.id_rubro] });
+    qs('nav-search').click();
+    const select = qs('search-rubros');
+    expect(select).not.toBeNull();
+    const choose = ids => {
+      for (const option of select.options) option.selected = ids.includes(option.value);
+      select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    };
+    choose([insumos.id_rubro]);
+    let items = [...qs('search-results-list').querySelectorAll('.entity-item')];
+    expect(items.length).toBe(1);
+    expect(items[0].textContent).toContain('Insumos SA');
+    choose([insumos.id_rubro, servicios.id_rubro]);
+    items = [...qs('search-results-list').querySelectorAll('.entity-item')];
+    expect(items.length).toBe(2);
+    choose([]);
+    items = [...qs('search-results-list').querySelectorAll('.entity-item')];
+    expect(items.length).toBe(2);
   });
 });

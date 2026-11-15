@@ -1,7 +1,7 @@
 import {
   loadEntities, validateEntity, addEntity, updateEntity, deleteEntity,
   loadDocuments, validateDocument, addDocument, updateDocument, deleteDocument,
-  searchEntities
+  searchEntities, loadRubros, addRubro
 } from './storage.js';
 import {
   loadModuleConfig, setActiveConfig, newLabelFor, withArticle
@@ -23,7 +23,9 @@ import {
   validatePurchaseOrderLine,
   isTerminalStatus,
   purchasingErrorMessage,
-  getAvailableActionItems
+  getAvailableActionItems,
+  PAYMENT_TERMS,
+  paymentTermLabel
 } from './domain/purchasing.js';
 import {
   PERMISSIONS,
@@ -254,6 +256,9 @@ function relabel() {
   qs('startDate-label').textContent = labels.startDate;
   qs('endDate-label').textContent = labels.endDate;
   qs('code').previousElementSibling.textContent = config.moduleName === 'Adquisiciones y Compras' ? 'RUT' : 'Código';
+  if (qs('supplier-rubros-label')) qs('supplier-rubros-label').textContent = labels.supplierCategories || labels.categories;
+  if (qs('entity-table-rubro-heading')) qs('entity-table-rubro-heading').textContent = labels.supplierCategories || labels.categories;
+  if (qs('search-rubros-label')) qs('search-rubros-label').textContent = labels.supplierCategories || labels.categories;
 }
 
 function ensureProductsNav() {
@@ -293,12 +298,88 @@ function showView(name) {
     renderStatusControl();
   }
   if (name === 'products') renderProductCatalog();
-  if (name === 'search') renderSearch();
+  if (name === 'search') {
+    renderSearchRubroOptions();
+    renderSearch();
+  }
+}
+
+function rubroLabel(rubro) {
+  return rubro.nombre || rubro.name || '';
+}
+
+function rubroValue(rubro) {
+  return String(rubro.id_rubro || rubro.id);
+}
+
+function renderRubroOptions(selectedIds = []) {
+  const select = qs('supplier-rubros');
+  if (!select) return;
+  const selected = new Set((selectedIds || []).map(String));
+  select.innerHTML = loadRubros()
+    .map(rubro => `<option value="${escapeHtml(rubroValue(rubro))}"${selected.has(rubroValue(rubro)) ? ' selected' : ''}>${escapeHtml(rubroLabel(rubro))}</option>`)
+    .join('');
+}
+
+function renderSearchRubroOptions() {
+  const select = qs('search-rubros');
+  if (!select) return;
+  const selected = new Set([...select.selectedOptions].map(option => option.value));
+  select.innerHTML = loadRubros()
+    .map(rubro => `<option value="${escapeHtml(rubroValue(rubro))}"${selected.has(rubroValue(rubro)) ? ' selected' : ''}>${escapeHtml(rubroLabel(rubro))}</option>`)
+    .join('');
+}
+
+function selectedSearchRubros() {
+  const select = qs('search-rubros');
+  return select ? [...select.selectedOptions].map(option => option.value) : [];
+}
+
+function renderPaymentTermsControl(value = '') {
+  const existing = qs('paymentTerms');
+  if (!existing) return;
+  const term = String(value ?? '');
+  if (!isPurchasing()) {
+    existing.value = term;
+    return;
+  }
+  if (existing.tagName !== 'SELECT') {
+    const select = document.createElement('select');
+    select.id = 'paymentTerms';
+    existing.replaceWith(select);
+  }
+  const select = qs('paymentTerms');
+  const isLegacy = term && !PAYMENT_TERMS.includes(term);
+  const options = ['', ...PAYMENT_TERMS, ...(isLegacy ? [term] : [])];
+  select.innerHTML = options
+    .map(option => {
+      if (!option) return '<option value=""></option>';
+      if (isLegacy && option === term) return `<option value="${escapeHtml(option)}">Otra (valor anterior)</option>`;
+      return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
+    })
+    .join('');
+  select.value = term;
+}
+
+function renderEntityRubroCell(entity) {
+  const rubros = loadRubros();
+  const names = (entity.rubro_ids || [])
+    .map(id => {
+      const rubro = rubros.find(item => rubroValue(item) === String(id));
+      return rubro ? rubroLabel(rubro) : '';
+    })
+    .filter(Boolean);
+  if (names.length) return names.join(', ');
+  return entity.category ?? '';
 }
 
 function clearEntityForm() {
   qs('entity-id').value = '';
-  for (const id of ['name', 'code', 'email', 'phone', 'address', 'category', 'creditLimit', 'paymentTerms', 'targetDate']) qs(id).value = '';
+  for (const id of ['name', 'code', 'email', 'phone', 'address', 'category', 'creditLimit', 'origin', 'foreignTaxId']) {
+    if (qs(id)) qs(id).value = '';
+  }
+  renderPaymentTermsControl('');
+  renderRubroOptions([]);
   for (const field of config.customFields.filter(item => item.target === 'entity')) {
     if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = '';
   }
@@ -329,13 +410,14 @@ function renderEntityTable() {
     ? entities.map(entity => `<tr>
         <td>${escapeHtml(entity.name)}</td>
         <td>${escapeHtml(entity.code)}</td>
-        <td>${escapeHtml(entity.category ?? '')}</td>
+        <td>${escapeHtml(renderEntityRubroCell(entity))}</td>
+        <td>${escapeHtml(isPurchasing() ? paymentTermLabel(entity.paymentTerms) : entity.paymentTerms ?? '')}</td>
         <td class="table-actions">
           ${canEdit ? `<button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(entity.id)}">${icon('edit', { className: 'ui-icon' })}Editar</button>` : ''}
           ${canDelete ? `<button type="button" class="danger" data-action="delete" data-id="${escapeHtml(entity.id)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>` : ''}
         </td>
       </tr>`).join('')
-    : '<tr><td colspan="4" class="empty-row">Sin registros.</td></tr>';
+    : '<tr><td colspan="5" class="empty-row">Sin registros.</td></tr>';
 }
 
 function renderDocumentEntityOptions() {
@@ -634,7 +716,7 @@ function renderDashboard() {
 
 function renderSearch() {
   const query = qs('search-input').value;
-  const results = searchEntities(query);
+  const results = searchEntities(query, { rubroIds: selectedSearchRubros() });
   const customLabels = config.customFields.filter(field => field.target === 'entity');
   qs('search-results-list').innerHTML = results.map(entity => {
     const custom = customLabels.map(field => {
@@ -642,8 +724,9 @@ function renderSearch() {
       const value = field.type === 'date' ? formatDate(entity[field.key]) : entity[field.key];
       return `${escapeHtml(field.label)}: ${escapeHtml(value)}`;
     }).filter(Boolean).join(' · ');
+    const rubros = renderEntityRubroCell(entity);
     const linkedDocument = loadDocuments().find(document => document.entity_id === entity.entity_id);
-    return `<article class="entity-item">${escapeHtml(entity.name)} · ${escapeHtml(entity.code)}${custom ? ` · ${custom}` : ''}${linkedDocument?.status ? ` <span class="status-badge">${escapeHtml(linkedDocument.status)}</span>` : ''}</article>`;
+    return `<article class="entity-item">${escapeHtml(entity.name)} · ${escapeHtml(entity.code)}${rubros ? ` · ${escapeHtml(rubros)}` : ''}${custom ? ` · ${custom}` : ''}${linkedDocument?.status ? ` <span class="status-badge">${escapeHtml(linkedDocument.status)}</span>` : ''}</article>`;
   }).join('');
   for (const document of loadDocuments()) {
     const haystack = `${document.folio} ${document.startDate} ${document.endDate} ${document.status || ''}`.toLowerCase();
@@ -658,9 +741,18 @@ function collectEntity() {
   const data = {
     name: qs('name').value, code: qs('code').value,
     email: qs('email').value, phone: qs('phone').value, address: qs('address').value,
-    category: qs('category').value, creditLimit: qs('creditLimit').value,
-    paymentTerms: qs('paymentTerms').value, targetDate: qs('targetDate').value
+    creditLimit: qs('creditLimit').value,
+    paymentTerms: qs('paymentTerms').value
   };
+  if (isPurchasing()) {
+    data.origin = qs('origin')?.value ?? '';
+    data.foreignTaxId = qs('foreignTaxId')?.value ?? '';
+    const rubroSelect = qs('supplier-rubros');
+    data.rubro_ids = rubroSelect ? [...rubroSelect.selectedOptions].map(option => option.value) : [];
+  } else if (qs('category')) {
+    data.category = qs('category').value;
+    if (qs('targetDate')) data.targetDate = qs('targetDate').value;
+  }
   for (const field of config.customFields.filter(item => item.target === 'entity')) data[field.key] = qs(`cf-${field.key}`).value;
   return data;
 }
@@ -689,8 +781,18 @@ function showEntityErrors(errors) {
 
 function loadEntityIntoForm(entity) {
   qs('entity-id').value = entity.id;
-  for (const key of ['name', 'code', 'email', 'phone', 'address', 'category', 'creditLimit', 'paymentTerms', 'targetDate']) {
-    qs(key).value = entity[key] ?? '';
+  for (const key of ['name', 'code', 'email', 'phone', 'address', 'creditLimit']) {
+    if (qs(key)) qs(key).value = entity[key] ?? '';
+  }
+  if (isPurchasing()) {
+    if (qs('origin')) qs('origin').value = entity.origin || 'Nacional';
+    if (qs('foreignTaxId')) qs('foreignTaxId').value = entity.foreignTaxId ?? '';
+    renderPaymentTermsControl(entity.paymentTerms ?? '');
+    renderRubroOptions(entity.rubro_ids || []);
+  } else {
+    if (qs('category')) qs('category').value = entity.category ?? '';
+    if (qs('targetDate')) qs('targetDate').value = entity.targetDate ?? '';
+    renderPaymentTermsControl(entity.paymentTerms ?? '');
   }
   for (const field of config.customFields.filter(item => item.target === 'entity')) {
     if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = entity[field.key] ?? '';
@@ -725,6 +827,24 @@ function loadDocumentIntoForm(document) {
     : metadata ? '' : 'Orden histórica sin empleado solicitante; selecciona un empleado para volver a guardarla.';
 }
 
+function addRubroFromForm() {
+  const input = qs('new-rubro-name');
+  const select = qs('supplier-rubros');
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) return;
+  const selected = select ? [...select.selectedOptions].map(option => option.value) : [];
+  try {
+    addRubro({ nombre: name });
+    input.value = '';
+    renderRubroOptions(selected);
+    renderSearchRubroOptions();
+    if (qs('error-rubro_ids')) qs('error-rubro_ids').textContent = '';
+  } catch (error) {
+    if (qs('error-rubro_ids')) qs('error-rubro_ids').textContent = error.message;
+  }
+}
+
 function bindEvents() {
   if (appEventsBound) return;
   appEventsBound = true;
@@ -754,6 +874,8 @@ function bindEvents() {
   });
   qs('action-find').addEventListener('click', () => { showView('search'); qs('search-input').focus(); });
   qs('search-input').addEventListener('input', renderSearch);
+  qs('search-rubros')?.addEventListener('change', renderSearch);
+  qs('add-rubro-button')?.addEventListener('click', addRubroFromForm);
 
   qs('sidebar-toggle').addEventListener('click', () => qs('sidebar').classList.toggle('collapsed'));
 
@@ -972,6 +1094,9 @@ export async function initApp(normalizedConfig, options = {}) {
   renderLogo();
   renderCustomFields('entity', 'entity-custom-fields');
   renderCustomFields('document', 'document-custom-fields');
+  renderRubroOptions([]);
+  renderSearchRubroOptions();
+  renderPaymentTermsControl('');
   renderDocumentEntityOptions();
   renderStatusControl();
   renderDraftLines();

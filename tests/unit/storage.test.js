@@ -335,3 +335,20 @@ describe('clearAll', () => {
     expect(loadDocuments().length).toBe(0);
   });
 });
+
+describe('post-review supplier credit limit', () => {
+  beforeEach(() => {
+    setActiveConfig({ moduleName: 'Adquisiciones y Compras' });
+  });
+
+  it('accepts a credit limit of zero and rejects negatives under the field', () => {
+    const base = { name: 'Proveedor Uno', code: '11.111.111-1', category: 'Insumos', paymentTerms: 'Contado' };
+    expect(validateEntity({ ...base, creditLimit: 0 }).valid).toBe(true);
+    const negative = validateEntity({ ...base, creditLimit: -1 });
+    expect(negative.valid).toBe(false);
+    expect(negative.errors.creditLimit).toContain('no negativo');
+    const entity = addEntity({ ...base, creditLimit: 0 });
+    expect(entity.creditLimit).toBe(0);
+    expect(loadEntities()[0].creditLimit).toBe(0);
+  });
+});

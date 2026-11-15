@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { normalizeConfig, PURCHASING_CONFIG, setActiveConfig } from '../../src/module-config.js';
 import {
   addEntity,
+  loadEntities,
+  validateEntity,
   loadDocuments,
   saveDocuments
 } from '../../src/storage.js';
@@ -31,6 +33,10 @@ import {
   markTransactionApplied,
   recoverTransactions,
   deletePurchaseOrder,
+  addRubro,
+  updateRubro,
+  deleteRubro,
+  loadRubros,
   KEYS
 } from '../../src/purchasing-storage.js';
 
@@ -269,5 +275,40 @@ describe('purchasing storage', () => {
   it('exposes stable storage keys', () => {
     expect(KEYS.lines).toBe('erp_purchasing:purchase-order-lines');
     expect(KEYS.statusHistory).toBe('erp_purchasing:status-history');
+  });
+});
+
+describe('post-review rubro catalog and supplier migration', () => {
+  it('creates, updates and deletes rubros with case-insensitive unique names', () => {
+    const rubro = addRubro({ nombre: 'Insumos' });
+    expect(loadRubros()).toHaveLength(1);
+    expect(() => addRubro({ nombre: 'insumos' })).toThrow(/ya existe/i);
+    const updated = updateRubro(rubro.id_rubro, { nombre: 'Servicios' });
+    expect(updated.nombre).toBe('Servicios');
+    expect(() => updateRubro(rubro.id_rubro, { nombre: 'servicios' })).not.toThrow();
+    expect(deleteRubro(rubro.id_rubro)).toBe(true);
+    expect(loadRubros()).toEqual([]);
+  });
+
+  it('requires at least one rubro when the supplier form supplies rubro_ids', () => {
+    const base = { name: 'Proveedor Uno', code: '11.111.111-1', paymentTerms: 'Contado' };
+    const missing = validateEntity({ ...base, rubro_ids: [] });
+    expect(missing.valid).toBe(false);
+    expect(missing.errors.rubro_ids).toContain('al menos un');
+    const rubro = addRubro({ nombre: 'Insumos' });
+    expect(validateEntity({ ...base, rubro_ids: [rubro.id_rubro] }).valid).toBe(true);
+  });
+
+  it('migrates text categories to a shared rubro when entities load', () => {
+    const legacy = [
+      { id: 'legacy-1', entity_id: 'ent-1', name: 'Uno', code: '11.111.111-1', category: 'Oficina', paymentTerms: 'Contado' },
+      { id: 'legacy-2', entity_id: 'ent-2', name: 'Dos', code: '22.222.222-2', category: 'oficina', paymentTerms: 'Contado' }
+    ];
+    localStorage.setItem('erp_base_module:entities', JSON.stringify(legacy));
+    const migrated = loadEntities();
+    expect(migrated.every(entity => Array.isArray(entity.rubro_ids) && entity.rubro_ids.length === 1)).toBe(true);
+    expect(migrated[0].rubro_ids[0]).toBe(migrated[1].rubro_ids[0]);
+    expect(loadRubros()).toHaveLength(1);
+    expect(loadRubros()[0].nombre).toBe('Oficina');
   });
 });

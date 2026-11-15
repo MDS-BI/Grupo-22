@@ -40,6 +40,55 @@ export const ACTION_LABELS = {
   recibido: 'Marcar recibida'
 };
 
+export const PAYMENT_TERMS = ['Contado', '30 días', '60 días', '90 días'];
+
+export const SUPPLIER_ORIGINS = ['Nacional', 'Extranjero'];
+
+export const LEGACY_PAYMENT_TERM_LABEL = 'Otra (valor anterior)';
+
+export function isValidPaymentTerm(value) {
+  return PAYMENT_TERMS.includes(String(value ?? '').trim());
+}
+
+export function paymentTermLabel(value) {
+  const term = String(value ?? '').trim();
+  if (!term) return '';
+  return isValidPaymentTerm(term) ? term : LEGACY_PAYMENT_TERM_LABEL;
+}
+
+export function isValidSupplierOrigin(value) {
+  return SUPPLIER_ORIGINS.includes(String(value ?? '').trim());
+}
+
+export function validateCreditLimitField(value) {
+  if (value === undefined || value === null || value === '') return { valid: true };
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) {
+    return { valid: false, message: 'El límite de crédito debe ser un número no negativo' };
+  }
+  return { valid: true };
+}
+
+export function validateSupplierTaxIdentity(input = {}, options = {}) {
+  const errors = {};
+  const origin = String(input.origin ?? '').trim();
+  const code = String(input.code ?? '').trim();
+  const foreignTaxId = String(input.foreignTaxId ?? '').trim();
+  if (!origin) {
+    errors.origin = 'El origen es obligatorio';
+  } else if (!isValidSupplierOrigin(origin)) {
+    errors.origin = 'El origen debe ser Nacional o Extranjero';
+  }
+  if (origin === 'Extranjero') {
+    if (!foreignTaxId) errors.foreignTaxId = 'La identificación tributaria extranjera es obligatoria';
+  } else if (!code) {
+    errors.code = 'El RUT es obligatorio';
+  } else if (typeof options.validateRut === 'function' && !options.validateRut(code)) {
+    errors.code = 'El RUT no es válido según módulo 11, incluida la K';
+  }
+  return { valid: Object.keys(errors).length === 0, errors };
+}
+
 export function createPurchasingError(code, message) {
   const error = new Error(message || PURCHASING_ERRORS[code] || code);
   error.code = code;

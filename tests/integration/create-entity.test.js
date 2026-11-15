@@ -86,3 +86,108 @@ describe('User Story 1 - create and organize entities', () => {
     expect(qs('error-code').textContent).toContain('obligatorio');
   });
 });
+
+describe('post-review supplier form', () => {
+  let purchaseDom;
+  let storage;
+  let rubroA;
+  let rubroB;
+
+  function selectRubros(ids) {
+    const select = qs('supplier-rubros');
+    for (const option of select.options) option.selected = ids.includes(option.value);
+  }
+
+  function submitForm() {
+    qs('entity-form').dispatchEvent(new purchaseDom.window.Event('submit', { bubbles: true, cancelable: true }));
+  }
+
+  beforeEach(async () => {
+    purchaseDom = new JSDOM(html, { url: 'http://localhost/' });
+    const w = purchaseDom.window;
+    globalThis.window = w;
+    globalThis.document = w.document;
+    globalThis.localStorage = w.localStorage;
+    globalThis.alert = vi.fn();
+    globalThis.confirm = vi.fn(() => true);
+    w.scrollTo = vi.fn();
+    w.localStorage.clear();
+    vi.resetModules();
+    const configModule = await import('../../src/module-config.js');
+    storage = await import('../../src/storage.js');
+    const purchasing = await import('../../src/purchasing-storage.js');
+    rubroA = purchasing.addRubro({ nombre: 'Insumos' });
+    rubroB = purchasing.addRubro({ nombre: 'Servicios' });
+    const { initApp } = await import('../../src/app.js');
+    await initApp(configModule.normalizeConfig(configModule.PURCHASING_CONFIG));
+  });
+
+  afterEach(() => {
+    purchaseDom.window.close();
+  });
+
+  it('renders the purchasing supplier fields and Rubro labels', () => {
+    qs('nav-entities').click();
+    expect(qs('targetDate')).toBeNull();
+    expect(qs('origin')).not.toBeNull();
+    expect(qs('foreignTaxId')).not.toBeNull();
+    expect(qs('supplier-rubros').multiple).toBe(true);
+    expect(qs('supplier-rubros-label').textContent).toBe('Rubros');
+    expect(qs('paymentTerms').tagName).toBe('SELECT');
+    const values = [...qs('paymentTerms').options].map(option => option.value);
+    expect(values).toEqual(expect.arrayContaining(['Contado', '30 días', '60 días', '90 días']));
+  });
+
+  it('creates a supplier with zero credit limit and multiple Rubros', () => {
+    qs('nav-entities').click();
+    qs('name').value = 'Proveedor Nacional';
+    qs('code').value = '11.111.111-1';
+    qs('origin').value = 'Nacional';
+    qs('creditLimit').value = '0';
+    qs('paymentTerms').value = 'Contado';
+    selectRubros([rubroA.id_rubro, rubroB.id_rubro]);
+    submitForm();
+    const saved = storage.loadEntities()[0];
+    expect(saved).toBeDefined();
+    expect(saved.creditLimit).toBe(0);
+    expect(saved.rubro_ids).toEqual(expect.arrayContaining([rubroA.id_rubro, rubroB.id_rubro]));
+    expect(saved.targetDate).toBeUndefined();
+  });
+
+  it('rejects negative credit limits and missing Rubros with field messages', () => {
+    qs('nav-entities').click();
+    qs('name').value = 'Proveedor Nacional';
+    qs('code').value = '11.111.111-1';
+    qs('origin').value = 'Nacional';
+    qs('creditLimit').value = '-1';
+    qs('paymentTerms').value = 'Contado';
+    submitForm();
+    expect(storage.loadEntities().length).toBe(0);
+    expect(qs('error-creditLimit').textContent).toContain('no negativo');
+
+    qs('creditLimit').value = '1000';
+    submitForm();
+    expect(storage.loadEntities().length).toBe(0);
+    expect(qs('error-rubro_ids').textContent).toContain('al menos un');
+  });
+
+  it('requires a foreign tax id for suppliers from abroad', () => {
+    qs('nav-entities').click();
+    qs('name').value = 'Proveedor Extranjero';
+    qs('code').value = '';
+    qs('origin').value = 'Extranjero';
+    qs('creditLimit').value = '2500';
+    qs('paymentTerms').value = '30 días';
+    selectRubros([rubroA.id_rubro]);
+    submitForm();
+    expect(storage.loadEntities().length).toBe(0);
+    expect(qs('error-foreignTaxId').textContent).toContain('obligatoria');
+
+    qs('foreignTaxId').value = 'TAX-999';
+    submitForm();
+    const saved = storage.loadEntities()[0];
+    expect(saved).toBeDefined();
+    expect(saved.origin).toBe('Extranjero');
+    expect(saved.foreignTaxId).toBe('TAX-999');
+  });
+});

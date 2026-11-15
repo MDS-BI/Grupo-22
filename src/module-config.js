@@ -1,5 +1,5 @@
 export const BASE_FIELDS = {
-  entity: ['id', 'entity_id', 'name', 'code', 'email', 'phone', 'address', 'category', 'description', 'targetDate', 'creditLimit', 'paymentTerms', 'createdAt', 'updatedAt'],
+  entity: ['id', 'entity_id', 'name', 'code', 'email', 'phone', 'address', 'category', 'rubro_ids', 'origin', 'foreignTaxId', 'description', 'targetDate', 'creditLimit', 'paymentTerms', 'createdAt', 'updatedAt'],
   document: ['id', 'entity_id', 'series', 'folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'paymentTerms', 'notes', 'status', 'createdAt', 'updatedAt']
 };
 
@@ -12,6 +12,7 @@ export const DEFAULT_CONFIG = {
     document: 'Documento', documents: 'Documentos',
     employee: 'Empleado', employees: 'Empleados',
     category: 'Categoría', categories: 'Categorías',
+    supplierCategory: 'Categoría', supplierCategories: 'Categorías',
     product: 'Producto', products: 'Productos',
     purchaseOrderLine: 'Detalle', purchaseOrderLines: 'Detalles',
     startDate: 'Fecha de inicio', endDate: 'Fecha de fin'
@@ -28,6 +29,7 @@ export const PURCHASING_CONFIG = {
     document: 'Orden de Compra', documents: 'Órdenes de Compra',
     employee: 'Empleado', employees: 'Empleados',
     category: 'Categoría', categories: 'Categorías',
+    supplierCategory: 'Rubro', supplierCategories: 'Rubros',
     product: 'Producto', products: 'Productos',
     purchaseOrderLine: 'Detalle de compra', purchaseOrderLines: 'Detalles de compra',
     startDate: 'Fecha de emisión', endDate: 'Fecha de entrega'
