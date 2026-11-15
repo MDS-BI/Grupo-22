@@ -13,7 +13,7 @@ import {
   loadStatusHistory,
   getPurchaseOrderDetail
 } from '../../src/purchasing-storage.js';
-import { loadDocuments, loadEntities, loadRubros } from '../../src/storage.js';
+import { loadDocuments, loadEntities, loadRubros, validateRut } from '../../src/storage.js';
 import { PERMISSIONS, ROLE_DEFINITIONS, loadUsers } from '../../src/auth.js';
 import { loadDemoData } from '../../src/purchasing-demo-data.js';
 
@@ -41,9 +41,18 @@ function unique(values) {
   return new Set(values).size === values.length;
 }
 
+function normalizedRut(value) {
+  return String(value ?? '').replace(/[.\s]/g, '').toUpperCase();
+}
+
+function todayKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 describe('datos de demostración', () => {
-  it('crea al menos un empleado por cargo existente y datos únicos', () => {
-    const result = loadDemoData({ session: { role: 'gerente' }, today: new Date(2026, 10, 14) });
+  it('crea un empleado por cargo y el dataset completo, único y coherente', () => {
+    const today = new Date(2026, 10, 14);
+    const result = loadDemoData({ session: { role: 'administrador' }, today });
     expect(result.ok).toBe(true);
 
     const cargos = new Set(loadEmployees().map(employee => String(employee.cargo || '').trim()).filter(Boolean));
@@ -52,18 +61,72 @@ describe('datos de demostración', () => {
     }
 
     const suppliers = loadEntities().filter(entity => entity.name.startsWith('Demo '));
+    const national = suppliers.filter(entity => entity.origin === 'Nacional');
+    const foreign = suppliers.filter(entity => entity.origin === 'Extranjero');
     const products = loadProducts().filter(product => product.nombre.startsWith('Demo '));
     const categories = loadCategories().filter(category => category.nombre.startsWith('Demo '));
     const rubros = loadRubros().filter(rubro => rubro.nombre.startsWith('Demo '));
     const folios = loadDocuments().map(document => String(document.folio));
 
-    expect(unique(suppliers.map(entity => entity.code))).toBe(true);
+    expect(suppliers).toHaveLength(8);
+    expect(national).toHaveLength(6);
+    expect(foreign).toHaveLength(2);
+    expect(unique(national.map(entity => normalizedRut(entity.code)))).toBe(true);
+    expect(national.every(entity => validateRut(entity.code))).toBe(true);
+    expect(foreign.every(entity => String(entity.foreignTaxId || '').trim().length > 0)).toBe(true);
+    expect(unique(foreign.map(entity => entity.foreignTaxId))).toBe(true);
     expect(unique(suppliers.map(entity => entity.name))).toBe(true);
-    expect(unique(products.map(product => product.nombre))).toBe(true);
+
+    expect(rubros).toHaveLength(3);
+    expect(new Set(suppliers.flatMap(entity => entity.rubro_ids || [])).size).toBeGreaterThanOrEqual(3);
+    expect(suppliers.some(entity => (entity.rubro_ids || []).length >= 2)).toBe(true);
+    expect(new Set(suppliers.map(entity => entity.paymentTerms)).size).toBeGreaterThanOrEqual(3);
+
+    expect(categories).toHaveLength(5);
+    expect(products).toHaveLength(15);
     expect(unique(categories.map(category => category.nombre))).toBe(true);
-    expect(unique(rubros.map(rubro => rubro.nombre))).toBe(true);
+    expect(unique(products.map(product => product.nombre))).toBe(true);
+    expect(products.every(product => String(product.unidad_medida || '').trim().length > 0)).toBe(true);
+    expect(products.every(product => Number.isInteger(Number(product.stock)) && Number(product.stock) >= 0)).toBe(true);
+    expect(products.filter(product => Number(product.stock) === 0).length).toBeGreaterThanOrEqual(2);
+    expect(new Set(products.filter(product => Number(product.stock) > 0).map(product => Number(product.stock))).size)
+      .toBeGreaterThanOrEqual(3);
+
+    expect(result.created.orders).toHaveLength(12);
     expect(unique(folios)).toBe(true);
-    expect(result.created.orders.length).toBe(6);
+
+    const details = result.created.orders.map(orderId => getPurchaseOrderDetail(orderId));
+    const statuses = new Set(details.map(order => order.status));
+    expect(statuses).toEqual(new Set(['borrador', 'pendiente', 'aprobado', 'recibido', 'cancelado']));
+
+    const key = todayKey(today);
+    const overdue = details.filter(order =>
+      order.endDate && order.endDate < key && !['recibido', 'cancelado'].includes(order.status)
+    );
+    expect(overdue.length).toBeGreaterThanOrEqual(2);
+
+    const foreignOrder = details.find(order => order.origin === 'Extranjero');
+    expect(foreignOrder).toBeTruthy();
+    expect(foreignOrder.currency).toBe('USD');
+    expect(foreignOrder.taxRate).toBe(0);
+
+    const requesterIds = new Set(details.map(order => order.metadata?.id_empleado).filter(Boolean));
+    expect(requesterIds.size).toBeGreaterThanOrEqual(3);
+
+    const buyerEmployee = loadEmployees().find(employee => String(employee.userId || '').toUpperCase() === 'DEMO-COMPRADOR');
+    expect(buyerEmployee).toBeTruthy();
+    const buyerOrderId = buyerEmployee.id_empleado || buyerEmployee.id;
+    expect(details.filter(order => order.metadata?.id_empleado === buyerOrderId).length).toBeGreaterThanOrEqual(3);
+    expect(details.filter(order => order.metadata?.id_empleado !== buyerOrderId).length).toBeGreaterThanOrEqual(3);
+
+    for (const order of details) {
+      if (['aprobado', 'recibido'].includes(order.status)) expect(order.startDate).toBeTruthy();
+      else expect(order.startDate).toBeFalsy();
+      if (order.status === 'recibido') {
+        expect(order.stockApplied).toBe(true);
+        expect(order.metadata?.appliedAt).toBeTruthy();
+      }
+    }
   });
 
   it('respeta los límites de estado según los permisos del rol', () => {
@@ -103,25 +166,49 @@ describe('datos de demostración', () => {
     expect(new Set(statuses)).toEqual(new Set(['borrador', 'pendiente', 'aprobado', 'recibido', 'cancelado']));
   });
 
-  it('mantiene la carga aditiva con nombres, RUT y folios únicos al repetirla', () => {
+  it('exige confirmación y reemplaza sin mezclar datos al repetir la carga', () => {
     const first = loadDemoData({ session: { role: 'gerente' }, today: new Date(2026, 10, 14) });
     expect(first.ok).toBe(true);
     const afterFirst = snapshotCounts();
 
-    const second = loadDemoData({ session: { role: 'gerente' }, today: new Date(2026, 10, 15) });
-    expect(second.ok).toBe(true);
-    const afterSecond = snapshotCounts();
+    const blocked = loadDemoData({ session: { role: 'gerente' }, today: new Date(2026, 10, 15) });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.requiresConfirmation).toBe(true);
+    expect(blocked.error).toContain('Confirma');
+    expect(snapshotCounts()).toEqual(afterFirst);
 
-    expect(afterSecond.entities).toBeGreaterThan(afterFirst.entities);
-    expect(afterSecond.documents).toBeGreaterThan(afterFirst.documents);
-    expect(afterSecond.products).toBeGreaterThan(afterFirst.products);
-    expect(afterSecond.categories).toBeGreaterThan(afterFirst.categories);
+    const second = loadDemoData({
+      session: { role: 'gerente' },
+      today: new Date(2026, 10, 15),
+      replaceExisting: true
+    });
+    expect(second.ok).toBe(true);
+    expect(snapshotCounts()).toEqual(afterFirst);
 
     const suppliers = loadEntities();
-    expect(unique(suppliers.map(entity => entity.code))).toBe(true);
+    const national = suppliers.filter(entity => entity.origin === 'Nacional');
+    expect(unique(national.map(entity => normalizedRut(entity.code)))).toBe(true);
     expect(unique(suppliers.map(entity => entity.name))).toBe(true);
     expect(unique(loadProducts().map(product => product.nombre))).toBe(true);
     expect(unique(loadDocuments().map(document => String(document.folio)))).toBe(true);
+  });
+
+  it('restaura el conjunto previo si falla durante la sustitución', () => {
+    const before = snapshotCounts();
+    const usersBefore = loadUsers().map(user => user.userId);
+
+    const result = loadDemoData({
+      session: { role: 'administrador' },
+      today: new Date(2026, 10, 14),
+      onBeforeCreate() {
+        throw new Error('fallo inyectado');
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('fallo inyectado');
+    expect(snapshotCounts()).toEqual(before);
+    expect(loadUsers().map(user => user.userId)).toEqual(usersBefore);
   });
 
   it('rechaza la carga sin permisos sin mutar datos', () => {

@@ -21,6 +21,12 @@ body { margin:0; font-family:Inter,Segoe UI,Arial,sans-serif; color:var(--text);
 .auth-hints li { display:flex; justify-content:space-between; gap:12px; font-size:.9rem; }
 .auth-hints code { font-weight:700; color:var(--accent); }
 .auth-hints .hint-role { color:var(--muted); }
+.demo-users-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:.9rem; }
+.demo-users-table caption { text-align:left; color:var(--muted); font-size:.8rem; padding-bottom:8px; }
+.demo-users-table th, .demo-users-table td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+.demo-users-table th { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; }
+.demo-users-table code { font-weight:700; color:var(--accent); }
+.demo-action { border-color:color-mix(in srgb,var(--accent) 35%,var(--border)); }
 .sidebar { position:fixed; z-index:10; left:0; top:64px; bottom:0; width:220px; padding:16px 12px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
 .nav-module { min-height:44px; border:0; border-radius:8px; background:transparent; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:12px; padding:10px 12px; text-align:left; }
 .nav-module[aria-current="page"] { background:color-mix(in srgb,var(--accent) 12%,white); color:var(--accent); }

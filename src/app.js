@@ -44,6 +44,7 @@ import {
   clearSession,
   ensureDefaultUsers,
   getSession,
+  loadDemoUsers,
   loadUsers,
   login,
   roleLabel,
@@ -81,7 +82,8 @@ import {
   toggleSort
 } from './purchasing-list-view.js';
 import { renderStatusBadge, statusLabel } from './purchasing-status.js';
-import { loadDemoData } from './purchasing-demo-data.js';
+import { loadDemoData, requiresDemoReplacement } from './purchasing-demo-data.js';
+import { confirmAction } from './ui-feedback.js';
 
 let config;
 let configErrors = [];
@@ -98,7 +100,7 @@ let detailReturn = null;
 
 const entityFilters = { rubros: [], origin: '' };
 const entitySort = { key: null, direction: 'asc' };
-const documentFilters = { status: '', entityId: '', from: '', to: '', overdueOnly: false };
+const documentFilters = { status: '', entityId: '', from: '', to: '', overdueOnly: false, mineOnly: false };
 const documentSort = { key: null, direction: 'asc' };
 
 const PERMISSION_DENIED = PERMISSION_DENIED_MESSAGE;
@@ -138,6 +140,21 @@ function formatCurrencyCLP(value) {
 function canUse(permission) {
   if (!activeSession) return true;
   return can(permission, activeSession);
+}
+
+function ownEmployeeId() {
+  if (!activeSession) return '';
+  if (activeSession.id_empleado) return activeSession.id_empleado;
+  const userId = String(activeSession.userId || '').trim().toUpperCase();
+  if (!userId) return '';
+  const employee = loadEmployees().find(item =>
+    String(item.userId ?? item.user_id ?? '').trim().toUpperCase() === userId
+  );
+  return employee ? (employee.id_empleado || employee.id) : '';
+}
+
+function canFilterOwnOrders() {
+  return Boolean(isPurchasing() && activeSession?.role === 'comprador' && ownEmployeeId());
 }
 
 function showPermissionDenied(feedbackId = 'document-feedback') {
@@ -279,12 +296,24 @@ function renderLoginHints() {
     .join('');
 }
 
+function renderLoginDemoUsersTable() {
+  const container = qs('demo-users-hints');
+  const body = qs('login-demo-users-body');
+  if (!container || !body) return;
+  const demoUsers = loadDemoUsers();
+  container.hidden = demoUsers.length === 0;
+  body.innerHTML = demoUsers
+    .map(user => `<tr><td><code>${escapeHtml(user.userId)}</code></td><td>${escapeHtml(user.cargo || roleLabel(user.role))}</td></tr>`)
+    .join('');
+}
+
 function revealLoginGate() {
   const gate = qs('auth-gate');
   if (gate) gate.hidden = false;
   const shell = qs('app-shell');
   if (shell) shell.hidden = true;
   renderLoginHints();
+  renderLoginDemoUsersTable();
   qs('login-user-id')?.focus();
 }
 
@@ -319,6 +348,7 @@ function bindAuthEvents() {
   authEventsBound = true;
   ensureDefaultUsers();
   renderLoginHints();
+  renderLoginDemoUsersTable();
   qs('login-form')?.addEventListener('submit', handleLogin);
   qs('logout-button')?.addEventListener('click', handleLogout);
 }
@@ -662,6 +692,15 @@ function renderDocumentFilterOptions() {
   if (qs('documents-filter-from')) qs('documents-filter-from').value = documentFilters.from;
   if (qs('documents-filter-to')) qs('documents-filter-to').value = documentFilters.to;
   if (qs('documents-filter-overdue')) qs('documents-filter-overdue').checked = documentFilters.overdueOnly;
+  const canFilterMine = canFilterOwnOrders();
+  if (!canFilterMine) documentFilters.mineOnly = false;
+  const mineField = qs('documents-filter-mine-field');
+  if (mineField) mineField.hidden = !canFilterMine;
+  const mineInput = qs('documents-filter-mine');
+  if (mineInput) {
+    mineInput.checked = canFilterMine && documentFilters.mineOnly;
+    mineInput.disabled = !canFilterMine;
+  }
 }
 
 function documentFilterSummary() {
@@ -671,17 +710,24 @@ function documentFilterSummary() {
     ['Proveedor', entity?.name || ''],
     ['Desde', documentFilters.from],
     ['Hasta', documentFilters.to],
-    ['Solo atrasadas', documentFilters.overdueOnly]
+    ['Solo atrasadas', documentFilters.overdueOnly],
+    ['Solo mis OC', canFilterOwnOrders() && documentFilters.mineOnly]
   ]);
 }
 
 function renderDocumentTable() {
   const allDocuments = loadDocuments();
   const entityNames = new Map(loadEntities().map(entity => [entity.entity_id, entity.name]));
-  const rows = buildOrderRows(allDocuments, { entityNames });
+  const rows = buildOrderRows(
+    allDocuments.map(document => ({
+      ...document,
+      id_empleado: getOrderMetadata(document.id)?.id_empleado || ''
+    })),
+    { entityNames }
+  );
   const dateValidation = validateDateRange(documentFilters.from, documentFilters.to);
   const filtered = isPurchasing()
-    ? filterOrders(rows, documentFilters)
+    ? filterOrders(rows, documentFilters, { ownEmployeeId: ownEmployeeId() })
     : rows;
   const sorted = sortRows(filtered, documentSort, {
     folio: row => Number(row.folio) || row.folio,
@@ -1035,7 +1081,7 @@ function renderProductCatalog() {
   });
 }
 
-function handleLoadDemo() {
+async function handleLoadDemo() {
   const feedback = qs('demo-feedback');
   if (!isPurchasing()) return;
   if (!canUse(PERMISSIONS.ENTITIES_CREATE)
@@ -1044,9 +1090,40 @@ function handleLoadDemo() {
     if (feedback) feedback.textContent = PERMISSION_DENIED;
     return;
   }
-  const result = loadDemoData({ session: activeSession });
+  const trigger = qs('action-load-demo');
+  let replaceExisting = false;
+  if (requiresDemoReplacement()) {
+    const accepted = await confirmAction({
+      title: 'Reemplazar por datos de demostración',
+      message: 'Ya existen datos del módulo de Compras. Se eliminarán los proveedores, órdenes, productos, empleados, categorías, rubros y usuarios de prueba actuales antes de cargar el conjunto de demostración completo.',
+      confirmLabel: 'Reemplazar por datos de demostración',
+      cancelLabel: 'Cancelar',
+      trigger
+    });
+    if (!accepted) return;
+    replaceExisting = true;
+  }
+  const result = loadDemoData({ session: activeSession, replaceExisting });
   if (!result.ok) {
     if (feedback) feedback.textContent = result.error || 'No fue posible cargar los datos de demostración.';
+    return;
+  }
+  if (feedback) {
+    const created = result.created || {};
+    const summary = [
+      `${created.suppliers?.length || 0} proveedores`,
+      `${created.rubros?.length || 0} rubros`,
+      `${created.categories?.length || 0} categorías`,
+      `${created.products?.length || 0} productos`,
+      `${created.employees?.length || 0} empleados`,
+      `${created.users?.length || 0} usuarios de prueba`,
+      `${created.orders?.length || 0} órdenes`
+    ].join(', ');
+    feedback.textContent = `Datos de demostración cargados: ${summary}.${result.limitations?.length ? ` ${result.limitations.join(' ')}` : ''}`;
+  }
+  if (result.sessionInvalidated && !getSession()) {
+    activeSession = null;
+    revealLoginGate();
     return;
   }
   renderEntityFilterOptions();
@@ -1056,14 +1133,16 @@ function handleLoadDemo() {
   renderDocumentTable();
   renderLineProductOptions();
   renderDashboard();
-  if (feedback) {
-    const created = result.created || {};
-    const summary = [
-      `${created.suppliers?.length || 0} proveedores`,
-      `${created.products?.length || 0} productos`,
-      `${created.orders?.length || 0} órdenes`
-    ].join(', ');
-    feedback.textContent = `Datos de demostración cargados: ${summary}.${result.limitations?.length ? ` ${result.limitations.join(' ')}` : ''}`;
+  renderProductCatalog();
+  renderLoginDemoUsersTable();
+  if (currentOrderId) {
+    try {
+      const detail = getPurchaseOrderDetail(currentOrderId);
+      renderDetail(detail, detailOptions(detail));
+    } catch {
+      currentOrderId = null;
+      showView('documents');
+    }
   }
 }
 
@@ -1385,12 +1464,17 @@ function bindEvents() {
     documentFilters.overdueOnly = event.target.checked;
     renderDocumentTable();
   });
+  qs('documents-filter-mine')?.addEventListener('change', event => {
+    documentFilters.mineOnly = event.target.checked;
+    renderDocumentTable();
+  });
   qs('documents-filter-clear')?.addEventListener('click', () => {
     documentFilters.status = '';
     documentFilters.entityId = '';
     documentFilters.from = '';
     documentFilters.to = '';
     documentFilters.overdueOnly = false;
+    documentFilters.mineOnly = false;
     renderDocumentFilterOptions();
     renderDocumentTable();
   });
@@ -1640,11 +1724,12 @@ function bindEvents() {
     if (action === 'close-order-detail') {
       const returnInfo = detailReturn;
       if (returnInfo) {
-        documentFilters.status = returnInfo.filters.status;
-        documentFilters.entityId = returnInfo.filters.entityId;
-        documentFilters.from = returnInfo.filters.from;
-        documentFilters.to = returnInfo.filters.to;
-        documentFilters.overdueOnly = returnInfo.filters.overdueOnly;
+    documentFilters.status = returnInfo.filters.status;
+    documentFilters.entityId = returnInfo.filters.entityId;
+    documentFilters.from = returnInfo.filters.from;
+    documentFilters.to = returnInfo.filters.to;
+    documentFilters.overdueOnly = returnInfo.filters.overdueOnly;
+    documentFilters.mineOnly = Boolean(returnInfo.filters.mineOnly);
         documentSort.key = returnInfo.sort.key;
         documentSort.direction = returnInfo.sort.direction;
       }

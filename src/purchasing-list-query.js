@@ -57,11 +57,14 @@ export function filterOrders(orders, filters = {}, context = {}) {
   const entityId = text(filters.entityId);
   const from = normalizeDate(filters.from);
   const to = normalizeDate(filters.to);
+  const mineOnly = Boolean(filters.mineOnly);
+  const ownEmployeeId = text(filters.ownEmployeeId || context.ownEmployeeId);
   const today = context.today || new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   return orders.filter(order => {
     if (status && order.status !== status) return false;
     if (entityId && order.entity_id !== entityId) return false;
+    if (mineOnly && (!ownEmployeeId || text(order.id_empleado) !== ownEmployeeId)) return false;
     const delivery = normalizeDate(order.endDate);
     if (from && (!delivery || delivery < from)) return false;
     if (to && (!delivery || delivery > to)) return false;

@@ -81,14 +81,16 @@ Resultado esperado:
 
 ### 5. Datos de demostración
 
-1. Con `localStorage` limpio, activar **Cargar datos de demostración**.
-2. Verificar que se crean al menos 3 proveedores, un empleado por cada cargo existente, 3 categorías, 6 productos y 6 órdenes.
-3. Verificar que existen los cinco estados y al menos una orden atrasada.
-4. Verificar que las órdenes tienen líneas y totales coherentes.
-5. Con datos existentes, activar de nuevo: aparece confirmación.
-6. Cancelar: no se modifica nada.
-7. Confirmar: se agregan datos sin borrar ni sobrescribir los existentes.
-8. Verificar que no se crearon claves nuevas en `localStorage`.
+1. Con `localStorage` limpio, activar **Cargar datos de demostración**: la carga se ejecuta sin confirmación.
+2. Verificar que se crean 8 proveedores ficticios (6 nacionales con RUT válido y 2 extranjeros), 3 rubros, 5 categorías, 15 productos, 5 usuarios de prueba con su empleado propio, al menos un empleado por cargo existente y 12 órdenes.
+3. Verificar que existen los cinco estados, al menos dos órdenes atrasadas, una orden extranjera en USD sin IVA y al menos tres solicitantes distintos.
+4. Verificar que las órdenes recibidas tienen `stock_aplicado`, `appliedAt` y las aprobadas/recibidas tienen fecha de emisión; las borrador/pendiente no la tienen.
+5. Con datos existentes, activar de nuevo: aparece la confirmación con **Reemplazar por datos de demostración** y **Cancelar**. Cancelar, cerrar o presionar Esc no modifica nada.
+6. Confirmar: se elimina el conjunto previo y se crea solo el conjunto de demostración, sin mezclar. Repetir produce los mismos conteos.
+7. Verificar que los usuarios que no son de prueba y la sesión activa (si no es de prueba) se conservan.
+8. Cerrar sesión: la pantalla de ingreso muestra la tabla **Usuarios de prueba** con identificador y cargo, sin credenciales.
+9. Ingresar con `DEMO-COMPRADOR` y verificar en Órdenes de Compra el filtro **Solo mis OC**, su combinación con los demás filtros y **Limpiar filtros**.
+10. Verificar que no se crearon claves nuevas en `localStorage`.
 
 ### 6. Accesibilidad
 
@@ -150,7 +152,7 @@ npx vitest run tests/integration/purchasing-post-review-alignment.test.js
 - [ ] Estados vacíos con acción útil.
 - [ ] Toasts de éxito 5 s y errores persistentes; confirmaciones propias.
 - [ ] Iconos SVG inline y accesibles.
-- [ ] Demo aditiva con todos los estados, al menos una atrasada y un empleado por cargo existente.
+- [ ] Demo sustitutiva con todos los estados, al menos dos atrasadas, un empleado por cargo existente, usuarios de prueba por rol y tabla de usuarios de prueba en el ingreso.
 - [ ] Detalle de OC como vista propia, con "Volver a Órdenes de Compra" y filtros/orden restaurados.
 - [ ] Listas a ancho completo con "+ Nuevo" y panel lateral restituidos; formularios en dos columnas por secciones.
 - [ ] Pestaña o sección "Categorías" en Productos; el formulario de producto solo selecciona categorías existentes.

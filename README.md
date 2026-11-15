@@ -87,6 +87,8 @@ El módulo de Adquisiciones y Compras gestiona el proceso de compra de bienes a 
 - **Detalle como vista propia**: al activar una fila de una solicitud u orden, la lista y las demás vistas se ocultan y se muestra únicamente el detalle. El botón **Volver a Órdenes de Compra** restaura la lista con sus filtros, orden y foco.
 - **Categorías**: la pantalla Productos incluye las secciones **Catálogo** y **Categorías**. En Catálogo se administran productos; en Categorías se pueden crear, editar y eliminar categorías (con unicidad sin distinguir mayúsculas y bloqueo si están referenciadas). El formulario de producto solo permite elegir una categoría existente.
 - **Permisos de 004**: las acciones de 003 respetan los roles `administrador`, `gerente`, `comprador`, `bodeguero` y `consulta` tanto en la interfaz como en la revalidación del servicio. Los botones, tarjetas, filtros, datos de demostración y acciones del detalle se ocultan o rechazan cuando el rol no tiene el permiso correspondiente.
+- **Filtro Solo mis OC**: en Órdenes de Compra, el rol Comprador puede limitar la lista a las órdenes de su empleado propio. El filtro se combina con estado, proveedor, rango de entrega y atraso, se refleja en el resumen y se restablece con **Limpiar filtros**.
+- **Datos de demostración**: la acción **Cargar datos de demostración** crea un conjunto completo y determinista de 8 proveedores, 3 rubros, 5 categorías, 15 productos, 5 usuarios de prueba con empleado propio y 12 órdenes en todos los estados (incluidas atrasadas y una extranjera en USD). Si ya existen datos, solicita confirmación y reemplaza el conjunto de forma atómica; cancelar no modifica nada. La pantalla de ingreso muestra la tabla **Usuarios de prueba** solo cuando la demostración está cargada.
 
 ## Módulo de Adquisiciones y Compras: Modelo Entidad-Relación (MER)
 
@@ -243,6 +245,16 @@ El acceso a la aplicación comienza en una pantalla de inicio de sesión por **U
 | `COMP-001` | Camila Vega | Comprador |
 | `BOD-001` | Diego Fuentes | Bodeguero |
 | `CONS-001` | Ana Pérez | Consulta |
+
+La carga de datos de demostración agrega además un usuario de prueba activo por rol, con identificador estable y un empleado propio vinculado:
+
+| User ID | Cargo |
+|---|---|
+| `DEMO-ADMIN` | Administrador |
+| `DEMO-GERENTE` | Gerente de Compras |
+| `DEMO-COMPRADOR` | Comprador |
+| `DEMO-BODEGUERO` | Bodeguero |
+| `DEMO-CONSULTA` | Consulta |
 
 El directorio se guarda en `erp_auth:users` y la sesión activa en `erp_auth:session`, ambos en `localStorage`. La pantalla de acceso muestra los usuarios disponibles y mantiene la sesión entre recargas. Al cerrar sesión se elimina la sesión y se vuelve a la pantalla de acceso.
 
