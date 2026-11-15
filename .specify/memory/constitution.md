@@ -1,10 +1,10 @@
 <!--
 Sync Impact Report
-- Version change: Template → 1.0.0
-- Modified principles: Added four principles for code quality, testing standards, user experience consistency, and performance requirements.
-- Added sections: Quality Standards, Development Workflow
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: None (Core Principles I–IV unchanged)
+- Added sections: Approved Exceptions (Spec 005 — Visual Presentation of the Base Module)
 - Removed sections: None
-- Templates requiring updates: ✅ .specify/templates/plan-template.md, ✅ .specify/templates/spec-template.md, ✅ .specify/templates/tasks-template.md
+- Templates requiring updates: none (dependent templates read this file at runtime)
 - Follow-up TODOs: None
 -->
 
@@ -30,7 +30,20 @@ The team MUST use linting, formatting, and static analysis tooling for the codeb
 ## Development Workflow
 Every change MUST follow a small, reviewable increment with clear acceptance criteria, and each pull request MUST verify the relevant tests, quality checks, and user-facing behavior. Features that affect user experience or performance MUST include explicit validation steps in the plan and review notes. Work that introduces technical debt or exception handling MUST be documented so future contributors can reason about the trade-off.
 
-## Governance
-This constitution supersedes ad-hoc quality expectations for this project. Amendments require a documented rationale, updates to affected templates and plans, and review by the maintainers before adoption. Compliance is reviewed during planning, implementation review, and release readiness; deviations MUST be explicitly justified and tracked.
+## Approved Exceptions
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-07-08
+### Spec 005 — Visual Presentation of the Base Module
+Spec 005 MAY modify the visual presentation of the base module (HTML, CSS, and user interface
+components) when instructed by the professor, provided that ALL of the following hold:
+- Behavior, business rules, permissions, and the data model remain unchanged.
+- All existing automated tests MUST continue to pass; introducing regressions is not permitted.
+- Changes are limited to presentation and UI structure and MUST NOT add, remove, or alter domain
+  logic, validation rules, authorization checks, or persistence contracts.
+
+Any modification that would cross these boundaries is not covered by this exception and MUST be
+handled through the normal amendment process.
+
+## Governance
+This constitution supersedes ad-hoc quality expectations for this project. Amendments require a documented rationale, updates to affected templates and plans, and review by the maintainers before adoption. Compliance is reviewed during planning, implementation review, and release readiness; deviations MUST be explicitly justified and tracked. Only the exceptions recorded under Approved Exceptions are permitted; any undocumented deviation is a compliance failure.
+
+**Version**: 1.1.0 | **Ratified**: 2026-07-08 | **Last Amended**: 2026-11-15
