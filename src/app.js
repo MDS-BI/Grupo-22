@@ -25,7 +25,16 @@ import {
   purchasingErrorMessage,
   getAvailableActionItems,
   PAYMENT_TERMS,
-  paymentTermLabel
+  paymentTermLabel,
+  currenciesForOrigin,
+  defaultCurrencyForOrigin,
+  formatCurrency as formatMoney,
+  formatDateMask,
+  isValidPaymentTerm,
+  parseDateInput,
+  resolveCurrency,
+  resolveSupplierOrigin,
+  taxRateForOrigin
 } from './domain/purchasing.js';
 import {
   PERMISSIONS,
@@ -54,6 +63,8 @@ let activeSession = null;
 let currentViewName = 'dashboard';
 let appEventsBound = false;
 let authEventsBound = false;
+let draftCurrency = 'CLP';
+let draftTaxRate = 0.19;
 
 const PERMISSION_DENIED = PERMISSION_DENIED_MESSAGE;
 
@@ -85,16 +96,8 @@ function formatDate(value) {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : String(value || '');
 }
 
-const clpFormatter = new Intl.NumberFormat('es-CL', {
-  style: 'currency',
-  currency: 'CLP',
-  maximumFractionDigits: 0
-});
-
 function formatCurrencyCLP(value) {
-  if (value === undefined || value === null || value === '') return '';
-  const number = Number(value);
-  return Number.isFinite(number) ? clpFormatter.format(number) : String(value);
+  return formatMoney(value, 'CLP');
 }
 
 function canUse(permission) {
@@ -248,7 +251,9 @@ function relabel() {
   qs('document-entity-label').textContent = labels.entity;
   qs('document-employee-label').textContent = `Empleado solicitante`;
   qs('edit-document-heading').textContent = `Editar o eliminar ${withArticle(labels.document)}`;
-  qs('document-lines-heading').textContent = `Detalles de ${labels.purchaseOrderLines?.toLowerCase() || 'compra'}`;
+  qs('document-lines-heading').textContent = isPurchasing()
+    ? 'Detalle de compra'
+    : `Detalles de ${labels.purchaseOrderLines?.toLowerCase() || 'compra'}`;
   qs('products-view-heading').textContent = labels.products;
   qs('search-view-heading').textContent = `Buscar ${labels.entities}`;
   qs('submit-button').textContent = `Guardar ${labels.entity}`;
@@ -397,6 +402,7 @@ function clearDocumentForm() {
   currentOrderId = null;
   setDocumentFormReadOnly(false);
   clearLineInputs();
+  if (isPurchasing()) syncDraftPricing({ preserveCurrency: false, preserveTerms: false });
   renderDraftLines();
   qs('document-submit-button').textContent = `Guardar ${config.labels.document}`;
   renderStatusControl();
@@ -451,7 +457,7 @@ function renderDocumentTable() {
         <td>${escapeHtml(document.folio)}</td>
         <td>${escapeHtml(entityNames.get(document.entity_id) ?? '')}</td>
         <td>${escapeHtml(formatDate(document.endDate))}</td>
-        <td>${escapeHtml(formatCurrencyCLP(document.totalAmount))}</td>
+        <td>${escapeHtml(formatMoney(document.totalAmount, document.currency || 'CLP'))}</td>
         <td>${document.status ? `<span class="status-badge">${escapeHtml(document.status)}</span>` : ''}</td>
         <td class="table-actions">
           <button type="button" class="secondary" data-action="view-order" data-id="${escapeHtml(document.id)}">${icon('view', { className: 'ui-icon' })}Ver detalle</button>
@@ -479,6 +485,12 @@ function replaceStatusControl(tagName, options = []) {
 function renderStatusControl(documentId = '') {
   const lifecycle = config.statusLifecycle;
   const currentDocument = documentId ? loadDocuments().find(item => item.id === documentId) : null;
+  if (isPurchasing()) {
+    if (qs('status')?.tagName !== 'INPUT') replaceStatusControl('input');
+    qs('status').type = 'hidden';
+    qs('status').value = currentDocument?.status ?? '';
+    return;
+  }
   if (!lifecycle) {
     replaceStatusControl('input');
   } else {
@@ -513,6 +525,108 @@ function isPurchasing() {
   return config?.moduleName === 'Adquisiciones y Compras';
 }
 
+function maskDateInput(value) {
+  const raw = String(value ?? '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return formatDateMask(raw);
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (!digits) return '';
+  let masked = digits.slice(0, 2);
+  if (digits.length > 2) masked += `-${digits.slice(2, 4)}`;
+  if (digits.length > 4) masked += `-${digits.slice(4, 8)}`;
+  return masked;
+}
+
+function selectedSupplier() {
+  const entityId = qs('document-entity')?.value;
+  return loadEntities().find(entity => entity.entity_id === entityId) || null;
+}
+
+function supplierOrigin(supplier) {
+  try {
+    return resolveSupplierOrigin(supplier || {});
+  } catch {
+    return 'Nacional';
+  }
+}
+
+function renderDocumentCurrencyControl(origin, value = '') {
+  if (!isPurchasing() || !qs('currency')) return;
+  let select = qs('currency');
+  if (select.tagName !== 'SELECT') {
+    const replacement = document.createElement('select');
+    replacement.id = 'currency';
+    select.replaceWith(replacement);
+    select = replacement;
+  }
+  const allowed = currenciesForOrigin(origin);
+  select.innerHTML = allowed.map(currency => `<option value="${escapeHtml(currency)}">${escapeHtml(currency)}</option>`).join('');
+  const requested = String(value || '').trim().toUpperCase();
+  select.value = allowed.includes(requested) ? requested : allowed[0];
+  select.disabled = allowed.length === 1;
+  select.dataset.origin = origin;
+}
+
+function renderDocumentPaymentTermsControl(value = '') {
+  if (!isPurchasing() || !qs('docPaymentTerms')) return;
+  let select = qs('docPaymentTerms');
+  if (select.tagName !== 'SELECT') {
+    const replacement = document.createElement('select');
+    replacement.id = 'docPaymentTerms';
+    select.replaceWith(replacement);
+    select = replacement;
+  }
+  const term = String(value ?? '').trim();
+  const options = ['', ...PAYMENT_TERMS];
+  if (term && !PAYMENT_TERMS.includes(term)) options.push(term);
+  select.innerHTML = options.map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option || 'Seleccionar condición')}</option>`).join('');
+  select.value = options.includes(term) ? term : '';
+}
+
+function syncDraftPricing({ preserveCurrency = true, preserveTerms = true } = {}) {
+  if (!isPurchasing()) return;
+  const supplier = selectedSupplier();
+  const origin = supplierOrigin(supplier);
+  const requested = preserveCurrency ? qs('currency')?.value : '';
+  let currency;
+  try {
+    currency = resolveCurrency(origin, requested);
+  } catch {
+    currency = defaultCurrencyForOrigin(origin);
+  }
+  renderDocumentCurrencyControl(origin, currency);
+  draftCurrency = currency;
+  draftTaxRate = taxRateForOrigin(origin);
+  if (!preserveTerms) {
+    renderDocumentPaymentTermsControl(isValidPaymentTerm(supplier?.paymentTerms) ? supplier.paymentTerms : '');
+  }
+}
+
+function applyPurchasingFormAdjustments() {
+  if (!isPurchasing()) return;
+  for (const id of ['startDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'notes']) {
+    const field = qs(id)?.closest('.field');
+    if (field) field.hidden = true;
+  }
+  const statusField = qs('status')?.closest('.field');
+  if (statusField) statusField.hidden = true;
+  const endDate = qs('endDate');
+  if (endDate) {
+    endDate.type = 'text';
+    endDate.placeholder = 'dd-mm-aaaa';
+    endDate.setAttribute('inputmode', 'numeric');
+    endDate.autocomplete = 'off';
+    if (!endDate.dataset.maskBound) {
+      endDate.addEventListener('input', () => {
+        const masked = maskDateInput(endDate.value);
+        if (endDate.value !== masked) endDate.value = masked;
+      });
+      endDate.dataset.maskBound = 'true';
+    }
+  }
+  const endDateHelp = qs('endDate-help');
+  if (endDateHelp) endDateHelp.hidden = false;
+}
+
 function clearLineInputs() {
   for (const id of ['line-product', 'line-quantity', 'line-cost']) {
     const element = qs(id);
@@ -534,6 +648,10 @@ function setDocumentFormReadOnly(readOnly) {
   if (!readOnly) {
     qs('document-submit-button').disabled = false;
     qs('add-line-button').disabled = false;
+    if (isPurchasing()) {
+      const currency = qs('currency');
+      if (currency?.tagName === 'SELECT' && currency.options.length === 1) currency.disabled = true;
+    }
   }
 }
 
@@ -543,7 +661,10 @@ function renderDraftLines() {
     totals: qs('document-totals'),
     lines: draftLines,
     escapeHtml,
-    formatCurrencyCLP
+    formatCurrency: formatMoney,
+    formatCurrencyCLP,
+    currency: draftCurrency,
+    taxRate: draftTaxRate
   });
 }
 
@@ -563,6 +684,7 @@ function addDraftLine() {
     qs('document-feedback').textContent = PERMISSION_DENIED;
     return;
   }
+  if (isPurchasing()) syncDraftPricing();
   const line = {
     id_producto: qs('line-product').value,
     cantidad: qs('line-quantity').value,
@@ -660,6 +782,7 @@ function detailOptions(detail) {
   const order = detail.order || detail.document || detail;
   return {
     escapeHtml,
+    formatCurrency: formatMoney,
     formatCurrencyCLP,
     formatDate,
     canPrint: canUse(PERMISSIONS.ORDERS_PRINT),
@@ -687,7 +810,7 @@ function printOrder(orderId) {
     return;
   }
   const detail = getPurchaseOrderDetail(orderId);
-  renderPrintable(detail, { escapeHtml, formatCurrencyCLP, formatDate });
+  renderPrintable(detail, { escapeHtml, formatCurrency: formatMoney, formatCurrencyCLP, formatDate });
   showView('print');
   try {
     globalThis.print?.();
@@ -758,6 +881,20 @@ function collectEntity() {
 }
 
 function collectDocument() {
+  if (isPurchasing()) {
+    const rawEndDate = qs('endDate').value;
+    const parsedEndDate = parseDateInput(rawEndDate);
+    const data = {
+      entityId: qs('document-entity').value,
+      id_empleado: qs('document-employee').value,
+      folio: qs('folio').value,
+      endDate: parsedEndDate.valid ? parsedEndDate.iso : rawEndDate,
+      currency: qs('currency')?.value ?? '',
+      paymentTerms: qs('docPaymentTerms')?.value ?? ''
+    };
+    for (const field of config.customFields.filter(item => item.target === 'document')) data[field.key] = qs(`cf-${field.key}`).value;
+    return data;
+  }
   const data = {
     entityId: qs('document-entity').value, id_empleado: qs('document-employee').value,
     folio: qs('folio').value,
@@ -805,13 +942,21 @@ function loadDocumentIntoForm(document) {
   qs('document-id').value = document.id;
   currentOrderId = document.id;
   renderStatusControl(document.id);
-  for (const key of ['folio', 'startDate', 'endDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'notes']) {
+  for (const key of ['folio', 'startDate', 'quantity', 'subtotal', 'discount', 'taxAmount', 'totalAmount', 'currency', 'notes']) {
     qs(key).value = document[key] ?? '';
   }
+  qs('endDate').value = document.endDate
+    ? (isPurchasing() ? formatDateMask(document.endDate) : document.endDate)
+    : '';
   qs('document-entity').value = document.entity_id || '';
   const metadata = getOrderMetadata(document.id);
   qs('document-employee').value = metadata?.id_empleado || '';
-  qs('docPaymentTerms').value = document.paymentTerms ?? '';
+  const supplier = selectedSupplier();
+  const origin = supplierOrigin(supplier);
+  draftCurrency = document.currency || defaultCurrencyForOrigin(origin);
+  draftTaxRate = taxRateForOrigin(origin);
+  renderDocumentCurrencyControl(origin, draftCurrency);
+  renderDocumentPaymentTermsControl(document.paymentTerms ?? '');
   qs('status').value = document.status ?? '';
   for (const field of config.customFields.filter(item => item.target === 'document')) {
     if (qs(`cf-${field.key}`)) qs(`cf-${field.key}`).value = document[field.key] ?? '';
@@ -821,6 +966,7 @@ function loadDocumentIntoForm(document) {
   renderDraftLines();
   clearLineInputs();
   setDocumentFormReadOnly(isTerminalStatus(document.status));
+  renderDocumentCurrencyControl(origin, draftCurrency);
   qs('document-submit-button').textContent = `Actualizar ${config.labels.document}`;
   qs('document-feedback').textContent = isTerminalStatus(document.status)
     ? purchasingErrorMessage('ORDER_TERMINAL')
@@ -934,6 +1080,13 @@ function bindEvents() {
     renderDashboard();
   });
 
+  if (isPurchasing()) {
+    qs('document-entity').addEventListener('change', () => {
+      syncDraftPricing({ preserveCurrency: false, preserveTerms: false });
+      renderDraftLines();
+    });
+  }
+
   qs('add-line-button').addEventListener('click', addDraftLine);
   qs('document-lines-body').addEventListener('click', event => {
     const button = event.target.closest('button[data-action]');
@@ -945,6 +1098,7 @@ function bindEvents() {
 
   qs('document-form').addEventListener('submit', event => {
     event.preventDefault();
+    if (isPurchasing()) syncDraftPricing();
     const data = collectDocument();
     const id = qs('document-id').value;
     const permission = id ? PERMISSIONS.DOCUMENTS_UPDATE : PERMISSIONS.DOCUMENTS_CREATE;
@@ -1099,6 +1253,8 @@ export async function initApp(normalizedConfig, options = {}) {
   renderPaymentTermsControl('');
   renderDocumentEntityOptions();
   renderStatusControl();
+  applyPurchasingFormAdjustments();
+  if (isPurchasing()) syncDraftPricing({ preserveCurrency: false, preserveTerms: false });
   renderDraftLines();
   bindEvents();
   applyAccessControl();

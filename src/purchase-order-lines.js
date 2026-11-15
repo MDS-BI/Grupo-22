@@ -17,10 +17,16 @@ function fallbackEscape(value) {
   })[character]);
 }
 
-function fallbackCurrency(value) {
+function fallbackCurrency(value, code = 'CLP') {
   const number = Number(value);
+  const currency = String(code || 'CLP').toUpperCase();
   return Number.isFinite(number)
-    ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(number)
+    ? new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: currency === 'CLP' ? 0 : 2,
+        minimumFractionDigits: currency === 'CLP' ? 0 : 2
+      }).format(number)
     : String(value ?? '');
 }
 
@@ -33,7 +39,8 @@ function productMap(options = lineOptions) {
 export function renderLineRows(body, lines = [], options = lineOptions) {
   if (!body) return;
   const escape = options.escapeHtml || fallbackEscape;
-  const currency = options.formatCurrencyCLP || fallbackCurrency;
+  const currency = options.formatCurrency || options.formatCurrencyCLP || fallbackCurrency;
+  const currencyCode = options.currency || 'CLP';
   const products = productMap(options);
   body.innerHTML = lines.length
     ? lines.map((line, index) => {
@@ -42,8 +49,8 @@ export function renderLineRows(body, lines = [], options = lineOptions) {
           <td>${escape(product.nombre || product.name || '')}</td>
           <td>${escape(product.unidad_medida || product.unit || '')}</td>
           <td>${escape(line.cantidad)}</td>
-          <td>${escape(currency(line.costo_unitario))}</td>
-          <td>${escape(currency(calculateLineSubtotal(line)))}</td>
+          <td>${escape(currency(line.costo_unitario, currencyCode))}</td>
+          <td>${escape(currency(calculateLineSubtotal(line), currencyCode))}</td>
           <td class="table-actions">
             <button type="button" class="secondary" data-action="edit-line" data-index="${index}">Editar</button>
             <button type="button" class="danger" data-action="delete-line" data-index="${index}">Eliminar</button>
@@ -56,12 +63,14 @@ export function renderLineRows(body, lines = [], options = lineOptions) {
 export function renderLineTotals(container, lines = [], options = lineOptions) {
   if (!container) return;
   const escape = options.escapeHtml || fallbackEscape;
-  const currency = options.formatCurrencyCLP || fallbackCurrency;
-  const totals = calculateOrderTotals(lines);
+  const currency = options.formatCurrency || options.formatCurrencyCLP || fallbackCurrency;
+  const currencyCode = options.currency || 'CLP';
+  const taxRate = Number.isFinite(Number(options.taxRate)) ? Number(options.taxRate) : 0.19;
+  const totals = calculateOrderTotals(lines, { taxRate });
   container.innerHTML = `
-    <div><span>Neto</span><strong>${escape(currency(totals.neto))}</strong></div>
-    <div><span>IVA (19 %)</span><strong>${escape(currency(totals.iva))}</strong></div>
-    <div class="order-total"><span>Total</span><strong>${escape(currency(totals.total))}</strong></div>`;
+    <div><span>Neto</span><strong>${escape(currency(totals.neto, currencyCode))}</strong></div>
+    <div><span>IVA (${Math.round(taxRate * 100)} %)</span><strong>${escape(currency(totals.iva, currencyCode))}</strong></div>
+    <div class="order-total"><span>Total</span><strong>${escape(currency(totals.total, currencyCode))}</strong></div>`;
 }
 
 export function renderLineEditor(options = lineOptions) {

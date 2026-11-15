@@ -16,10 +16,16 @@ function fallbackEscape(value) {
   })[character]);
 }
 
-function fallbackCurrency(value) {
+function fallbackCurrency(value, code = 'CLP') {
   const number = Number(value);
+  const currency = String(code || 'CLP').toUpperCase();
   return Number.isFinite(number)
-    ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(number)
+    ? new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: currency === 'CLP' ? 0 : 2,
+        minimumFractionDigits: currency === 'CLP' ? 0 : 2
+      }).format(number)
     : String(value ?? '');
 }
 
@@ -51,11 +57,14 @@ export function renderDetail(detailOrId, options = {}) {
   const detail = typeof detailOrId === 'string' ? getPurchaseOrderDetail(detailOrId) : detailOrId;
   if (!detail) return null;
   const escape = options.escapeHtml || fallbackEscape;
-  const currency = options.formatCurrencyCLP || fallbackCurrency;
+  const currency = options.formatCurrency || options.formatCurrencyCLP || fallbackCurrency;
   const formatDate = options.formatDate || fallbackDate;
   const order = detail.order || detail.document || detail;
   const lines = detail.lines || [];
-  const totals = detail.totals || calculateOrderTotals(lines);
+  const taxRate = Number.isFinite(Number(detail.taxRate)) ? Number(detail.taxRate) : 0.19;
+  const currencyCode = detail.currency || order.currency || 'CLP';
+  const totals = detail.totals || calculateOrderTotals(lines, { taxRate, currency: currencyCode });
+  const emissionDate = order.startDate ? formatDate(order.startDate) : 'Sin emitir';
   const employeeName = detail.employee?.nombre || detail.employee?.name || detail.employeeName || 'Empleado desconocido';
   const supplier = detail.supplier || {};
   const supplierName = supplier.name || supplier.nombre || '';
@@ -77,13 +86,13 @@ export function renderDetail(detailOrId, options = {}) {
         <div><dt>Proveedor</dt><dd>${escape(supplierName)}</dd></div>
         <div><dt>RUT</dt><dd>${escape(supplierCode)}</dd></div>
         <div><dt>Empleado solicitante</dt><dd>${escape(employeeName)}</dd></div>
-        <div><dt>Fecha de emisión</dt><dd>${escape(formatDate(order.startDate))}</dd></div>
+        <div><dt>Fecha de emisión</dt><dd>${escape(emissionDate)}</dd></div>
         <div><dt>Fecha de entrega</dt><dd>${escape(formatDate(order.endDate))}</dd></div>
         <div><dt>Estado</dt><dd><span class="status-badge">${escape(order.status || '')}</span></dd></div>
         <div><dt>Condición de pago</dt><dd>${escape(order.paymentTerms || '')}</dd></div>
+        <div><dt>Moneda</dt><dd>${escape(currencyCode)}</dd></div>
         <div><dt>Stock aplicado</dt><dd class="${stockApplied ? 'stock-applied' : ''}">${stockApplied ? 'Sí' : 'No'}</dd></div>
-      </dl>
-      ${order.notes ? `<p><strong>Notas:</strong> ${escape(order.notes)}</p>` : ''}`;
+      </dl>`;
   }
 
   const linesContainer = qs('order-lines-table');
@@ -102,8 +111,8 @@ export function renderDetail(detailOrId, options = {}) {
                     <td>${escape(product.nombre || product.name || '')}</td>
                     <td>${escape(product.unidad_medida || product.unit || '')}</td>
                     <td>${escape(line.cantidad)}</td>
-                    <td>${escape(currency(line.costo_unitario))}</td>
-                    <td>${escape(currency(calculateLineSubtotal(line)))}</td>
+                    <td>${escape(currency(line.costo_unitario, currencyCode))}</td>
+                    <td>${escape(currency(calculateLineSubtotal(line), currencyCode))}</td>
                     ${editable ? `<td class="table-actions"><button type="button" class="danger" data-action="delete-line" data-product-id="${escape(line.id_producto)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button></td>` : ''}
                   </tr>`;
                 }).join('')
@@ -116,9 +125,9 @@ export function renderDetail(detailOrId, options = {}) {
   const totalsContainer = qs('order-totals');
   if (totalsContainer) {
     totalsContainer.innerHTML = `
-      <div><span>Neto</span><strong>${escape(currency(totals.neto))}</strong></div>
-      <div><span>IVA (19 %)</span><strong>${escape(currency(totals.iva))}</strong></div>
-      <div class="order-total"><span>Total</span><strong>${escape(currency(totals.total))}</strong></div>`;
+      <div><span>Neto</span><strong>${escape(currency(totals.neto, currencyCode))}</strong></div>
+      <div><span>IVA (${Math.round(taxRate * 100)} %)</span><strong>${escape(currency(totals.iva, currencyCode))}</strong></div>
+      <div class="order-total"><span>Total</span><strong>${escape(currency(totals.total, currencyCode))}</strong></div>`;
   }
 
   const actionsContainer = qs('order-actions');

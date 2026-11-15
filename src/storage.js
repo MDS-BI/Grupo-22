@@ -373,7 +373,14 @@ export function validateDocument(input = {}) {
       errors.folio = 'El folio ya existe';
     }
   }
-  if (!validDate(text(input.startDate))) errors.startDate = `La ${labels.startDate.toLowerCase()} debe ser una fecha válida`;
+  const purchasing = config.moduleName === 'Adquisiciones y Compras';
+  if (purchasing) {
+    if (input.startDate !== undefined && text(input.startDate) && !validDate(text(input.startDate))) {
+      errors.startDate = `La ${labels.startDate.toLowerCase()} debe ser una fecha válida`;
+    }
+  } else if (!validDate(text(input.startDate))) {
+    errors.startDate = `La ${labels.startDate.toLowerCase()} debe ser una fecha válida`;
+  }
   if (!validDate(text(input.endDate))) errors.endDate = `La ${labels.endDate.toLowerCase()} debe ser una fecha válida`;
   else if (validDate(text(input.startDate)) && text(input.endDate) < text(input.startDate)) errors.endDate = `La ${labels.endDate.toLowerCase()} debe ser igual o posterior a la ${labels.startDate.toLowerCase()}`;
   if (input.quantity !== undefined && input.quantity !== '' && (!Number.isInteger(Number(input.quantity)) || Number(input.quantity) <= 0)) errors.quantity = 'La cantidad debe ser un entero positivo';

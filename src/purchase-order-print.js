@@ -17,10 +17,16 @@ function escapeValue(value) {
   })[character]);
 }
 
-function formatCurrency(value) {
+function formatCurrency(value, code = 'CLP') {
   const number = Number(value);
+  const currency = String(code || 'CLP').toUpperCase();
   return Number.isFinite(number)
-    ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(number)
+    ? new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: currency === 'CLP' ? 0 : 2,
+        minimumFractionDigits: currency === 'CLP' ? 0 : 2
+      }).format(number)
     : String(value ?? '');
 }
 
@@ -35,11 +41,14 @@ export function renderPrintable(detailOrId, options = {}) {
   const detail = typeof detailOrId === 'string' ? getPurchaseOrderDetail(detailOrId) : detailOrId;
   if (!detail) return null;
   const escape = options.escapeHtml || escapeValue;
-  const currency = options.formatCurrencyCLP || formatCurrency;
+  const currency = options.formatCurrency || options.formatCurrencyCLP || formatCurrency;
   const date = options.formatDate || formatDate;
   const order = detail.order || detail.document || detail;
   const lines = detail.lines || [];
-  const totals = detail.totals || calculateOrderTotals(lines);
+  const taxRate = Number.isFinite(Number(detail.taxRate)) ? Number(detail.taxRate) : 0.19;
+  const currencyCode = detail.currency || order.currency || 'CLP';
+  const totals = detail.totals || calculateOrderTotals(lines, { taxRate, currency: currencyCode });
+  const emissionDate = order.startDate ? date(order.startDate) : 'Sin emitir';
   const config = getConfig();
   const employeeName = detail.employee?.nombre || detail.employee?.name || detail.employeeName || 'Empleado desconocido';
   const supplier = detail.supplier || {};
@@ -60,9 +69,10 @@ export function renderPrintable(detailOrId, options = {}) {
         <div><dt>RUT</dt><dd>${escape(supplierCode)}</dd></div>
         <div><dt>Empleado solicitante</dt><dd>${escape(employeeName)}</dd></div>
         <div><dt>Condición de pago</dt><dd>${escape(order.paymentTerms || '')}</dd></div>
-        <div><dt>Fecha de emisión</dt><dd>${escape(date(order.startDate))}</dd></div>
+        <div><dt>Fecha de emisión</dt><dd>${escape(emissionDate)}</dd></div>
         <div><dt>Fecha de entrega</dt><dd>${escape(date(order.endDate))}</dd></div>
         <div><dt>Estado</dt><dd>${escape(order.status || '')}</dd></div>
+        <div><dt>Moneda</dt><dd>${escape(currencyCode)}</dd></div>
         <div><dt>Stock aplicado</dt><dd>${stockApplied ? 'Sí' : 'No'}</dd></div>
       </dl>
       <table>
@@ -76,8 +86,8 @@ export function renderPrintable(detailOrId, options = {}) {
                     <td>${escape(product.nombre || product.name || '')}</td>
                     <td>${escape(product.unidad_medida || product.unit || '')}</td>
                     <td>${escape(line.cantidad)}</td>
-                    <td>${escape(currency(line.costo_unitario))}</td>
-                    <td>${escape(currency(calculateLineSubtotal(line)))}</td>
+                    <td>${escape(currency(line.costo_unitario, currencyCode))}</td>
+                    <td>${escape(currency(calculateLineSubtotal(line), currencyCode))}</td>
                   </tr>`;
                 })
                 .join('')
@@ -85,9 +95,9 @@ export function renderPrintable(detailOrId, options = {}) {
         </tbody>
       </table>
       <div class="print-totals">
-        <div><span>Neto</span><strong>${escape(currency(totals.neto))}</strong></div>
-        <div><span>IVA (19 %)</span><strong>${escape(currency(totals.iva))}</strong></div>
-        <div><span>Total</span><strong>${escape(currency(totals.total))}</strong></div>
+        <div><span>Neto</span><strong>${escape(currency(totals.neto, currencyCode))}</strong></div>
+        <div><span>IVA (${Math.round(taxRate * 100)} %)</span><strong>${escape(currency(totals.iva, currencyCode))}</strong></div>
+        <div><span>Total</span><strong>${escape(currency(totals.total, currencyCode))}</strong></div>
       </div>
       <section class="print-history">
         <h2>Historial de cambios de estado</h2>

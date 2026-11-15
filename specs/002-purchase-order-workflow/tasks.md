@@ -201,25 +201,25 @@
 
 ### Tests for Ajustes post-revisión
 
-- [ ] T054 [P] [US1] Escribir pruebas unitarias fallidas para impuesto y moneda según origen, totales de solo lectura y formato monetario en `tests/unit/purchasing-workflow.test.js`.
-- [ ] T055 [P] [US1] Escribir pruebas de integración fallidas para el formulario sin campos manuales, totales de solo lectura, moneda condicional, condición de pago predeterminada, fecha de entrega enmascarada, ausencia del selector Estado y título «Detalle de compra» en `tests/integration/purchase-order-form-adjustments.test.js`.
-- [ ] T056 [P] [US2] Escribir pruebas de integración fallidas para la fecha de emisión automática al aprobar y «Sin emitir» en borrador y pendiente en `tests/integration/purchase-order-emission-date.test.js`.
-- [ ] T057 [P] [US5] Extender las pruebas de impresión para fecha de emisión o «Sin emitir», moneda e impuesto según origen en `tests/integration/purchase-order-print.test.js`.
+- [X] T054 [P] [US1] Escribir pruebas unitarias fallidas para impuesto y moneda según origen, totales de solo lectura y formato monetario en `tests/unit/purchasing-workflow.test.js`.
+- [X] T055 [P] [US1] Escribir pruebas de integración fallidas para el formulario sin campos manuales, totales de solo lectura, moneda condicional, condición de pago predeterminada, fecha de entrega enmascarada, ausencia del selector Estado y título «Detalle de compra» en `tests/integration/purchase-order-form-adjustments.test.js`.
+- [X] T056 [P] [US2] Escribir pruebas de integración fallidas para la fecha de emisión automática al aprobar y «Sin emitir» en borrador y pendiente en `tests/integration/purchase-order-emission-date.test.js`.
+- [X] T057 [P] [US5] Extender las pruebas de impresión para fecha de emisión o «Sin emitir», moneda e impuesto según origen en `tests/integration/purchase-order-print.test.js`.
 
 ### Implementation for Ajustes post-revisión
 
-- [ ] T058 [US1] Extender `src/domain/purchasing.js` con resolución del origen del proveedor, regla de IVA 19 %/0 %, monedas CLP/USD/EUR, formato monetario y validaciones asociadas.
-- [ ] T059 [US1] Ajustar `src/purchasing-storage.js` para persistir solo los campos de cabecera permitidos, `currency`, `paymentTerms`, la fecha de emisión automática y el total calculado; ignorar o rechazar cantidad, subtotal, descuento, impuesto, notas y estado enviados manualmente.
-- [ ] T060 [US1] Actualizar `index.html` y `src/app.js` para eliminar los campos manuales y el selector Estado, iniciar toda OC nueva en borrador y mostrar los totales en solo lectura.
-- [ ] T061 [US1] Implementar las condiciones de pago desde la lista fija con el valor del proveedor como predeterminado en `src/app.js` y `src/domain/purchasing.js`.
-- [ ] T062 [US1] Actualizar `src/purchase-order-lines.js` y `src/purchase-order-detail.js` para mostrar subtotal, neto, impuesto y total de solo lectura con el símbolo de la moneda.
-- [ ] T063 [US2] Implementar la asignación automática de la fecha de emisión al pasar a `aprobado` en `src/domain/purchasing.js` y `src/purchasing-storage.js`.
-- [ ] T064 [US4] Mostrar «Sin emitir» o la fecha de emisión en el detalle y en la impresión en `src/purchase-order-detail.js` y `src/purchase-order-print.js`.
-- [ ] T065 [US5] Actualizar `src/purchase-order-print.js` para usar la moneda, el impuesto según origen y la fecha de emisión.
-- [ ] T066 [US1] Implementar la fecha de entrega con máscara `dd-mm-aaaa` y su conversión a ISO en `src/app.js`, junto con la persistencia en `src/purchasing-storage.js`.
-- [ ] T067 [US1] Cambiar el título a «Detalle de compra» en `index.html` y `src/app.js`.
-- [ ] T068 [US1] Ajustar los estilos de solo lectura, moneda y máscara de fecha en `src/styles.css`.
-- [ ] T069 Ejecutar `npm test -- --run`, `npm run lint` y `npm run build`; corregir cualquier regresión antes de cerrar.
+- [X] T058 [US1] Extender `src/domain/purchasing.js` con resolución del origen del proveedor, regla de IVA 19 %/0 %, monedas CLP/USD/EUR, formato monetario y validaciones asociadas.
+- [X] T059 [US1] Ajustar `src/purchasing-storage.js` para persistir solo los campos de cabecera permitidos, `currency`, `paymentTerms`, la fecha de emisión automática y el total calculado; ignorar o rechazar cantidad, subtotal, descuento, impuesto, notas y estado enviados manualmente.
+- [X] T060 [US1] Actualizar `index.html` y `src/app.js` para eliminar los campos manuales y el selector Estado, iniciar toda OC nueva en borrador y mostrar los totales en solo lectura.
+- [X] T061 [US1] Implementar las condiciones de pago desde la lista fija con el valor del proveedor como predeterminado en `src/app.js` y `src/domain/purchasing.js`.
+- [X] T062 [US1] Actualizar `src/purchase-order-lines.js` y `src/purchase-order-detail.js` para mostrar subtotal, neto, impuesto y total de solo lectura con el símbolo de la moneda.
+- [X] T063 [US2] Implementar la asignación automática de la fecha de emisión al pasar a `aprobado` en `src/domain/purchasing.js` y `src/purchasing-storage.js`.
+- [X] T064 [US4] Mostrar «Sin emitir» o la fecha de emisión en el detalle y en la impresión en `src/purchase-order-detail.js` y `src/purchase-order-print.js`.
+- [X] T065 [US5] Actualizar `src/purchase-order-print.js` para usar la moneda, el impuesto según origen y la fecha de emisión.
+- [X] T066 [US1] Implementar la fecha de entrega con máscara `dd-mm-aaaa` y su conversión a ISO en `src/app.js`, junto con la persistencia en `src/purchasing-storage.js`.
+- [X] T067 [US1] Cambiar el título a «Detalle de compra» en `index.html` y `src/app.js`.
+- [X] T068 [US1] Ajustar los estilos de solo lectura, moneda y máscara de fecha en `src/styles.css`.
+- [X] T069 Ejecutar `npm test -- --run`, `npm run lint` y `npm run build`; corregir cualquier regresión antes de cerrar.
 
 **Checkpoint**: Los ajustes post-revisión quedan cubiertos por pruebas y la orden de compra opera con los campos, cálculos, impuestos, monedas, condiciones de pago y fechas revisados.
 

@@ -8,10 +8,20 @@ import {
   calculateOrderTotals,
   canTransition,
   createStatusChange,
+  currenciesForOrigin,
+  defaultCurrencyForOrigin,
+  emissionDateFor,
+  formatCurrency,
+  formatDateMask,
   getAvailableActionItems,
   getAvailableActions,
   isTerminalStatus,
+  normalizeDateInput,
+  resolveCurrency,
+  resolvePaymentTerms,
+  resolveSupplierOrigin,
   roundMoney,
+  taxRateForOrigin,
   validatePurchaseOrderLine,
   validatePurchaseOrderLines
 } from '../../src/domain/purchasing.js';
@@ -88,5 +98,61 @@ describe('purchasing rounding helper', () => {
   it('rounds half values to two decimals', () => {
     expect(roundMoney(1.005)).toBe(1.01);
     expect(roundMoney(2.675)).toBe(2.68);
+  });
+});
+
+describe('post-review purchasing adjustments', () => {
+  it('resolves supplier origin, currencies and tax rates', () => {
+    expect(resolveSupplierOrigin({})).toBe('Nacional');
+    expect(resolveSupplierOrigin({ origin: 'Extranjero' })).toBe('Extranjero');
+    expect(() => resolveSupplierOrigin({ origin: 'Marte' })).toThrow(/origen/i);
+    expect(currenciesForOrigin('Nacional')).toEqual(['CLP']);
+    expect(currenciesForOrigin({ origin: 'Extranjero' })).toEqual(['USD', 'EUR']);
+    expect(defaultCurrencyForOrigin('Extranjero')).toBe('USD');
+    expect(taxRateForOrigin('Nacional')).toBe(0.19);
+    expect(taxRateForOrigin('Extranjero')).toBe(0);
+  });
+
+  it('restricts currency selection to the supplier origin', () => {
+    expect(resolveCurrency('Nacional', '')).toBe('CLP');
+    expect(resolveCurrency('Extranjero', '')).toBe('USD');
+    expect(resolveCurrency('Extranjero', 'eur')).toBe('EUR');
+    expect(() => resolveCurrency('Nacional', 'USD')).toThrow(/moneda/i);
+  });
+
+  it('uses supplier payment terms when the requested term is not in the fixed list', () => {
+    expect(resolvePaymentTerms('', 'Contado')).toBe('Contado');
+    expect(resolvePaymentTerms('30 días', 'Contado')).toBe('30 días');
+    expect(resolvePaymentTerms('Crédito 30 días', 'Contado')).toBe('Contado');
+    expect(() => resolvePaymentTerms('Crédito 30 días', 'otro')).toThrow(/condición de pago/i);
+  });
+
+  it('applies 0 % tax for foreign suppliers and keeps the fixed 19 % local rate', () => {
+    const lines = [{ cantidad: 2, costo_unitario: 1000 }];
+    expect(calculateOrderTotals(lines, { taxRate: 0, currency: 'USD' })).toMatchObject({
+      neto: 2000,
+      iva: 0,
+      total: 2000,
+      taxRate: 0,
+      currency: 'USD'
+    });
+    expect(calculateOrderTotals(lines)).toMatchObject({ neto: 2000, iva: 380, total: 2380, taxRate: 0.19 });
+  });
+
+  it('formats amounts with the currency symbol and decimals', () => {
+    expect(formatCurrency(2380, 'CLP')).toBe('$2.380');
+    expect(formatCurrency(2000, 'USD')).toBe('US$2.000,00');
+    expect(formatCurrency(2000, 'EUR')).toContain('EUR');
+    expect(formatCurrency(2000, 'EUR')).toContain('2.000,00');
+  });
+
+  it('normalizes masked dates and computes the Santiago emission date', () => {
+    expect(normalizeDateInput('10-11-2026')).toBe('2026-11-10');
+    expect(normalizeDateInput('2026-11-10')).toBe('2026-11-10');
+    expect(formatDateMask('2026-11-10')).toBe('10-11-2026');
+    expect(() => normalizeDateInput('31-02-2026')).toThrow(/fecha/i);
+    expect(() => normalizeDateInput('')).toThrow(/fecha/i);
+    expect(emissionDateFor('2026-11-07T02:30:00.000Z')).toBe('2026-11-06');
+    expect(emissionDateFor('2026-11-07T12:00:00.000Z')).toBe('2026-11-07');
   });
 });

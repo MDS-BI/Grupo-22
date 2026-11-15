@@ -30,7 +30,11 @@ export const PURCHASING_ERRORS = {
   PRODUCT_DUPLICATE: 'El producto ya está incluido en esta orden.',
   INVALID_TRANSITION: 'La acción no está permitida para el estado actual.',
   STOCK_ALREADY_APPLIED: 'La recepción de esta orden ya fue aplicada.',
-  PERSISTENCE_ERROR: 'No fue posible guardar los cambios; se restauró el estado anterior.'
+  PERSISTENCE_ERROR: 'No fue posible guardar los cambios; se restauró el estado anterior.',
+  SUPPLIER_ORIGIN_INVALID: 'El origen del proveedor debe ser Nacional o Extranjero.',
+  CURRENCY_INVALID: 'La moneda no es válida para el origen del proveedor.',
+  PAYMENT_TERMS_INVALID: 'La condición de pago debe ser una de: Contado, 30 días, 60 días, 90 días.',
+  DATE_FORMAT_INVALID: 'La fecha debe tener formato dd-mm-aaaa y ser una fecha válida.'
 };
 
 export const ACTION_LABELS = {
@@ -43,6 +47,11 @@ export const ACTION_LABELS = {
 export const PAYMENT_TERMS = ['Contado', '30 días', '60 días', '90 días'];
 
 export const SUPPLIER_ORIGINS = ['Nacional', 'Extranjero'];
+
+export const SUPPLIER_ORIGIN_RULES = {
+  Nacional: { currencies: ['CLP'], currency: 'CLP', taxRate: 0.19 },
+  Extranjero: { currencies: ['USD', 'EUR'], currency: 'USD', taxRate: 0 }
+};
 
 export const LEGACY_PAYMENT_TERM_LABEL = 'Otra (valor anterior)';
 
@@ -58,6 +67,48 @@ export function paymentTermLabel(value) {
 
 export function isValidSupplierOrigin(value) {
   return SUPPLIER_ORIGINS.includes(String(value ?? '').trim());
+}
+
+export function resolveSupplierOrigin(supplierOrOrigin) {
+  const raw = typeof supplierOrOrigin === 'string'
+    ? supplierOrOrigin
+    : supplierOrOrigin?.origin;
+  const origin = String(raw ?? '').trim();
+  if (!origin) return 'Nacional';
+  if (!isValidSupplierOrigin(origin)) throw createPurchasingError('SUPPLIER_ORIGIN_INVALID');
+  return origin;
+}
+
+export function originRules(originOrSupplier) {
+  return SUPPLIER_ORIGIN_RULES[resolveSupplierOrigin(originOrSupplier)];
+}
+
+export function currenciesForOrigin(originOrSupplier) {
+  return [...originRules(originOrSupplier).currencies];
+}
+
+export function defaultCurrencyForOrigin(originOrSupplier) {
+  return originRules(originOrSupplier).currency;
+}
+
+export function taxRateForOrigin(originOrSupplier) {
+  return originRules(originOrSupplier).taxRate;
+}
+
+export function resolveCurrency(originOrSupplier, requested) {
+  const rules = originRules(originOrSupplier);
+  const currency = String(requested ?? '').trim().toUpperCase();
+  if (!currency) return rules.currency;
+  if (!rules.currencies.includes(currency)) throw createPurchasingError('CURRENCY_INVALID');
+  return currency;
+}
+
+export function resolvePaymentTerms(requested, supplierTerms) {
+  const requestedTerm = String(requested ?? '').trim();
+  if (isValidPaymentTerm(requestedTerm)) return requestedTerm;
+  const supplierTerm = String(supplierTerms ?? '').trim();
+  if (isValidPaymentTerm(supplierTerm)) return supplierTerm;
+  throw createPurchasingError('PAYMENT_TERMS_INVALID');
 }
 
 export function validateCreditLimitField(value) {
@@ -111,12 +162,82 @@ export function calculateLineSubtotal(line = {}) {
   return roundMoney(Number(line.cantidad || 0) * Number(line.costo_unitario ?? line.unitPrice ?? 0));
 }
 
-export function calculateOrderTotals(lines = []) {
+export function calculateOrderTotals(lines = [], options = {}) {
+  const taxRate = Number.isFinite(Number(options.taxRate)) ? Number(options.taxRate) : 0.19;
   const neto = roundMoney(
     lines.reduce((sum, line) => sum + Number(line.cantidad || 0) * Number(line.costo_unitario ?? line.unitPrice ?? 0), 0)
   );
-  const iva = roundMoney(neto * 0.19);
-  return { neto, iva, total: roundMoney(neto + iva), subtotal: neto, taxAmount: iva, totalAmount: roundMoney(neto + iva) };
+  const iva = roundMoney(neto * taxRate);
+  return {
+    neto,
+    iva,
+    total: roundMoney(neto + iva),
+    subtotal: neto,
+    taxAmount: iva,
+    totalAmount: roundMoney(neto + iva),
+    taxRate,
+    currency: options.currency || ''
+  };
+}
+
+const moneyFormatters = new Map();
+
+export function formatCurrency(value, currency = 'CLP') {
+  if (value === undefined || value === null || value === '') return '';
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  const code = String(currency || 'CLP').trim().toUpperCase();
+  if (!moneyFormatters.has(code)) {
+    moneyFormatters.set(code, new Intl.NumberFormat('es-CL', {
+      style: 'currency',
+      currency: code,
+      maximumFractionDigits: code === 'CLP' ? 0 : 2,
+      minimumFractionDigits: code === 'CLP' ? 0 : 2
+    }));
+  }
+  return moneyFormatters.get(code).format(number);
+}
+
+export function parseDateInput(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return { valid: false };
+  let iso;
+  let match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (match) {
+    iso = raw;
+  } else {
+    match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(raw);
+    if (!match) return { valid: false };
+    iso = `${match[3]}-${match[2]}-${match[1]}`;
+  }
+  const [year, month, day] = iso.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const valid = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  return valid ? { valid: true, iso } : { valid: false };
+}
+
+export function normalizeDateInput(value) {
+  const parsed = parseDateInput(value);
+  if (!parsed.valid) throw createPurchasingError('DATE_FORMAT_INVALID');
+  return parsed.iso;
+}
+
+export function formatDateMask(value) {
+  const parsed = parseDateInput(value);
+  if (!parsed.valid) return String(value ?? '');
+  return parsed.iso.split('-').reverse().join('-');
+}
+
+export function emissionDateFor(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 export function validatePurchaseOrderLine(line = {}, options = {}) {

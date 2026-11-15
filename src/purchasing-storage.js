@@ -22,7 +22,13 @@ import {
   createStatusChange,
   planReceipt,
   createPurchasingError,
-  PURCHASING_ERRORS
+  PURCHASING_ERRORS,
+  resolveSupplierOrigin,
+  resolveCurrency,
+  resolvePaymentTerms,
+  taxRateForOrigin,
+  normalizeDateInput,
+  emissionDateFor
 } from './domain/purchasing.js';
 
 const KEYS = {
@@ -208,8 +214,15 @@ function validateLinesForOrder(orderId, lines, ignoreProductId = null) {
   return normalized;
 }
 
+function totalsForOrder(order, lines) {
+  const origin = resolveSupplierOrigin(supplierFor(order) || {});
+  const currency = resolveCurrency(origin, order.currency);
+  return calculateOrderTotals(lines, { taxRate: taxRateForOrigin(origin), currency });
+}
+
 function updateOrderTotals(orderId, lines, timestamp = now()) {
-  const totals = calculateOrderTotals(lines);
+  const order = findOrder(orderId);
+  const totals = order ? totalsForOrder(order, lines) : calculateOrderTotals(lines);
   const documents = loadDocuments();
   const index = documents.findIndex(document => document.id === orderId);
   if (index >= 0) {
@@ -451,12 +464,14 @@ export function recoverTransactions() {
 
 function transitionSnapshot(order, nextStatus, change, timestamp) {
   const before = snapshotState();
+  const orderPatch = { status: nextStatus, updatedAt: timestamp };
+  if (nextStatus === 'aprobado') orderPatch.startDate = emissionDateFor(timestamp);
   return {
     before,
     after: {
       ...before,
       documents: before.documents.map(document =>
-        document.id === order.id ? { ...document, status: nextStatus, updatedAt: timestamp } : document
+        document.id === order.id ? { ...document, ...orderPatch } : document
       ),
       history: [...before.history, change]
     }
@@ -561,11 +576,14 @@ export function getPurchaseOrderDetail(orderId) {
   const metadata = getOrderMetadata(orderId);
   const products = loadProducts();
   const lines = enrichLines(getLinesForOrder(orderId), products);
-  const totals = calculateOrderTotals(lines);
+  const supplier = supplierFor(order);
+  const origin = resolveSupplierOrigin(supplier || {});
+  const currency = resolveCurrency(origin, order.currency);
+  const taxRate = taxRateForOrigin(origin);
+  const totals = calculateOrderTotals(lines, { taxRate, currency });
   const history = loadOrderHistory(orderId);
   const actions = getAvailableActions(order.status);
   const employee = employeeFor(metadata);
-  const supplier = supplierFor(order);
   return {
     ...order,
     order,
@@ -574,6 +592,9 @@ export function getPurchaseOrderDetail(orderId) {
     employee,
     employeeName: employee?.nombre || employee?.name || 'Empleado desconocido',
     supplier,
+    origin,
+    currency,
+    taxRate,
     lines,
     totals,
     history,
@@ -597,14 +618,20 @@ export function listPurchaseOrdersWithActions() {
       ? employees.find(item => (item.id_empleado || item.id) === orderMetadata.id_empleado) || null
       : null;
     const supplier = suppliers.find(item => item.entity_id === order.entity_id) || null;
+    const origin = resolveSupplierOrigin(supplier || {});
+    const currency = resolveCurrency(origin, order.currency);
+    const taxRate = taxRateForOrigin(origin);
     return {
       ...order,
       order,
       metadata: orderMetadata,
       employee,
       supplier,
+      origin,
+      currency,
+      taxRate,
       lines: orderLines,
-      totals: calculateOrderTotals(orderLines),
+      totals: calculateOrderTotals(orderLines, { taxRate, currency }),
       actions: getAvailableActions(order.status),
       isLegacy: !orderMetadata,
       stockApplied: Boolean(orderMetadata?.stock_aplicado)
@@ -618,6 +645,14 @@ export function getAvailableActionsForOrder(orderId) {
 }
 
 export const getOrderActions = getAvailableActionsForOrder;
+
+function setOrderStartDate(orderId, startDate) {
+  const documents = loadDocuments();
+  const index = documents.findIndex(document => document.id === orderId);
+  if (index < 0) return;
+  documents[index] = { ...documents[index], startDate };
+  saveDocuments(documents);
+}
 
 export function savePurchaseOrder(input = {}) {
   const orderInput = input.order || input.document || input;
@@ -640,33 +675,58 @@ export function savePurchaseOrder(input = {}) {
   if (!Array.isArray(lines) || lines.length === 0) throw createPurchasingError('NO_LINES');
 
   const normalized = validateLinesForOrder(orderId || 'pending', lines);
-  const totals = calculateOrderTotals(normalized);
+  const entityId = input.entityId || input.entity_id || orderInput.entityId || orderInput.entity_id;
+  const supplier = loadEntities().find(entity => entity.entity_id === entityId);
+  if (!supplier) {
+    throw createPurchasingError('ORDER_INVALID', 'Debe seleccionar un proveedor existente.');
+  }
+  const origin = resolveSupplierOrigin(supplier);
+  const currency = resolveCurrency(origin, input.currency ?? orderInput.currency);
+  const paymentTerms = resolvePaymentTerms(
+    input.paymentTerms ?? orderInput.paymentTerms ?? input.docPaymentTerms,
+    supplier.paymentTerms
+  );
+  const totals = calculateOrderTotals(normalized, { taxRate: taxRateForOrigin(origin), currency });
+  let endDateInput = input.endDate ?? orderInput.endDate;
   const header = {
-    entityId: input.entityId || input.entity_id || orderInput.entityId || orderInput.entity_id,
+    entityId: supplier.entity_id,
     folio: input.folio ?? orderInput.folio,
-    startDate: input.startDate ?? orderInput.startDate,
-    endDate: input.endDate ?? orderInput.endDate,
-    paymentTerms: input.paymentTerms ?? orderInput.paymentTerms ?? input.docPaymentTerms,
-    notes: input.notes ?? orderInput.notes,
-    currency: input.currency ?? orderInput.currency,
+    paymentTerms,
+    currency,
     totalAmount: totals.total
   };
 
   if (orderId) {
     const current = requireOrder(orderId);
     requireEditable(current);
+    if (endDateInput === undefined || endDateInput === null || String(endDateInput).trim() === '') {
+      endDateInput = current.endDate;
+    }
+    header.endDate = normalizeDateInput(endDateInput);
     const requestedStatus = input.status ?? orderInput.status;
     if (requestedStatus && requestedStatus !== current.status) throw createPurchasingError('INVALID_TRANSITION');
-    updateDocument(orderId, { ...header, status: current.status });
+    updateDocument(orderId, {
+      ...header,
+      startDate: current.startDate ?? null,
+      status: current.status
+    });
     replaceOrderLines(orderId, lines);
     upsertOrderMetadata(orderId, { id_empleado: employeeId });
     return getPurchaseOrderDetail(orderId);
   }
 
+  header.endDate = normalizeDateInput(endDateInput);
+  const initialStatus = input.status ?? orderInput.status ?? 'borrador';
+  const requestedStartDate = input.startDate ?? orderInput.startDate;
+  const initialStartDate = initialStatus === 'aprobado'
+    ? normalizeDateInput(requestedStartDate || emissionDateFor())
+    : null;
   const created = addDocument({
     ...header,
-    status: input.status || orderInput.status || 'borrador'
+    startDate: initialStartDate,
+    status: initialStatus
   });
+  if (initialStatus !== 'aprobado') setOrderStartDate(created.id, null);
   try {
     replaceOrderLines(created.id, lines);
     upsertOrderMetadata(created.id, { id_empleado: employeeId });

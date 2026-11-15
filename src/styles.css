@@ -68,6 +68,10 @@ button.danger { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; }
 .order-totals { display:grid; gap:6px; margin-top:16px; padding:14px; border-radius:9px; background:var(--surface); border:1px solid var(--border); }
 .order-totals div { display:flex; justify-content:space-between; gap:20px; }
 .order-totals .order-total { padding-top:8px; border-top:1px solid var(--border); font-size:1.15rem; }
+.order-totals strong { font-variant-numeric:tabular-nums; }
+.document-form .read-only, .field[hidden] { display:none !important; }
+.date-masked, #endDate[placeholder="dd-mm-aaaa"] { font-variant-numeric:tabular-nums; letter-spacing:.03em; }
+.currency-readonly { background:var(--surface); color:var(--muted); }
 .order-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
 .order-actions .feedback { margin-left:auto; color:var(--muted); }
 .order-history ol { margin:0; padding-left:20px; display:grid; gap:8px; }
