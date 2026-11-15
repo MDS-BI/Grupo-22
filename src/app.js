@@ -8,6 +8,7 @@ import {
 } from './module-config.js';
 import {
   loadEmployees,
+  addEmployee,
   loadProducts,
   getLinesForOrder,
   getOrderMetadata,
@@ -49,6 +50,11 @@ import {
   transitionPermission
 } from './auth.js';
 import { init as initProductCatalog } from './product-catalog.js';
+import {
+  canViewCreditLimit,
+  documentLabel,
+  ensureRequesterEmployee
+} from './access-policy.js';
 import { renderDetail } from './purchase-order-detail.js';
 import { renderPrintable } from './purchase-order-print.js';
 import { renderLineEditor } from './purchase-order-lines.js';
@@ -137,6 +143,50 @@ function canUse(permission) {
 function showPermissionDenied(feedbackId = 'document-feedback') {
   const feedback = qs(feedbackId);
   if (feedback) feedback.textContent = PERMISSION_DENIED;
+}
+
+function syncCreditLimitVisibility() {
+  const input = qs('creditLimit');
+  if (!input) return;
+  const field = input.closest('.field');
+  const hidden = !canViewCreditLimit(activeSession);
+  input.disabled = hidden;
+  if (field) {
+    field.hidden = hidden;
+    field.classList.toggle('credit-limit-hidden', hidden);
+    field.setAttribute('aria-hidden', String(hidden));
+  }
+}
+
+function syncRequesterControl() {  const select = qs('document-employee');
+  if (!select) return;
+  const field = select.closest('.field');
+  const readOnly = activeSession?.role === 'comprador';
+  if (readOnly) {
+    const own = ensureRequesterEmployee({
+      session: activeSession,
+      employees: loadEmployees(),
+      createEmployee: addEmployee
+    });
+    const ownId = own ? (own.id_empleado || own.id) : '';
+    if (ownId) {
+      if (![...select.options].some(option => option.value === ownId)) {
+        const option = document.createElement('option');
+        option.value = ownId;
+        option.textContent = own.nombre || own.name || '';
+        select.appendChild(option);
+      }
+      select.value = ownId;
+    }
+  }
+  select.disabled = readOnly;
+  select.setAttribute('aria-readonly', String(readOnly));
+  if (field) field.classList.toggle('read-only-employee', readOnly);
+}
+
+function syncDocumentTypeLabel(status = '') {
+  const label = qs('document-type-label');
+  if (label) label.textContent = documentLabel(status || 'borrador');
 }
 
 function allowedNextStatuses(status) {
@@ -315,6 +365,9 @@ function relabel() {
   if (qs('entity-table-rubro-heading')) qs('entity-table-rubro-heading').textContent = labels.supplierCategories || labels.categories;
   if (qs('search-rubros-label')) qs('search-rubros-label').textContent = labels.supplierCategories || labels.categories;
   if (qs('entities-filter-rubros-label')) qs('entities-filter-rubros-label').textContent = labels.supplierCategories || labels.categories;
+  syncCreditLimitVisibility();
+  syncRequesterControl();
+  syncDocumentTypeLabel(qs('status')?.value);
   setDocumentNavigationLabel();
 }
 
@@ -492,6 +545,8 @@ function clearDocumentForm() {
   }
   draftLines = [];
   currentOrderId = null;
+  syncDocumentTypeLabel('borrador');
+  syncRequesterControl();
   setDocumentFormReadOnly(false);
   clearLineInputs();
   if (isPurchasing()) syncDraftPricing({ preserveCurrency: false, preserveTerms: false });
@@ -572,6 +627,7 @@ function renderDocumentEntityOptions() {
     loadEmployees().map(employee => `<option value="${escapeHtml(employee.id_empleado || employee.id)}">${escapeHtml(employee.nombre || employee.name || '')}</option>`).join('');
   qs('document-entity').value = selectedEntity;
   qs('document-employee').value = selectedEmployee;
+  syncRequesterControl();
   renderLineProductOptions();
 }
 
@@ -1115,9 +1171,9 @@ function collectEntity() {
   const data = {
     name: qs('name').value, code: qs('code').value,
     email: qs('email').value, phone: qs('phone').value, address: qs('address').value,
-    creditLimit: qs('creditLimit').value,
     paymentTerms: qs('paymentTerms').value
   };
+  if (canViewCreditLimit(activeSession)) data.creditLimit = qs('creditLimit').value;
   if (isPurchasing()) {
     data.origin = qs('origin')?.value ?? '';
     data.foreignTaxId = qs('foreignTaxId')?.value ?? '';
@@ -1221,7 +1277,9 @@ function loadDocumentIntoForm(document) {
   qs('document-submit-button').textContent = `Actualizar ${config.labels.document}`;
   qs('document-feedback').textContent = isTerminalStatus(document.status)
     ? purchasingErrorMessage('ORDER_TERMINAL')
-    : metadata ? '' : 'Orden histórica sin empleado solicitante; selecciona un empleado para volver a guardarla.';
+    : metadata ? '' : 'Orden hist��rica sin empleado solicitante; selecciona un empleado para volver a guardarla.';
+  syncDocumentTypeLabel(document.status);
+  syncRequesterControl();
 }
 
 function addRubroFromForm() {
@@ -1256,6 +1314,7 @@ function bindEvents() {
       return;
     }
     clearEntityForm();
+    syncCreditLimitVisibility();
     showView('entities');
     openSidePanel({
       title: `Agregar ${config.labels.entity}`,
@@ -1270,6 +1329,8 @@ function bindEvents() {
       return;
     }
     clearDocumentForm();
+    syncRequesterControl();
+    syncDocumentTypeLabel('borrador');
     showView('documents');
     openSidePanel({
       title: `Agregar ${config.labels.document}`,

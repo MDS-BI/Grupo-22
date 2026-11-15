@@ -14,6 +14,17 @@ import {
   ensureRubro
 } from './storage.js';
 import {
+  PERMISSIONS,
+  PERMISSION_DENIED_MESSAGE,
+  can,
+  getSession,
+  normalizeUserId,
+  transitionPermission
+} from './auth.js';
+import {
+  resolveRequesterForSave
+} from './access-policy.js';
+import {
   calculateOrderTotals,
   validatePurchaseOrderLine,
   getAvailableActions,
@@ -197,6 +208,40 @@ function requireEditable(order) {
   if (isTerminalStatus(order.status)) throw createPurchasingError('ORDER_TERMINAL');
 }
 
+function permissionDenied() {
+  const error = new Error(PERMISSION_DENIED_MESSAGE);
+  error.code = 'PERMISSION_DENIED';
+  return error;
+}
+
+function assertPermission(permission, session) {
+  if (session && (!permission || !can(permission, session))) throw permissionDenied();
+}
+
+function ownEmployeeId(session) {
+  if (!session) return '';
+  const userId = normalizeUserId(session.userId);
+  const employee = loadEmployees().find(item => normalizeUserId(item.userId ?? item.user_id) === userId);
+  return employee ? (employee.id_empleado || employee.id) : '';
+}
+
+function assertOrderMutationAllowed(order, session) {
+  if (!session || session.role !== 'comprador') return;
+  if (order.status !== 'borrador') throw permissionDenied();
+  const employeeId = getOrderMetadata(order.id)?.id_empleado;
+  const ownId = ownEmployeeId(session);
+  if (!ownId || employeeId !== ownId) throw permissionDenied();
+}
+
+function assertTransitionAllowed(order, nextStatus, session) {
+  if (!session) return;
+  assertPermission(transitionPermission(nextStatus, order.status), session);
+  if (session.role !== 'comprador') return;
+  const employeeId = getOrderMetadata(order.id)?.id_empleado;
+  const ownId = ownEmployeeId(session);
+  if (!ownId || employeeId !== ownId) throw permissionDenied();
+}
+
 function productIdOf(line) {
   return line.id_producto || line.productId;
 }
@@ -272,6 +317,11 @@ export function getLinesForOrder(orderId) {
 
 export function replaceOrderLines(orderId, lines, options = {}) {
   const order = requireOrder(orderId);
+  const session = getSession();
+  if (!options.skipAccessCheck) {
+    assertPermission(PERMISSIONS.DOCUMENTS_UPDATE, session);
+    assertOrderMutationAllowed(order, session);
+  }
   if (!options.allowTerminal) requireEditable(order);
   const normalized = validateLinesForOrder(orderId, lines);
   if (normalized.length === 0) throw createPurchasingError('NO_LINES');
@@ -288,6 +338,9 @@ export function addPurchaseOrderLine(line) {
   const orderId = line.id_orden_compra || line.orderId;
   if (!orderId) throw createPurchasingError('ORDER_NOT_FOUND');
   const order = requireOrder(orderId);
+  const session = getSession();
+  assertPermission(PERMISSIONS.DOCUMENTS_UPDATE, session);
+  assertOrderMutationAllowed(order, session);
   requireEditable(order);
   const existing = getLinesForOrder(orderId);
   const result = validateLineForOrder(line, existing);
@@ -498,7 +551,7 @@ export function recoverTransactions() {
 function transitionSnapshot(order, nextStatus, change, timestamp) {
   const before = snapshotState();
   const orderPatch = { status: nextStatus, updatedAt: timestamp };
-  if (nextStatus === 'aprobado') orderPatch.startDate = emissionDateFor(timestamp);
+  if (nextStatus === 'aprobado' && !order.startDate) orderPatch.startDate = emissionDateFor(timestamp);
   return {
     before,
     after: {
@@ -513,6 +566,7 @@ function transitionSnapshot(order, nextStatus, change, timestamp) {
 
 export function changeOrderStatus(orderId, nextStatus, changedAt = now()) {
   const order = requireOrder(orderId);
+  assertTransitionAllowed(order, nextStatus, getSession());
   if (nextStatus === 'recibido') return receivePurchaseOrder(orderId, changedAt);
   const lines = getLinesForOrder(orderId);
   const validLines = lines.filter(line => validateLineForOrder(line, []).valid);
@@ -540,6 +594,7 @@ export function changeOrderStatus(orderId, nextStatus, changedAt = now()) {
 
 export function receivePurchaseOrder(orderId, changedAt = now()) {
   const order = requireOrder(orderId);
+  assertTransitionAllowed(order, 'recibido', getSession());
   const metadata = getOrderMetadata(orderId);
   if (metadata?.stock_aplicado || order.status === 'recibido') {
     throw createPurchasingError('STOCK_ALREADY_APPLIED');
@@ -692,13 +747,32 @@ export function savePurchaseOrder(input = {}) {
   const lines = input.lines || input.items || input.orderLines || orderInput.lines || [];
   const metadataInput = input.metadata || {};
   const orderId = input.id || input.orderId || input.id_orden_compra || orderInput.id;
-  const employeeId =
+  const requestedInitialStatus = input.status ?? orderInput.status ?? 'borrador';
+  const session = getSession();
+  let current = null;
+  if (orderId) {
+    assertPermission(PERMISSIONS.DOCUMENTS_UPDATE, session);
+    current = requireOrder(orderId);
+    requireEditable(current);
+    assertOrderMutationAllowed(current, session);
+  } else if (session && !can(PERMISSIONS.DOCUMENTS_CREATE, session) && requestedInitialStatus === 'borrador') {
+    throw permissionDenied();
+  }
+  const requestedEmployeeId =
     input.id_empleado ||
     input.idEmpleado ||
     input.employeeId ||
     metadataInput.id_empleado ||
     orderInput.id_empleado ||
-    orderInput.idEmpleado;
+    orderInput.idEmpleado ||
+    '';
+  const employeeId = resolveRequesterForSave({
+    session,
+    requestedEmployeeId,
+    existingEmployeeId: current ? (getOrderMetadata(current.id)?.id_empleado || '') : '',
+    employees: loadEmployees(),
+    createEmployee: addEmployee
+  });
   if (!employeeId) {
     throw createPurchasingError('ORDER_INVALID', 'Debe seleccionar un empleado solicitante.');
   }
@@ -730,7 +804,6 @@ export function savePurchaseOrder(input = {}) {
   };
 
   if (orderId) {
-    const current = requireOrder(orderId);
     requireEditable(current);
     if (endDateInput === undefined || endDateInput === null || String(endDateInput).trim() === '') {
       endDateInput = current.endDate;
@@ -749,7 +822,7 @@ export function savePurchaseOrder(input = {}) {
   }
 
   header.endDate = normalizeDateInput(endDateInput);
-  const initialStatus = input.status ?? orderInput.status ?? 'borrador';
+  const initialStatus = requestedInitialStatus;
   const requestedStartDate = input.startDate ?? orderInput.startDate;
   const initialStartDate = initialStatus === 'aprobado'
     ? normalizeDateInput(requestedStartDate || emissionDateFor())
@@ -761,8 +834,8 @@ export function savePurchaseOrder(input = {}) {
   });
   if (initialStatus !== 'aprobado') setOrderStartDate(created.id, null);
   try {
-    replaceOrderLines(created.id, lines);
     upsertOrderMetadata(created.id, { id_empleado: employeeId });
+    replaceOrderLines(created.id, lines, { skipAccessCheck: true });
     return getPurchaseOrderDetail(created.id);
   } catch (error) {
     deleteLinesForOrder(created.id);
@@ -777,6 +850,9 @@ export const saveOrderWithLines = savePurchaseOrder;
 
 export function deletePurchaseOrder(orderId) {
   const order = requireOrder(orderId);
+  const session = getSession();
+  assertPermission(PERMISSIONS.DOCUMENTS_DELETE, session);
+  assertOrderMutationAllowed(order, session);
   deleteLinesForOrder(orderId);
   deleteOrderMetadata(orderId);
   saveStatusHistory(loadStatusHistory().filter(record => record.id_orden_compra !== orderId));

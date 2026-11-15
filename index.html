@@ -193,12 +193,13 @@
   <template id="document-form-template">
     <form id="document-form" class="panel-form" novalidate>
       <h2 id="document-form-heading">Agregar / Editar Orden de Compra</h2>
+      <p class="document-type-label" id="document-type-label">Solicitud de compra</p>
       <input type="hidden" id="document-id">
       <section class="form-section" data-form-section="header">
         <h3>Cabecera</h3>
         <div class="form-grid">
           <div class="field"><label for="document-entity" id="document-entity-label">Proveedor</label><select id="document-entity"></select><small class="field-error" aria-live="polite" id="error-document-entity"></small></div>
-          <div class="field"><label for="document-employee" id="document-employee-label">Empleado solicitante</label><select id="document-employee"></select><small class="field-error" aria-live="polite" id="error-document-employee"></small></div>
+          <div class="field" id="document-employee-field"><label for="document-employee" id="document-employee-label">Empleado solicitante</label><select id="document-employee" data-readonly-employee="false"></select><small class="field-error" aria-live="polite" id="error-document-employee"></small></div>
           <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" aria-live="polite" id="error-folio"></small></div>
           <div class="field"><label for="endDate" id="endDate-label">Fecha de entrega</label><input id="endDate" type="date"><small class="field-help" id="endDate-help" hidden>Formato dd-mm-aaaa</small><small class="field-error" aria-live="polite" id="error-endDate"></small></div>
           <div class="field"><label for="currency">Moneda</label><input id="currency"></div>
@@ -208,7 +209,7 @@
       <section class="form-section" data-form-section="legacy" id="document-legacy-fields">
         <h3>Totales</h3>
         <div class="form-grid">
-          <div class="field"><label for="startDate" id="startDate-label">Fecha de emisión</label><input id="startDate" type="date"><small class="field-error" aria-live="polite" id="error-startDate"></small></div>
+          <div class="field"><label for="startDate" id="startDate-label">Fecha de emisión</label><input id="startDate" type="date" data-emission-date="true"><small class="field-error" aria-live="polite" id="error-startDate"></small></div>
           <div class="field"><label for="quantity">Cantidad</label><input id="quantity" type="number"><small class="field-error" aria-live="polite" id="error-quantity"></small></div>
           <div class="field"><label for="subtotal">Subtotal</label><input id="subtotal" type="number"><small class="field-error" aria-live="polite" id="error-subtotal"></small></div>
           <div class="field"><label for="discount">Descuento</label><input id="discount" type="number"><small class="field-error" aria-live="polite" id="error-discount"></small></div>
@@ -238,7 +239,7 @@
       <div class="panel-form-actions">
         <button class="primary" type="submit" id="document-submit-button">Guardar Orden de Compra</button>
       </div>
-      <div class="document-feedback" id="document-feedback" aria-live="polite"></div>
+      <div class="document-feedback" id="document-feedback" aria-live="polite" data-feedback-container="document"></div>
     </form>
   </template>
 

@@ -1,4 +1,5 @@
 import { getPurchaseOrderDetail } from './purchasing-storage.js';
+import { documentLabel } from './access-policy.js';
 import { calculateLineSubtotal, calculateOrderTotals, getAvailableActionItems, actionLabel } from './domain/purchasing.js';
 import { icon } from './ui-icons.js';
 
@@ -77,12 +78,13 @@ export function renderDetail(detailOrId, options = {}) {
   const statusBadge = options.renderStatus
     ? options.renderStatus(order.status)
     : `<span class="status-badge">${escape(order.status || '')}</span>`;
+  const typeLabel = documentLabel(order.status);
 
   const header = qs('order-detail-view');
   if (header) {
     header.innerHTML = `
       <div class="page-heading">
-        <div><span class="eyebrow">Detalle de orden</span><h1>Folio ${escape(order.folio)}</h1></div>
+        <div><span class="eyebrow">${escape(typeLabel)}</span><h1>${escape(typeLabel)} �� Folio ${escape(order.folio)}</h1></div>
       </div>
       ${detail.isLegacy ? '<p class="legacy-note">Orden histórica sin metadatos de extensión; el empleado se muestra como desconocido.</p>' : ''}
       <dl class="detail-header">

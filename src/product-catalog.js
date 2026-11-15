@@ -538,7 +538,7 @@ function bindContainer(container) {
     if (!tab) return;
     const tabs = [...container.querySelectorAll('[role="tab"]')];
     const index = tabs.indexOf(tab);
-    let nextIndex = index;
+    let nextIndex;
     if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
     else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
     else if (event.key === 'Home') nextIndex = 0;

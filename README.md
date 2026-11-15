@@ -251,3 +251,12 @@ El directorio se guarda en `erp_auth:users` y la sesión activa en `erp_auth:ses
 - Los datos se persisten en `localStorage` bajo las claves `erp_base_module:entities` y `erp_base_module:documents`.
 - Eliminar una entidad también elimina sus documentos (cascada).
 - Este proyecto usa intencionadamente HTML, CSS y JavaScript vanilla por simplicidad.
+
+### Ajustes post-revisión de autenticación y RBAC
+
+- La denominación del documento depende del estado: `borrador`, `pendiente` y `cancelado` se muestran como **Solicitud de compra**; `aprobado` y `recibido` como **Orden de Compra emitida**. El detalle y la impresión usan la misma etiqueta.
+- La fecha de emisión se completa automáticamente al aprobar una solicitud. Mientras el documento no esté aprobado se muestra **Sin emitir**.
+- El permiso `orders.reject` separa el rechazo de una solicitud `pendiente` de la cancelación de un `borrador`. El `comprador` conserva `orders.cancel` y `orders.submit`, pero no puede aprobar ni rechazar.
+- Para `comprador`, el empleado solicitante se asigna automáticamente por `userId`, queda de solo lectura y se crea una sola vez con el nombre y cargo del Usuario. `administrador` y `gerente` pueden seleccionarlo manualmente.
+- El `comprador` no ve el límite de crédito en formularios, listas, tarjetas, filtros, detalle, búsqueda, impresión ni notificaciones. El servicio conserva el valor persistido y rechaza intentos de creación o modificación con `PERMISSION_DENIED`.
+- Las guardas de servicio revalidan altas, ediciones, aprobación, rechazo y cancelación sin mutar estado, historial ni stock ante operaciones no autorizadas.

@@ -1,4 +1,6 @@
 import { getConfig, BASE_FIELDS, withArticle, withIndefiniteArticle } from './module-config.js';
+import { getSession } from './auth.js';
+import { sanitizeEntityPayload } from './access-policy.js';
 import {
   PAYMENT_TERMS,
   isValidPaymentTerm,
@@ -243,6 +245,7 @@ export function validateEntity(input = {}) {
 }
 
 export function addEntity(input) {
+  input = sanitizeEntityPayload(input, { session: getSession() });
   const result = validateEntity(input);
   if (!result.valid) throw new Error(Object.values(result.errors).join('. '));
   const timestamp = now();
@@ -283,7 +286,8 @@ export function addEntity(input) {
 export function updateEntity(id, updates) {
   const entities = loadEntities();
   const index = entities.findIndex(entity => entity.id === id);
-  if (index < 0) throw new Error(`No se encontró ${withArticle(getConfig().labels.entity)}`);
+  if (index < 0) throw new Error(`No se encontr� ${withArticle(getConfig().labels.entity)}`);
+  updates = sanitizeEntityPayload(updates, { session: getSession(), existing: entities[index] });
   const next = { ...entities[index], ...updates, id: entities[index].id, entity_id: entities[index].entity_id, updatedAt: now() };
   const config = getConfig();
   const allowed = new Set([...BASE_FIELDS.entity, ...config.customFields.filter(field => field.target === 'entity').map(field => field.key)]);

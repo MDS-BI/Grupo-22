@@ -171,9 +171,21 @@ describe('role-based permissions', () => {
   });
 
   it('maps workflow transitions to the matching permission', () => {
-    expect(auth.transitionPermission('pendiente')).toBe(auth.PERMISSIONS.ORDERS_SUBMIT);
-    expect(auth.transitionPermission('aprobado')).toBe(auth.PERMISSIONS.ORDERS_APPROVE);
-    expect(auth.transitionPermission('recibido')).toBe(auth.PERMISSIONS.ORDERS_RECEIVE);
-    expect(auth.transitionPermission('cancelado')).toBe(auth.PERMISSIONS.ORDERS_CANCEL);
+    expect(auth.transitionPermission('pendiente', 'borrador')).toBe(auth.PERMISSIONS.ORDERS_SUBMIT);
+    expect(auth.transitionPermission('aprobado', 'pendiente')).toBe(auth.PERMISSIONS.ORDERS_APPROVE);
+    expect(auth.transitionPermission('recibido', 'aprobado')).toBe(auth.PERMISSIONS.ORDERS_RECEIVE);
+    expect(auth.transitionPermission('cancelado', 'borrador')).toBe(auth.PERMISSIONS.ORDERS_CANCEL);
+    expect(auth.transitionPermission('cancelado', 'pendiente')).toBe(auth.PERMISSIONS.ORDERS_REJECT);
+    expect(auth.transitionPermission('cancelado')).toBeNull();
+  });
+
+  it('rejects missing origins and separates reject from cancel for the buyer', () => {
+    expect(auth.transitionPermission('pendiente')).toBeNull();
+    expect(auth.canTransitionTo('cancelado', 'comprador')).toBe(false);
+    expect(auth.canTransitionTo('cancelado', 'comprador', 'pendiente')).toBe(false);
+    expect(auth.canTransitionTo('cancelado', 'gerente', 'pendiente')).toBe(true);
+    expect(auth.canTransitionTo('cancelado', 'administrador', 'pendiente')).toBe(true);
+    expect(auth.canTransitionTo('cancelado', 'comprador', 'borrador')).toBe(true);
+    expect(auth.canTransitionTo('cancelado', 'gerente', 'borrador')).toBe(true);
   });
 });

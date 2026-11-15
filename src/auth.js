@@ -14,6 +14,7 @@ export const PERMISSIONS = Object.freeze({
   DOCUMENTS_DELETE: 'documents.delete',
   ORDERS_SUBMIT: 'orders.submit',
   ORDERS_APPROVE: 'orders.approve',
+  ORDERS_REJECT: 'orders.reject',
   ORDERS_RECEIVE: 'orders.receive',
   ORDERS_CANCEL: 'orders.cancel',
   PRODUCTS_VIEW: 'products.view',
@@ -50,6 +51,7 @@ export const ROLE_DEFINITIONS = Object.freeze({
       P.DOCUMENTS_DELETE,
       P.ORDERS_SUBMIT,
       P.ORDERS_APPROVE,
+      P.ORDERS_REJECT,
       P.ORDERS_RECEIVE,
       P.ORDERS_CANCEL,
       P.PRODUCTS_MANAGE
@@ -95,10 +97,11 @@ export const DEFAULT_USERS = Object.freeze([
 ]);
 
 const TRANSITION_PERMISSIONS = Object.freeze({
-  pendiente: P.ORDERS_SUBMIT,
-  aprobado: P.ORDERS_APPROVE,
-  recibido: P.ORDERS_RECEIVE,
-  cancelado: P.ORDERS_CANCEL
+  'borrador->pendiente': P.ORDERS_SUBMIT,
+  'borrador->cancelado': P.ORDERS_CANCEL,
+  'pendiente->aprobado': P.ORDERS_APPROVE,
+  'pendiente->cancelado': P.ORDERS_REJECT,
+  'aprobado->recibido': P.ORDERS_RECEIVE
 });
 
 function now() {
@@ -193,8 +196,10 @@ export function can(permission, sessionOrRole) {
 }
 
 export function transitionPermission(nextStatus, fromStatus) {
-  if (nextStatus === 'cancelado' && fromStatus === 'pendiente') return P.ORDERS_APPROVE;
-  return TRANSITION_PERMISSIONS[nextStatus] || null;
+  const from = String(fromStatus ?? '').trim();
+  const next = String(nextStatus ?? '').trim();
+  if (!from || !next) return null;
+  return TRANSITION_PERMISSIONS[`${from}->${next}`] || null;
 }
 
 export function canTransitionTo(nextStatus, sessionOrRole, fromStatus) {

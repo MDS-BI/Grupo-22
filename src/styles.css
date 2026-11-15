@@ -184,6 +184,11 @@ button.danger { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; }
 .legacy-note { border-left-color:#d97706; }
 .feedback { min-height:18px; }
 .feedback:not(:empty) { color:#b91c1c; }
+.document-type-label { margin:0 0 12px; color:var(--muted); font-size:.85rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+.credit-limit-hidden,
+[aria-hidden="true"].credit-limit-hidden { display:none !important; }
+.read-only-employee select { background:color-mix(in srgb,var(--border) 35%,white); color:var(--muted); cursor:not-allowed; }
+.read-only-employee::after { content:"Empleado asignado automaticamente"; display:block; margin-top:4px; color:var(--muted); font-size:.78rem; }
 @media(max-width:800px) {
   .side-panel { width:100vw; }
   .side-panel-body { padding:16px; }

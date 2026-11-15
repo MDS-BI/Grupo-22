@@ -1,4 +1,5 @@
 import { getPurchaseOrderDetail } from './purchasing-storage.js';
+import { documentLabel } from './access-policy.js';
 import { getConfig } from './module-config.js';
 import { calculateLineSubtotal, calculateOrderTotals } from './domain/purchasing.js';
 import { formatHistoryDate } from './purchase-order-detail.js';
@@ -55,6 +56,7 @@ export function renderPrintable(detailOrId, options = {}) {
   const supplierName = supplier.name || supplier.nombre || '';
   const supplierCode = supplier.code || supplier.rut || '';
   const stockApplied = Boolean(detail.stockApplied || detail.metadata?.stock_aplicado);
+  const typeLabel = documentLabel(order.status);
   const container = qs('print-order-view');
   if (!container) return detail;
 
@@ -62,7 +64,7 @@ export function renderPrintable(detailOrId, options = {}) {
     <article class="print-document">
       <header>
         <p class="eyebrow">${escape(config.moduleName)}</p>
-        <h1>${escape(config.labels.document)} · Folio ${escape(order.folio)}</h1>
+        <h1>${escape(typeLabel)} · Folio ${escape(order.folio)}</h1>
       </header>
       <dl class="print-meta">
         <div><dt>Proveedor</dt><dd>${escape(supplierName)}</dd></div>
@@ -108,6 +110,7 @@ export function renderPrintable(detailOrId, options = {}) {
           : '<p>Sin cambios de estado registrados.</p>'}
         ${stockApplied ? '<p>Recepción aplicada al stock de los productos.</p>' : ''}
       </section>
+      <footer class="print-footer">Sistema de Orden de Compra</footer>
     </article>`;
   return detail;
 }
