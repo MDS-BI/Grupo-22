@@ -284,6 +284,43 @@
 
 ---
 
+## Phase 11: Datos de demostración completos
+
+**Purpose**: Completar el conjunto de demostración para que cubra usuarios de prueba por rol, proveedores, productos y órdenes realistas, con sustitución segura y verificación de permisos por cargo.
+
+**Prerequisites**: Fases 1-10 completadas y 004 implementado con su matriz de permisos. La acción "Cargar datos de demostración", la confirmación compartida y el filtro "Solo mis OC" se implementan sobre los módulos existentes sin cambiar claves, estados ni transiciones de 001/002/004.
+
+**Nota de precedencia**: Esta fase implementa FR-075 a FR-089 y, en caso de conflicto, prevalece sobre las tareas y supuestos aditivos de US5 y la Fase 7. No se renumera, reordena ni desmarca ninguna tarea existente. La carga con datos existentes pasa a ser sustitutiva y atómica.
+
+### Tests for Phase 11
+
+- [ ] T092 [P] Ampliar `tests/unit/purchasing-demo-data.test.js` para verificar el dataset completo: 8 proveedores ficticios con 6 RUT nacionales válidos por módulo 11 y únicos más 2 extranjeros con identificación tributaria, al menos 3 Rubros con uno multirrubro y al menos 3 condiciones de pago; 5 categorías; 15 productos con unidad de medida y stock variado, al menos 2 en 0 tras las recepciones y al menos 3 valores positivos distintos; 12 órdenes con al menos una por estado, al menos 2 atrasadas, 1 extranjera en USD sin IVA y al menos 3 solicitantes distintos.
+- [ ] T093 [P] Escribir pruebas unitarias de usuarios de prueba y vínculos en `tests/unit/purchasing-demo-users.test.js`: un usuario activo por cada rol de 004, identificadores estables y únicos, cargo visible alineado con el rol, un empleado propio por usuario sin reutilización por nombre, vínculo reutilizado por el Comprador sin duplicar el empleado y usuarios no de prueba preservados.
+- [ ] T094 [P] Escribir pruebas de integración de la tabla "Usuarios de prueba" en la pantalla de ingreso en `tests/integration/purchasing-demo-login-table.test.js`: ausente sin datos de demostración, visible con una fila por rol después de cargar, columnas de identificador y cargo, semántica de tabla accesible, sin credenciales y actualizada tras una sustitución.
+- [ ] T095 [P] Escribir pruebas de integración de la sustitución segura en `tests/integration/purchasing-demo-replace.test.js`: carga sin confirmación en entorno vacío; confirmación con las acciones "Reemplazar por datos de demostración" y "Cancelar" cuando hay datos; Cancelar, Esc y cierre sin mutaciones ni cambios de sesión; reemplazo que elimina proveedores, órdenes, productos, empleados, categorías, rubros y usuarios de prueba previos sin mezclar; conteos exactos y repetibles; fallo inyectado que restaura el conjunto previo y muestra error persistente sin falso éxito.
+- [ ] T096 [P] Escribir pruebas de integración de ingreso y matriz de permisos por cargo en `tests/integration/purchasing-demo-users-rbac.test.js`: tras cargar la demo con un rol autorizado, cada usuario de prueba puede iniciar sesión y comprobar en administrador, gerente, comprador, bodeguero y consulta las vistas, "+ Nuevo", formularios, acciones de fila, transiciones, impresión y gestión de productos/stock permitidas; además, verificar que las acciones forzadas sin permiso se rechazan sin mutar datos y que el Comprador solo ve sus propias OC con "Solo mis OC".
+- [ ] T097 [P] Ampliar `tests/unit/purchasing-list-query.test.js` con el filtro "Solo mis OC": coincidencia por empleado propio, combinación con estado, proveedor, rango de entrega y atraso, orden estable, no mutación y resultado vacío cuando el empleado propio no tiene órdenes.
+- [ ] T098 [P] Escribir pruebas de integración del filtro "Solo mis OC" en `tests/integration/purchasing-my-orders-filter.test.js`: control visible solo para el Comprador, etiqueta y foco accesibles, subconjunto correcto, combinación con los demás filtros, resumen de filtro activo, "Limpiar filtros", ausencia de datos de otros solicitantes y sin cambios persistidos.
+
+### Implementation for Phase 11
+
+- [ ] T099 Implementar la creación o actualización de usuarios de prueba y sus vínculos en `src/purchasing-demo-data.js` y `src/auth.js`: un usuario activo por rol de 004 con identificador estable de prueba, cargo igual a la etiqueta del rol y vínculo `id_empleado`/`userId` con su empleado propio; conservar usuarios no de prueba, no crear roles ni claves y preservar el campo de vínculo en la normalización del directorio.
+- [ ] T100 Implementar el dataset maestro completo y determinista en `src/purchasing-demo-data.js`: 5 categorías, 15 productos con unidad y stock variado, 8 proveedores ficticios (6 nacionales con RUT válido por módulo 11 y únicos, 2 extranjeros), al menos 3 Rubros con uno multirrubro y al menos 3 condiciones de pago; asegurar que al menos 2 productos permanezcan en stock 0 después de las recepciones.
+- [ ] T101 Implementar las 12 órdenes de demostración en `src/purchasing-demo-data.js` con servicios y transiciones vigentes: distribución en todos los estados, al menos 2 atrasadas, 1 extranjera en USD sin IVA, al menos 3 solicitantes distintos con al menos 3 OC del empleado propio del Comprador y 3 de otros; fechas de emisión automáticas en aprobadas/recibidas, `stock_aplicado` y `appliedAt` en recibidas, y sin fecha de emisión en borrador/pendiente.
+- [ ] T102 Implementar la sustitución atómica en `src/purchasing-demo-data.js`, `src/storage.js`, `src/purchasing-storage.js` y `src/auth.js`: snapshot y restauración del conjunto previo del módulo y de los usuarios de prueba, borrado sin mezclar, conservación de usuarios no de prueba y de la sesión activa, y conteos exactos y repetibles.
+- [ ] T103 Integrar la confirmación condicional con las acciones "Reemplazar por datos de demostración" y "Cancelar" en `src/ui-feedback.js`, `src/app.js` e `index.html`, sin mutar nada antes de la decisión, cerrando con Esc y refrescando listas, panel y tabla de ingreso tras el éxito.
+- [ ] T104 Renderizar la tabla "Usuarios de prueba" en `index.html`, `src/app.js` y `src/styles.css`: caption y encabezados accesibles, filas de identificador y cargo, visible solo con datos de demostración, oculta sin ellos y actualizada tras cargar o reemplazar.
+- [ ] T105 Implementar el filtro "Solo mis OC" en `index.html`, `src/purchasing-list-query.js`, `src/purchasing-list-view.js` y `src/app.js`: control accesible solo para el Comprador, resolución del empleado propio según 004, combinación con los demás filtros, resumen, "Limpiar filtros" y revalidación sin mutar datos.
+- [ ] T106 Agregar estilos de la tabla "Usuarios de prueba", la confirmación de reemplazo y el filtro "Solo mis OC" en `src/styles.css`, con foco visible, contraste AA y adaptación a pantallas estrechas.
+- [ ] T107 Actualizar las pruebas y helpers afectados por la carga sustitutiva en `tests/helpers/purchasing-app.js`, `tests/integration/purchasing-demo-data.test.js`, `tests/integration/purchasing-rbac-003.test.js` y `tests/integration/auth-rbac.test.js`: reemplazar la expectativa aditiva, iniciar sesión con identificadores de prueba, ocultar la acción a roles sin permiso y conservar las pruebas de no regresión de claves, roles y transiciones.
+- [ ] T108 Ejecutar y corregir las pruebas específicas de la Fase 11 en `tests/unit/purchasing-demo-data.test.js`, `tests/unit/purchasing-demo-users.test.js`, `tests/unit/purchasing-list-query.test.js`, `tests/integration/purchasing-demo-login-table.test.js`, `tests/integration/purchasing-demo-replace.test.js`, `tests/integration/purchasing-demo-users-rbac.test.js` y `tests/integration/purchasing-my-orders-filter.test.js`.
+- [ ] T109 Actualizar `specs/003-purchasing-ux-improvements/quickstart.md` y `README.md` con el conjunto de demostración completo, los usuarios de prueba por rol, la sustitución segura y el filtro "Solo mis OC".
+- [ ] T110 Ejecutar `npm test -- --run`, `npm run build` y `npm run lint` desde `package.json`, y corregir regresiones de 001/002/003/004 antes de cerrar la fase.
+
+**Checkpoint**: La demo carga un conjunto completo y coherente, reemplaza sin mezclar, muestra los usuarios de prueba solo cuando corresponde y cada cargo opera únicamente dentro de su matriz de permisos.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -298,6 +335,7 @@
 - **US6 (Phase 8)**: depende de US1-US5.
 - **Polish (Phase 9)**: depende de todas las historias deseadas.
 - **Ajustes post-revisión (Phase 10)**: depende de Polish y de 001, 002 y 004 implementados con sus ajustes post-revisión.
+- **Datos de demostración completos (Phase 11)**: depende de la Fase 10 y de 004 implementado; reutiliza la confirmación compartida de la Fase 2 y los filtros de la Fase 4, y sustituye la carga aditiva de US5.
 
 ### User Story Dependencies
 
@@ -328,6 +366,7 @@
 - US6: T057 en paralelo con T058-T060; T057a tras T057.
 - Polish: T062 y T064 en paralelo; T070a-T070c en paralelo; T070d tras T070a-T070c.
 - Ajustes post-revisión: T071-T078a en paralelo; T079 antes de T080; T084, T086 y T087 pueden ejecutarse en paralelo solo si no comparten archivo; T088 tras T081-T087; T089-T091 al final.
+- Datos de demostración completos: T092-T098 en paralelo; T099 antes de T100/T101; T102 tras T099-T101; T103-T105 en paralelo sobre archivos distintos; T106 tras T103-T105; T107-T109 en paralelo; T110 al final.
 
 ---
 
@@ -406,6 +445,7 @@ Task: "Agregar estilos de foco/contraste en src/styles.css"
 7. US6 -> validar accesibilidad/responsive y entregar.
 8. Polish -> rendimiento, documentación y gates finales.
 9. Ajustes post-revisión -> restituir detalle propio, categorías, navegación, permisos y alineación con 001/002/004.
+10. Datos de demostración completos -> usuarios de prueba por rol, dataset completo, sustitución atómica y filtro "Solo mis OC".
 
 ### Parallel Team Strategy
 
@@ -428,4 +468,6 @@ Task: "Agregar estilos de foco/contraste en src/styles.css"
 - No usar `window.confirm`, `alert` ni `prompt` en la implementación final.
 - Ejecutar `npm test -- --run`, `npm run build` y `npm run lint` antes de cerrar.
 - Phase 10 no renumera, reordena ni desmarca tareas anteriores; conserva el historial de las fases 1-9.
+- Phase 11 no renumera ni desmarca tareas anteriores; la carga con datos existentes es sustitutiva, no aditiva, y los usuarios de prueba no crean roles, cargos ni permisos nuevos.
+- El filtro "Solo mis OC" no expone datos de otros solicitantes ni modifica los datos persistidos.
 - Ninguna tarea de 003 puede reintroducir campos retirados por 001/002 ni omitir los permisos de 004 en interfaz y servicio.

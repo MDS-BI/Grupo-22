@@ -510,4 +510,18 @@ export function clearAll() {
   saveRubros([]);
 }
 
+export function snapshotBaseData() {
+  return {
+    entities: read(ENTITY_KEY),
+    documents: read(DOCUMENT_KEY),
+    rubros: read(RUBRO_KEY)
+  };
+}
+
+export function restoreBaseData(snapshot = {}) {
+  if (Array.isArray(snapshot.entities)) saveEntities(snapshot.entities);
+  if (Array.isArray(snapshot.documents)) saveDocuments(snapshot.documents);
+  if (Array.isArray(snapshot.rubros)) saveRubros(snapshot.rubros);
+}
+
 export { normalizeRut, uid };

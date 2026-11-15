@@ -1,5 +1,6 @@
 export const AUTH_USERS_KEY = 'erp_auth:users';
 export const AUTH_SESSION_KEY = 'erp_auth:session';
+export const DEMO_USER_ID_PREFIX = 'DEMO-';
 export const PERMISSION_DENIED_MESSAGE = 'No tienes permisos para ejecutar esta acción.';
 
 export const PERMISSIONS = Object.freeze({
@@ -129,18 +130,28 @@ export function normalizeUserId(value) {
   return String(value ?? '').trim().toUpperCase();
 }
 
+export function isDemoUserId(value) {
+  return normalizeUserId(value).startsWith(DEMO_USER_ID_PREFIX);
+}
+
+export function isDemoUser(user) {
+  return isDemoUserId(user?.userId ?? user?.user_id ?? user?.id);
+}
+
 function normalizeUser(input) {
   if (!input || typeof input !== 'object') return null;
   const userId = normalizeUserId(input.userId ?? input.user_id ?? input.id);
   if (!/^[A-Z0-9._@-]{2,40}$/.test(userId)) return null;
   const requestedRole = String(input.role ?? input.rol ?? '').trim().toLowerCase();
   const role = ROLE_DEFINITIONS[requestedRole] ? requestedRole : 'consulta';
+  const employeeId = String(input.id_empleado ?? input.idEmpleado ?? '').trim();
   return {
     userId,
     nombre: String(input.nombre ?? input.name ?? userId).trim() || userId,
     cargo: String(input.cargo ?? input.position ?? '').trim(),
     role,
-    activo: input.activo !== false && input.active !== false
+    activo: input.activo !== false && input.active !== false,
+    ...(employeeId ? { id_empleado: employeeId } : {})
   };
 }
 
@@ -169,6 +180,44 @@ export function saveUsers(users = []) {
   const normalized = users.map(normalizeUser).filter(Boolean);
   writeJson(AUTH_USERS_KEY, normalized);
   return normalized;
+}
+
+export function loadDemoUsers() {
+  return loadUsers().filter(isDemoUser);
+}
+
+export function replaceDemoUsers(users = []) {
+  const retained = loadUsers().filter(user => !isDemoUser(user));
+  return saveUsers([...retained, ...users]);
+}
+
+function readRaw(key) {
+  try {
+    return globalThis.localStorage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeRaw(key, value) {
+  try {
+    if (value === null || value === undefined) globalThis.localStorage?.removeItem(key);
+    else globalThis.localStorage?.setItem(key, value);
+  } catch {
+    // Snapshot restoration is best-effort when storage itself is unavailable.
+  }
+}
+
+export function snapshotAuthData() {
+  return {
+    users: readRaw(AUTH_USERS_KEY),
+    session: readRaw(AUTH_SESSION_KEY)
+  };
+}
+
+export function restoreAuthData(snapshot = {}) {
+  if (Object.prototype.hasOwnProperty.call(snapshot, 'users')) writeRaw(AUTH_USERS_KEY, snapshot.users);
+  if (Object.prototype.hasOwnProperty.call(snapshot, 'session')) writeRaw(AUTH_SESSION_KEY, snapshot.session);
 }
 
 export function findUser(userId) {
@@ -218,6 +267,7 @@ export function login(userId) {
     userId: user.userId,
     nombre: user.nombre,
     role: user.role,
+    ...(user.id_empleado ? { id_empleado: user.id_empleado } : {}),
     loginAt: now()
   };
   writeJson(AUTH_SESSION_KEY, session);
@@ -236,9 +286,12 @@ export function getSession() {
     userId: user.userId,
     nombre: user.nombre,
     role: user.role,
+    ...(user.id_empleado ? { id_empleado: user.id_empleado } : {}),
     loginAt: stored.loginAt || now()
   };
-  if (stored.role !== session.role || stored.nombre !== session.nombre) writeJson(AUTH_SESSION_KEY, session);
+  if (stored.role !== session.role || stored.nombre !== session.nombre || stored.id_empleado !== session.id_empleado) {
+    writeJson(AUTH_SESSION_KEY, session);
+  }
   return session;
 }
 

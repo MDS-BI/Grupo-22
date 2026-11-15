@@ -87,6 +87,7 @@
             <div class="field"><label for="documents-filter-from">Fecha desde</label><input id="documents-filter-from" type="date"></div>
             <div class="field"><label for="documents-filter-to">Fecha hasta</label><input id="documents-filter-to" type="date"></div>
             <div class="field checkbox-field"><input id="documents-filter-overdue" type="checkbox"><label for="documents-filter-overdue">Solo atrasadas</label></div>
+            <div class="field checkbox-field" id="documents-filter-mine-field" hidden><input id="documents-filter-mine" type="checkbox"><label for="documents-filter-mine">Solo mis OC</label></div>
             <button type="button" class="secondary" id="documents-filter-clear" data-action="clear-document-filters" hidden>Limpiar filtros</button>
           </div>
           <p class="filter-summary" id="document-filter-summary" aria-live="polite"></p>
@@ -133,6 +134,16 @@
       </section>
     </main>
   </div>
+  <div class="confirm-backdrop" id="confirm-dialog" hidden>
+    <section class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message">
+      <h2 id="confirm-dialog-title">Confirmar acción</h2>
+      <p id="confirm-dialog-message"></p>
+      <div class="confirm-actions">
+        <button type="button" class="secondary" id="confirm-dialog-cancel">Cancelar</button>
+        <button type="button" class="danger" id="confirm-dialog-accept">Aceptar</button>
+      </div>
+    </section>
+  </div>
   <section class="auth-gate" id="auth-gate" hidden>
     <div class="auth-card">
       <span class="eyebrow">Acceso al sistema</span>
@@ -146,9 +157,13 @@
         <small class="field-error" id="login-error" aria-live="polite"></small>
         <button class="primary" type="submit" id="login-submit">Ingresar</button>
       </form>
-      <div class="auth-hints">
-        <strong>Usuarios de demostración</strong>
-        <ul id="login-user-hints"></ul>
+      <div class="auth-hints" id="demo-users-hints" hidden>
+        <strong>Usuarios de prueba</strong>
+        <table class="demo-users-table">
+          <caption>Usuarios de prueba disponibles para iniciar sesión</caption>
+          <thead><tr><th scope="col">Identificador</th><th scope="col">Cargo</th></tr></thead>
+          <tbody id="login-demo-users-body"></tbody>
+        </table>
       </div>
     </div>
   </section>

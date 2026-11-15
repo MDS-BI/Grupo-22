@@ -85,6 +85,7 @@ function record(listKey, data, prefix) {
 }
 
 export const loadEmployees = () => read(KEYS.employees);
+export const saveEmployees = employees => write(KEYS.employees, employees);
 export const addEmployee = data => record('employees', data, 'employee');
 
 export function deleteEmployee(employeeId) {
@@ -102,6 +103,7 @@ export function deleteEmployee(employeeId) {
 }
 
 export const loadCategories = () => read(KEYS.categories);
+export const saveCategories = categories => write(KEYS.categories, categories);
 
 function assertUniqueCategoryName(name, ignoreId = null) {
   const normalized = String(name ?? '').trim().toLowerCase();
@@ -193,6 +195,20 @@ export const loadStatusHistory = () => read(KEYS.statusHistory);
 export const saveStatusHistory = history => write(KEYS.statusHistory, history);
 export const loadTransactions = () => read(KEYS.transactions);
 export const saveTransactions = transactions => write(KEYS.transactions, transactions);
+
+export function snapshotPurchasingData() {
+  return Object.fromEntries(Object.entries(KEYS).map(([name, key]) => [name, read(key)]));
+}
+
+export function restorePurchasingData(snapshot = {}) {
+  for (const [name, key] of Object.entries(KEYS)) {
+    if (Array.isArray(snapshot[name])) write(key, snapshot[name]);
+  }
+}
+
+export function clearPurchasingData() {
+  for (const key of Object.values(KEYS)) write(key, []);
+}
 
 function findOrder(orderId) {
   return loadDocuments().find(document => document.id === orderId);
