@@ -74,6 +74,9 @@ export function renderDetail(detailOrId, options = {}) {
     ? availableActions.filter(action => options.allowedNextStatuses.includes(action.nextStatus))
     : availableActions;
   const stockApplied = Boolean(detail.stockApplied || detail.metadata?.stock_aplicado);
+  const statusBadge = options.renderStatus
+    ? options.renderStatus(order.status)
+    : `<span class="status-badge">${escape(order.status || '')}</span>`;
 
   const header = qs('order-detail-view');
   if (header) {
@@ -88,7 +91,7 @@ export function renderDetail(detailOrId, options = {}) {
         <div><dt>Empleado solicitante</dt><dd>${escape(employeeName)}</dd></div>
         <div><dt>Fecha de emisión</dt><dd>${escape(emissionDate)}</dd></div>
         <div><dt>Fecha de entrega</dt><dd>${escape(formatDate(order.endDate))}</dd></div>
-        <div><dt>Estado</dt><dd><span class="status-badge">${escape(order.status || '')}</span></dd></div>
+        <div><dt>Estado</dt><dd>${statusBadge}</dd></div>
         <div><dt>Condición de pago</dt><dd>${escape(order.paymentTerms || '')}</dd></div>
         <div><dt>Moneda</dt><dd>${escape(currencyCode)}</dd></div>
         <div><dt>Stock aplicado</dt><dd class="${stockApplied ? 'stock-applied' : ''}">${stockApplied ? 'Sí' : 'No'}</dd></div>
@@ -137,7 +140,7 @@ export function renderDetail(detailOrId, options = {}) {
       ${actions
         .map(action => `<button type="button" class="secondary" data-action="transition" data-next-status="${escape(action.nextStatus)}">${icon('check', { className: 'ui-icon' })}${escape(action.label || actionLabel(action.nextStatus))}</button>`)
         .join('')}
-      <button type="button" class="secondary" data-action="close-order-detail">${icon('back', { className: 'ui-icon' })}Volver a la lista</button>
+      <button type="button" class="secondary" data-action="close-order-detail">${icon('back', { className: 'ui-icon' })}${escape(options.backLabel || 'Volver a la lista')}</button>
       <span class="feedback" aria-live="polite"></span>`;
   }
 

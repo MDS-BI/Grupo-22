@@ -91,7 +91,40 @@ export function deleteEmployee(employeeId) {
 }
 
 export const loadCategories = () => read(KEYS.categories);
-export const addCategory = data => record('categories', data, 'category');
+
+function assertUniqueCategoryName(name, ignoreId = null) {
+  const normalized = String(name ?? '').trim().toLowerCase();
+  const duplicate = loadCategories().some(category => {
+    const id = category.id_categoria || category.id;
+    return id !== ignoreId && String(category.nombre || category.name || '').trim().toLowerCase() === normalized;
+  });
+  if (duplicate) {
+    const error = new Error('Ya existe una categoría con ese nombre.');
+    error.code = 'CATEGORY_DUPLICATE';
+    throw error;
+  }
+}
+
+export function addCategory(data) {
+  const nombre = String(data?.nombre ?? data?.name ?? '').trim();
+  if (!nombre) throw createPurchasingError('CATEGORY_INVALID', 'El nombre de la categoría es obligatorio.');
+  assertUniqueCategoryName(nombre);
+  return record('categories', { ...data, nombre }, 'category');
+}
+
+export function updateCategory(categoryId, data = {}) {
+  const categories = loadCategories();
+  const index = categories.findIndex(category => (category.id_categoria || category.id) === categoryId);
+  if (index < 0) throw createPurchasingError('CATEGORY_NOT_FOUND', 'No se encontró la categoría.');
+  const current = categories[index];
+  const nombre = String(data.nombre ?? data.name ?? current.nombre ?? current.name ?? '').trim();
+  if (!nombre) throw createPurchasingError('CATEGORY_INVALID', 'El nombre de la categoría es obligatorio.');
+  assertUniqueCategoryName(nombre, categoryId);
+  const next = { ...current, ...data, nombre, updatedAt: now() };
+  categories[index] = next;
+  write(KEYS.categories, categories);
+  return next;
+}
 
 export function deleteCategory(categoryId) {
   const referenced = loadProducts().some(product => product.id_categoria === categoryId);

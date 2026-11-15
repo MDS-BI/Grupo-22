@@ -192,12 +192,13 @@ export function can(permission, sessionOrRole) {
   return permissionsFor(role).has(permission);
 }
 
-export function transitionPermission(nextStatus) {
+export function transitionPermission(nextStatus, fromStatus) {
+  if (nextStatus === 'cancelado' && fromStatus === 'pendiente') return P.ORDERS_APPROVE;
   return TRANSITION_PERMISSIONS[nextStatus] || null;
 }
 
-export function canTransitionTo(nextStatus, sessionOrRole) {
-  const permission = transitionPermission(nextStatus);
+export function canTransitionTo(nextStatus, sessionOrRole, fromStatus) {
+  const permission = transitionPermission(nextStatus, fromStatus);
   return permission ? can(permission, sessionOrRole) : false;
 }
 

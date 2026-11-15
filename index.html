@@ -33,105 +33,78 @@
           <button id="action-new-document"><span class="action-icon" data-icon="plus"></span><strong id="action-new-document-title">Nueva Orden de Compra</strong></button>
           <button id="action-open-entities"><span class="action-icon" data-icon="suppliers"></span><strong id="action-open-entities-title">Gestionar Proveedores</strong></button>
           <button id="action-find"><span class="action-icon" data-icon="search"></span><strong id="action-find-title">Buscar</strong></button>
+          <button id="action-load-demo" class="demo-action"><span class="action-icon" data-icon="plus"></span><strong id="action-load-demo-title">Cargar datos de demostración</strong></button>
         </div>
+        <div id="demo-feedback" class="feedback" role="status" aria-live="polite"></div>
         <div class="stats-grid">
-          <article class="stat-card"><span id="stat-entities-label">Proveedores</span><strong id="stat-entities">0</strong></article>
-          <article class="stat-card"><span id="stat-documents-label">Órdenes de Compra</span><strong id="stat-documents">0</strong></article>
+          <article class="stat-card stat-card-button" id="stat-entities-card" tabindex="0" role="button" aria-label="Abrir Proveedores"><span id="stat-entities-label">Proveedores</span><strong id="stat-entities">0</strong></article>
+          <article class="stat-card stat-card-button" id="stat-documents-card" tabindex="0" role="button" aria-label="Abrir Órdenes de Compra"><span id="stat-documents-label">Órdenes de Compra</span><strong id="stat-documents">0</strong></article>
           <article class="stat-card stat-statuses"><span id="stat-statuses-label">Órdenes por estado</span><ul id="stat-status-breakdown" class="status-breakdown"></ul></article>
-          <article class="stat-card"><span>Atrasadas</span><strong id="stat-overdue">0</strong></article>
+          <article class="stat-card stat-card-button" id="stat-overdue-card" tabindex="0" role="button" aria-label="Ver órdenes atrasadas"><span>Atrasadas</span><strong id="stat-overdue">0</strong></article>
+          <article class="stat-card stat-card-button" id="stat-products-card" tabindex="0" role="button" aria-label="Abrir Productos"><span id="stat-products-label">Productos</span><strong id="stat-products">0</strong></article>
         </div>
       </section>
 
       <section id="view-entities" class="view" hidden>
-        <h1 id="entities-view-heading">Proveedores</h1>
-        <div class="two-column">
-          <form id="entity-form" novalidate>
-            <h2 id="entity-form-heading">Agregar / Editar Proveedor</h2>
-            <input type="hidden" id="entity-id">
-            <div class="field"><label for="name">Nombre</label><input id="name"><small class="field-error" aria-live="polite" id="error-name"></small></div>
-            <div class="field"><label for="code">RUT</label><input id="code"><small class="field-error" aria-live="polite" id="error-code"></small></div>
-            <div class="field"><label for="origin">Origen</label><select id="origin"><option value=""></option><option value="Nacional">Nacional</option><option value="Extranjero">Extranjero</option></select><small class="field-error" aria-live="polite" id="error-origin"></small></div>
-            <div class="field"><label for="foreignTaxId">Identificación tributaria extranjera</label><input id="foreignTaxId"><small class="field-error" aria-live="polite" id="error-foreignTaxId"></small></div>
-            <div class="field"><label for="email">Correo electrónico</label><input id="email" type="email"><small class="field-error" aria-live="polite" id="error-email"></small></div>
-            <div class="field"><label for="phone">Teléfono</label><input id="phone"></div>
-            <div class="field"><label for="address">Dirección</label><input id="address"></div>
-            <div class="field">
-              <label for="supplier-rubros" id="supplier-rubros-label">Rubros</label>
-              <select id="supplier-rubros" multiple size="4"></select>
-              <small class="field-error" aria-live="polite" id="error-rubro_ids"></small>
-              <div class="inline-control">
-                <input id="new-rubro-name" placeholder="Nuevo Rubro">
-                <button type="button" class="secondary" id="add-rubro-button">Agregar Rubro</button>
-              </div>
-            </div>
-            <div class="field"><label for="creditLimit">Límite de crédito</label><input id="creditLimit" type="number"><small class="field-error" aria-live="polite" id="error-creditLimit"></small></div>
-            <div class="field"><label for="paymentTerms">Condiciones de pago</label><input id="paymentTerms"><small class="field-error" aria-live="polite" id="error-paymentTerms"></small></div>
-            <div id="entity-custom-fields"></div>
-            <button class="primary" type="submit" id="entity-submit-button"><span id="submit-button">Guardar Proveedor</span></button>
-            <div class="entity-feedback" id="entity-feedback" aria-live="polite"></div>
-          </form>
-          <section>
-            <h2 id="edit-entity-heading">Editar o eliminar el proveedor</h2>
-            <div class="table-wrapper">
-              <table class="data-table" id="entity-table">
-                <thead><tr><th>Nombre</th><th>RUT</th><th id="entity-table-rubro-heading">Rubros</th><th>Condición de pago</th><th>Acciones</th></tr></thead>
-                <tbody id="entity-table-body"></tbody>
-              </table>
-            </div>
-          </section>
+        <div class="page-heading">
+          <div><span class="eyebrow">Directorio</span><h1 id="entities-view-heading">Proveedores</h1></div>
+          <button type="button" class="primary" id="entity-list-new" data-action="new-entity">+ Nuevo</button>
         </div>
+        <section class="list-section" aria-labelledby="edit-entity-heading">
+          <h2 id="edit-entity-heading">Editar o eliminar el proveedor</h2>
+          <div class="list-filters" id="entity-filters">
+            <div class="field"><label for="entities-filter-rubros" id="entities-filter-rubros-label">Rubros</label><select id="entities-filter-rubros" multiple size="3"></select></div>
+            <div class="field"><label for="entities-filter-origin">Origen</label><select id="entities-filter-origin"><option value="">Todos</option><option value="Nacional">Nacional</option><option value="Extranjero">Extranjero</option></select></div>
+            <button type="button" class="secondary" id="entities-filter-clear" data-action="clear-entity-filters" hidden>Limpiar filtros</button>
+          </div>
+          <p class="filter-summary" id="entity-filter-summary" aria-live="polite"></p>
+          <div class="table-wrapper">
+            <table class="data-table" id="entity-table">
+              <thead><tr>
+                <th data-sort-key="name" aria-sort="none"><button type="button" class="sort-button" data-sort="name">Nombre<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort-key="code" aria-sort="none"><button type="button" class="sort-button" data-sort="code">RUT<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th id="entity-table-rubro-heading" data-sort-key="rubros" aria-sort="none"><button type="button" class="sort-button" data-sort="rubros">Rubros<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort-key="origin" aria-sort="none"><button type="button" class="sort-button" data-sort="origin">Origen<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort-key="paymentTerms" aria-sort="none"><button type="button" class="sort-button" data-sort="paymentTerms">Condición de pago<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th>Acciones</th>
+              </tr></thead>
+              <tbody id="entity-table-body"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
       <section id="view-documents" class="view" hidden>
-        <h1 id="documents-view-heading">Órdenes de Compra</h1>
-        <div class="two-column">
-          <form id="document-form" novalidate>
-            <h2 id="document-form-heading">Agregar / Editar Orden de Compra</h2>
-            <input type="hidden" id="document-id">
-            <div class="field"><label for="document-entity" id="document-entity-label">Proveedor</label><select id="document-entity"></select><small class="field-error" aria-live="polite" id="error-document-entity"></small></div>
-            <div class="field"><label for="document-employee" id="document-employee-label">Empleado solicitante</label><select id="document-employee"></select><small class="field-error" aria-live="polite" id="error-document-employee"></small></div>
-            <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" aria-live="polite" id="error-folio"></small></div>
-            <div class="field"><label for="startDate" id="startDate-label">Fecha de emisión</label><input id="startDate" type="date"><small class="field-error" aria-live="polite" id="error-startDate"></small></div>
-            <div class="field"><label for="endDate" id="endDate-label">Fecha de entrega</label><input id="endDate" type="date"><small class="field-help" id="endDate-help" hidden>Formato dd-mm-aaaa</small><small class="field-error" aria-live="polite" id="error-endDate"></small></div>
-            <div class="field"><label for="quantity">Cantidad</label><input id="quantity" type="number"><small class="field-error" aria-live="polite" id="error-quantity"></small></div>
-            <div class="field"><label for="subtotal">Subtotal</label><input id="subtotal" type="number"><small class="field-error" aria-live="polite" id="error-subtotal"></small></div>
-            <div class="field"><label for="discount">Descuento</label><input id="discount" type="number"><small class="field-error" aria-live="polite" id="error-discount"></small></div>
-            <div class="field"><label for="taxAmount">Impuesto</label><input id="taxAmount" type="number"></div>
-            <div class="field"><label for="totalAmount">Importe total</label><input id="totalAmount" type="number"></div>
-            <div class="field"><label for="currency">Moneda</label><input id="currency"></div>
-            <div class="field"><label for="docPaymentTerms">Condiciones de pago</label><input id="docPaymentTerms"></div>
-            <div class="field"><label for="notes">Notas</label><input id="notes"></div>
-            <div class="field"><label for="status">Estado</label><select id="status"><option value=""></option></select></div>
-            <div id="document-custom-fields"></div>
-            <section class="order-line-editor" aria-labelledby="document-lines-heading">
-              <h2 id="document-lines-heading">Detalle de compra</h2>
-              <div class="line-editor-controls">
-                <div class="field"><label for="line-product">Producto</label><select id="line-product"></select><small class="field-error" aria-live="polite" id="error-line-product"></small></div>
-                <div class="field"><label for="line-quantity">Cantidad</label><input id="line-quantity" type="number" min="1" step="1"><small class="field-error" aria-live="polite" id="error-line-quantity"></small></div>
-                <div class="field"><label for="line-cost">Costo unitario</label><input id="line-cost" type="number" min="0" step="0.01"><small class="field-error" aria-live="polite" id="error-line-cost"></small></div>
-                <button type="button" class="secondary" id="add-line-button" data-action="add-line">Agregar línea</button>
-              </div>
-              <div class="table-wrapper">
-                <table class="data-table" id="document-lines-table">
-                  <thead><tr><th>Producto</th><th>Unidad</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th><th>Acciones</th></tr></thead>
-                  <tbody id="document-lines-body"></tbody>
-                </table>
-              </div>
-              <div id="document-totals" class="order-totals" aria-live="polite"></div>
-            </section>
-            <button class="primary" type="submit" id="document-submit-button">Guardar Orden de Compra</button>
-            <div class="document-feedback" id="document-feedback" aria-live="polite"></div>
-          </form>
-          <section>
-            <h2 id="edit-document-heading">Editar o eliminar la orden de compra</h2>
-            <div class="table-wrapper">
-              <table class="data-table" id="document-table">
-                <thead><tr><th>Folio</th><th>Proveedor</th><th>Fecha de entrega</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead>
-                <tbody id="document-table-body"></tbody>
-              </table>
-            </div>
-          </section>
+        <div class="page-heading">
+          <div><span class="eyebrow">Compras</span><h1 id="documents-view-heading">Órdenes de Compra</h1></div>
+          <button type="button" class="primary" id="document-list-new" data-action="new-document">+ Nuevo</button>
         </div>
+        <section class="list-section" aria-labelledby="edit-document-heading">
+          <h2 id="edit-document-heading">Editar o eliminar la orden de compra</h2>
+          <div class="list-filters" id="document-filters">
+            <div class="field"><label for="documents-filter-status">Estado</label><select id="documents-filter-status"><option value="">Todos</option></select></div>
+            <div class="field"><label for="documents-filter-entity">Proveedor</label><select id="documents-filter-entity"><option value="">Todos</option></select></div>
+            <div class="field"><label for="documents-filter-from">Fecha desde</label><input id="documents-filter-from" type="date"></div>
+            <div class="field"><label for="documents-filter-to">Fecha hasta</label><input id="documents-filter-to" type="date"></div>
+            <div class="field checkbox-field"><input id="documents-filter-overdue" type="checkbox"><label for="documents-filter-overdue">Solo atrasadas</label></div>
+            <button type="button" class="secondary" id="documents-filter-clear" data-action="clear-document-filters" hidden>Limpiar filtros</button>
+          </div>
+          <p class="filter-summary" id="document-filter-summary" aria-live="polite"></p>
+          <p class="filter-error" id="documents-filter-error" role="alert" hidden></p>
+          <div class="table-wrapper">
+            <table class="data-table" id="document-table">
+              <thead><tr>
+                <th data-sort-key="folio" aria-sort="none"><button type="button" class="sort-button" data-sort="folio">Folio<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort-key="entityName" aria-sort="none"><button type="button" class="sort-button" data-sort="entityName">Proveedor<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort-key="endDate" aria-sort="none"><button type="button" class="sort-button" data-sort="endDate">Fecha de entrega<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort-key="total" aria-sort="none"><button type="button" class="sort-button" data-sort="total">Total<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort-key="status" aria-sort="none"><button type="button" class="sort-button" data-sort="status">Estado<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th>Acciones</th>
+              </tr></thead>
+              <tbody id="document-table-body"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
       <section id="view-products" class="view" hidden>
@@ -179,6 +152,133 @@
       </div>
     </div>
   </section>
+
+  <template id="entity-form-template">
+    <form id="entity-form" class="panel-form" novalidate>
+      <h2 id="entity-form-heading">Agregar / Editar Proveedor</h2>
+      <input type="hidden" id="entity-id">
+      <section class="form-section" data-form-section="general">
+        <h3>Datos generales</h3>
+        <div class="form-grid">
+          <div class="field required"><label for="name">Nombre *</label><input id="name" required aria-required="true"><small class="field-error" aria-live="polite" id="error-name"></small></div>
+          <div class="field required"><label for="code">RUT *</label><input id="code" required aria-required="true"><small class="field-error" aria-live="polite" id="error-code"></small></div>
+          <div class="field"><label for="origin">Origen</label><select id="origin"><option value=""></option><option value="Nacional">Nacional</option><option value="Extranjero">Extranjero</option></select><small class="field-error" aria-live="polite" id="error-origin"></small></div>
+          <div class="field"><label for="foreignTaxId">Identificación tributaria extranjera</label><input id="foreignTaxId"><small class="field-error" aria-live="polite" id="error-foreignTaxId"></small></div>
+          <div class="field field-span"><label for="supplier-rubros" id="supplier-rubros-label">Rubros</label><select id="supplier-rubros" multiple size="4"></select><small class="field-error" aria-live="polite" id="error-rubro_ids"></small><div class="inline-control"><input id="new-rubro-name" placeholder="Nuevo Rubro"><button type="button" class="secondary" id="add-rubro-button">Agregar Rubro</button></div></div>
+        </div>
+      </section>
+      <section class="form-section" data-form-section="contact">
+        <h3>Contacto</h3>
+        <div class="form-grid">
+          <div class="field"><label for="email">Correo electrónico</label><input id="email" type="email"><small class="field-error" aria-live="polite" id="error-email"></small></div>
+          <div class="field"><label for="phone">Teléfono</label><input id="phone"></div>
+          <div class="field field-span"><label for="address">Dirección</label><input id="address"></div>
+        </div>
+      </section>
+      <section class="form-section" data-form-section="commercial">
+        <h3>Condiciones comerciales</h3>
+        <div class="form-grid">
+          <div class="field"><label for="creditLimit">Límite de crédito</label><input id="creditLimit" type="number"><small class="field-error" aria-live="polite" id="error-creditLimit"></small></div>
+          <div class="field"><label for="paymentTerms">Condiciones de pago</label><input id="paymentTerms"><small class="field-error" aria-live="polite" id="error-paymentTerms"></small></div>
+          <div class="field field-span" id="entity-custom-fields"></div>
+        </div>
+      </section>
+      <div class="panel-form-actions">
+        <button class="primary" type="submit" id="entity-submit-button"><span id="submit-button">Guardar Proveedor</span></button>
+      </div>
+      <div class="entity-feedback" id="entity-feedback" aria-live="polite"></div>
+    </form>
+  </template>
+
+  <template id="document-form-template">
+    <form id="document-form" class="panel-form" novalidate>
+      <h2 id="document-form-heading">Agregar / Editar Orden de Compra</h2>
+      <input type="hidden" id="document-id">
+      <section class="form-section" data-form-section="header">
+        <h3>Cabecera</h3>
+        <div class="form-grid">
+          <div class="field"><label for="document-entity" id="document-entity-label">Proveedor</label><select id="document-entity"></select><small class="field-error" aria-live="polite" id="error-document-entity"></small></div>
+          <div class="field"><label for="document-employee" id="document-employee-label">Empleado solicitante</label><select id="document-employee"></select><small class="field-error" aria-live="polite" id="error-document-employee"></small></div>
+          <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" aria-live="polite" id="error-folio"></small></div>
+          <div class="field"><label for="endDate" id="endDate-label">Fecha de entrega</label><input id="endDate" type="date"><small class="field-help" id="endDate-help" hidden>Formato dd-mm-aaaa</small><small class="field-error" aria-live="polite" id="error-endDate"></small></div>
+          <div class="field"><label for="currency">Moneda</label><input id="currency"></div>
+          <div class="field"><label for="docPaymentTerms">Condiciones de pago</label><input id="docPaymentTerms"></div>
+        </div>
+      </section>
+      <section class="form-section" data-form-section="legacy" id="document-legacy-fields">
+        <h3>Totales</h3>
+        <div class="form-grid">
+          <div class="field"><label for="startDate" id="startDate-label">Fecha de emisión</label><input id="startDate" type="date"><small class="field-error" aria-live="polite" id="error-startDate"></small></div>
+          <div class="field"><label for="quantity">Cantidad</label><input id="quantity" type="number"><small class="field-error" aria-live="polite" id="error-quantity"></small></div>
+          <div class="field"><label for="subtotal">Subtotal</label><input id="subtotal" type="number"><small class="field-error" aria-live="polite" id="error-subtotal"></small></div>
+          <div class="field"><label for="discount">Descuento</label><input id="discount" type="number"><small class="field-error" aria-live="polite" id="error-discount"></small></div>
+          <div class="field"><label for="taxAmount">Impuesto</label><input id="taxAmount" type="number"></div>
+          <div class="field"><label for="totalAmount">Importe total</label><input id="totalAmount" type="number"></div>
+          <div class="field"><label for="notes">Notas</label><input id="notes"></div>
+          <div class="field"><label for="status">Estado</label><select id="status"><option value=""></option></select></div>
+          <div class="field field-span" id="document-custom-fields"></div>
+        </div>
+      </section>
+      <section class="order-line-editor" aria-labelledby="document-lines-heading">
+        <h2 id="document-lines-heading">Detalle de compra</h2>
+        <div class="line-editor-controls">
+          <div class="field"><label for="line-product">Producto</label><select id="line-product"></select><small class="field-error" aria-live="polite" id="error-line-product"></small></div>
+          <div class="field"><label for="line-quantity">Cantidad</label><input id="line-quantity" type="number" min="1" step="1"><small class="field-error" aria-live="polite" id="error-line-quantity"></small></div>
+          <div class="field"><label for="line-cost">Costo unitario</label><input id="line-cost" type="number" min="0" step="0.01"><small class="field-error" aria-live="polite" id="error-line-cost"></small></div>
+          <button type="button" class="secondary" id="add-line-button" data-action="add-line">Agregar línea</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="document-lines-table">
+            <thead><tr><th>Producto</th><th>Unidad</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th><th>Acciones</th></tr></thead>
+            <tbody id="document-lines-body"></tbody>
+          </table>
+        </div>
+        <div id="document-totals" class="order-totals" aria-live="polite"></div>
+      </section>
+      <div class="panel-form-actions">
+        <button class="primary" type="submit" id="document-submit-button">Guardar Orden de Compra</button>
+      </div>
+      <div class="document-feedback" id="document-feedback" aria-live="polite"></div>
+    </form>
+  </template>
+
+  <template id="product-form-template">
+    <form id="product-form" class="panel-form" novalidate>
+      <h2>Agregar / Editar producto</h2>
+      <input type="hidden" id="product-id">
+      <section class="form-section" data-form-section="product">
+        <h3>Datos del producto</h3>
+        <div class="form-grid">
+          <div class="field required"><label for="product-nombre">Nombre *</label><input id="product-nombre" required aria-required="true"><small class="field-error" aria-live="polite" id="error-product-nombre"></small></div>
+          <div class="field required"><label for="product-unidad">Unidad de medida *</label><input id="product-unidad" required aria-required="true"><small class="field-error" aria-live="polite" id="error-product-unidad"></small></div>
+          <div class="field"><label for="product-stock">Stock</label><input id="product-stock" type="number" min="0" step="1" value="0"><small class="field-error" aria-live="polite" id="error-product-stock"></small></div>
+          <div class="field required"><label for="product-categoria">Categoría *</label><select id="product-categoria" required aria-required="true"></select><small class="field-error" aria-live="polite" id="error-product-categoria"></small></div>
+        </div>
+      </section>
+      <div class="panel-form-actions">
+        <button class="primary" type="submit" id="product-submit-button">Guardar producto</button>
+      </div>
+      <div id="product-form-feedback" class="feedback" aria-live="polite"></div>
+    </form>
+  </template>
+
+  <template id="category-form-template">
+    <form id="category-form" class="panel-form" novalidate>
+      <h2>Agregar / Editar categoría</h2>
+      <input type="hidden" id="category-id">
+      <section class="form-section" data-form-section="category">
+        <h3>Datos de la categoría</h3>
+        <div class="form-grid">
+          <div class="field required field-span"><label for="category-nombre">Nombre *</label><input id="category-nombre" required aria-required="true"><small class="field-error" aria-live="polite" id="error-category-nombre"></small></div>
+        </div>
+      </section>
+      <div class="panel-form-actions">
+        <button class="primary" type="submit" id="category-submit-button">Guardar categoría</button>
+      </div>
+      <div id="category-form-feedback" class="feedback" aria-live="polite"></div>
+    </form>
+  </template>
+
   <div id="side-panel"></div>
   <div id="toast-region"></div>
   <div id="confirm-dialog"></div>

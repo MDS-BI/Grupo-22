@@ -80,6 +80,14 @@ El módulo de Adquisiciones y Compras gestiona el proceso de compra de bienes a 
 - **Integración con inventario**: Actualización de existencias al recibir la mercancía.
 - **Trazabilidad**: Registro de responsable, proveedor, fechas, y relación entre productos, categorías y órdenes de compra.
 
+### Experiencia de uso
+
+- **Barra lateral**: el orden es Panel, Solicitudes y Órdenes de Compra, Proveedores, Productos y Búsqueda. Cada botón aparece solo si el rol de la sesión puede acceder a su vista.
+- **Listas y formularios**: las listas ocupan el ancho disponible y ofrecen `+ Nuevo` cuando el rol puede crear. Los formularios se abren en un panel lateral con secciones y dos columnas (una en móvil), sin convivir con la lista en un layout de dos columnas.
+- **Detalle como vista propia**: al activar una fila de una solicitud u orden, la lista y las demás vistas se ocultan y se muestra únicamente el detalle. El botón **Volver a Órdenes de Compra** restaura la lista con sus filtros, orden y foco.
+- **Categorías**: la pantalla Productos incluye las secciones **Catálogo** y **Categorías**. En Catálogo se administran productos; en Categorías se pueden crear, editar y eliminar categorías (con unicidad sin distinguir mayúsculas y bloqueo si están referenciadas). El formulario de producto solo permite elegir una categoría existente.
+- **Permisos de 004**: las acciones de 003 respetan los roles `administrador`, `gerente`, `comprador`, `bodeguero` y `consulta` tanto en la interfaz como en la revalidación del servicio. Los botones, tarjetas, filtros, datos de demostración y acciones del detalle se ocultan o rechazan cuando el rol no tiene el permiso correspondiente.
+
 ## Módulo de Adquisiciones y Compras: Modelo Entidad-Relación (MER)
 
 Esta sección explica, en palabras, el modelo de datos del módulo personalizado de **Adquisiciones y Compras** y cómo funciona sobre el módulo base. El módulo cubre el proceso de comprar bienes a proveedores: a quién se compra, qué se compra, quién registra la compra y cuánto cuesta.

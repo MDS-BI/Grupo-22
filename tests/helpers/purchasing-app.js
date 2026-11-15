@@ -54,6 +54,22 @@ export async function bootPurchasing(dom) {
   return { configModule, storage, purchasing, seedData, normalized };
 }
 
+export async function bootPurchasingAs(dom, userId) {
+  if (userId) {
+    const auth = await import('../../src/auth.js');
+    auth.ensureDefaultUsers();
+    auth.login(userId);
+  }
+  return bootPurchasing(dom);
+}
+
+export function installStyles(dom) {
+  const style = dom.window.document.createElement('style');
+  style.textContent = fs.readFileSync(fileURLToPath(new URL('../../src/styles.css', import.meta.url)), 'utf8');
+  dom.window.document.head.appendChild(style);
+  return style;
+}
+
 export function createOrder(purchasing, storage, seedData, overrides = {}) {
   return purchasing.savePurchaseOrder({
     entityId: seedData.supplier.entity_id,
