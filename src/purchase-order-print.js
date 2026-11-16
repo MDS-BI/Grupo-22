@@ -1,7 +1,7 @@
 import { getPurchaseOrderDetail } from './purchasing-storage.js';
 import { documentLabel } from './access-policy.js';
 import { getConfig } from './module-config.js';
-import { calculateLineSubtotal, calculateOrderTotals } from './domain/purchasing.js';
+import { calculateLineSubtotal, calculateOrderTotals, formatPurchaseOrderFolio, formatRequestNumber } from './domain/purchasing.js';
 import { formatHistoryDate } from './purchase-order-detail.js';
 
 function qs(id) {
@@ -68,7 +68,9 @@ export function renderPrintable(detailOrId, options = {}) {
       </header>
       <dl class="print-meta">
         <div><dt>Proveedor</dt><dd>${escape(supplierName)}</dd></div>
-        <div><dt>RUT</dt><dd>${escape(supplierCode)}</dd></div>
+        <div><dt>${supplier.origin === 'Extranjero' ? 'Identificación tributaria extranjera' : 'RUT'}</dt><dd>${escape(supplier.origin === 'Extranjero' ? (supplier.foreignTaxId || supplierCode) : supplierCode)}</dd></div>
+        <div><dt>N° de solicitud</dt><dd>${escape(formatRequestNumber(order.folio) || order.folio)}</dd></div>
+        <div><dt>Folio OC</dt><dd>${escape(formatPurchaseOrderFolio(order.ocFolio) || 'Sin emitir')}</dd></div>
         <div><dt>Empleado solicitante</dt><dd>${escape(employeeName)}</dd></div>
         <div><dt>Condición de pago</dt><dd>${escape(order.paymentTerms || '')}</dd></div>
         <div><dt>Fecha de emisión</dt><dd>${escape(emissionDate)}</dd></div>

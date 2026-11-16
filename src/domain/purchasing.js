@@ -34,8 +34,61 @@ export const PURCHASING_ERRORS = {
   SUPPLIER_ORIGIN_INVALID: 'El origen del proveedor debe ser Nacional o Extranjero.',
   CURRENCY_INVALID: 'La moneda no es válida para el origen del proveedor.',
   PAYMENT_TERMS_INVALID: 'La condición de pago debe ser una de: Contado, 30 días, 60 días, 90 días.',
-  DATE_FORMAT_INVALID: 'La fecha debe tener formato dd-mm-aaaa y ser una fecha válida.'
+  DATE_FORMAT_INVALID: 'La fecha debe tener formato dd-mm-aaaa y ser una fecha válida.',
+  PRODUCT_NOT_IN_PRICE_LIST: 'El producto no está en la lista de precios del proveedor seleccionado.',
+  PRICE_CURRENCY_MISMATCH: 'El precio acordado con el proveedor está en otra moneda; cambia la moneda de la orden.'
 };
+
+export const REQUEST_NUMBER_PREFIX = 'SOL-';
+export const PURCHASE_ORDER_FOLIO_PREFIX = 'OC-';
+
+function formatCorrelative(prefix, value) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number <= 0) return '';
+  return `${prefix}${String(number).padStart(4, '0')}`;
+}
+
+/** Número visible de la solicitud de compra (SOL-0001) a partir del folio correlativo interno. */
+export function formatRequestNumber(folio) {
+  return formatCorrelative(REQUEST_NUMBER_PREFIX, folio);
+}
+
+/** Folio visible de la Orden de Compra emitida (OC-0001); vacío mientras no se apruebe. */
+export function formatPurchaseOrderFolio(ocFolio) {
+  return formatCorrelative(PURCHASE_ORDER_FOLIO_PREFIX, ocFolio);
+}
+
+/** Siguiente correlativo: máximo existente + 1 (ignora valores no numéricos). */
+export function nextCorrelative(values = []) {
+  const max = values.reduce((acc, value) => {
+    const number = Number(value);
+    return Number.isInteger(number) && number > acc ? number : acc;
+  }, 0);
+  return max + 1;
+}
+
+/** Opciones del filtro de estado: dos grupos por tipo de documento y un nombre específico por estado. */
+export const STATUS_FILTER_OPTIONS = Object.freeze([
+  { value: 'tipo:solicitud', label: 'Solicitud de compra', statuses: ['borrador', 'pendiente'] },
+  { value: 'borrador', label: 'Solicitud – Borrador', statuses: ['borrador'] },
+  { value: 'pendiente', label: 'Solicitud – Pendiente de aprobación', statuses: ['pendiente'] },
+  { value: 'tipo:oc', label: 'Orden de Compra emitida', statuses: ['aprobado', 'recibido'] },
+  { value: 'aprobado', label: 'OC emitida – Aprobada', statuses: ['aprobado'] },
+  { value: 'recibido', label: 'OC – Recibida', statuses: ['recibido'] },
+  { value: 'cancelado', label: 'Cancelada', statuses: ['cancelado'] }
+]);
+
+export function statusesForFilter(value) {
+  const key = String(value ?? '').trim();
+  if (!key) return [];
+  const option = STATUS_FILTER_OPTIONS.find(item => item.value === key);
+  return option ? [...option.statuses] : [key];
+}
+
+export function statusFilterLabel(value) {
+  const key = String(value ?? '').trim();
+  return STATUS_FILTER_OPTIONS.find(item => item.value === key)?.label || key;
+}
 
 export const ACTION_LABELS = {
   pendiente: 'Enviar a revisión',

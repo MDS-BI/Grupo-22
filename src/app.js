@@ -82,6 +82,19 @@ import {
   toggleSort
 } from './purchasing-list-view.js';
 import { renderStatusBadge, statusLabel } from './purchasing-status.js';
+import {
+  STATUS_FILTER_OPTIONS,
+  formatPurchaseOrderFolio,
+  formatRequestNumber,
+  statusFilterLabel
+} from './domain/purchasing.js';
+import { productsForSupplier } from './domain/price-list.js';
+import {
+  getSupplierPriceList,
+  getSupplierSummary,
+  nextRequestFolio
+} from './purchasing-storage.js';
+import { renderSupplierSummary, supplierTaxIdentity } from './supplier-summary-view.js';
 import { loadDemoData, requiresDemoReplacement } from './purchasing-demo-data.js';
 import { confirmAction } from './ui-feedback.js';
 
@@ -625,7 +638,7 @@ function renderEntityTable() {
   qs('entity-table-body').innerHTML = rows.length
     ? rows.map(entity => `<tr>
         <td>${escapeHtml(entity.name)}</td>
-        <td>${escapeHtml(entity.code)}</td>
+        <td>${escapeHtml(isPurchasing() ? supplierTaxIdentity(entity) : entity.code)}</td>
         <td>${escapeHtml(renderEntityRubroCell(entity))}</td>
         <td>${escapeHtml(entity.origin || '')}</td>
         <td>${escapeHtml(isPurchasing() ? paymentTermLabel(entity.paymentTerms) : entity.paymentTerms ?? '')}</td>
@@ -661,22 +674,71 @@ function renderDocumentEntityOptions() {
   renderLineProductOptions();
 }
 
+/** 006: lista de precios del proveedor seleccionado en el formulario (vacía si no tiene). */
+function draftPriceList() {
+  if (!isPurchasing()) return [];
+  const entityId = qs('document-entity')?.value;
+  return entityId ? getSupplierPriceList(entityId) : [];
+}
+
 function renderLineProductOptions() {
   const select = qs('line-product');
   if (!select) return;
   const selected = select.value;
-  select.innerHTML = '<option value="">Seleccionar producto</option>' +
-    loadProducts().map(product => `<option value="${escapeHtml(product.id_producto || product.id)}">${escapeHtml(product.nombre || product.name || '')}</option>`).join('');
-  select.value = selected;
+  const priceList = draftPriceList();
+  const options = priceList.length
+    ? productsForSupplier(loadProducts(), priceList, draftCurrency).map(({ product, entry }) =>
+        `<option value="${escapeHtml(product.id_producto || product.id)}" data-price="${escapeHtml(entry.precio)}">${escapeHtml(product.nombre || product.name || '')} · ${escapeHtml(formatMoney(entry.precio, entry.moneda || draftCurrency))}</option>`)
+    : loadProducts().map(product => `<option value="${escapeHtml(product.id_producto || product.id)}">${escapeHtml(product.nombre || product.name || '')}</option>`);
+  select.innerHTML = '<option value="">Seleccionar producto</option>' + options.join('');
+  select.value = [...select.options].some(option => option.value === selected) ? selected : '';
+  syncLineCostFromPriceList();
+}
+
+/** 006: con lista de precios, el costo unitario se completa desde la lista y no es editable. */
+function syncLineCostFromPriceList() {
+  const cost = qs('line-cost');
+  if (!cost) return;
+  const priceList = draftPriceList();
+  const help = qs('line-cost-help');
+  if (!priceList.length) {
+    cost.readOnly = false;
+    if (help) help.hidden = true;
+    return;
+  }
+  cost.readOnly = true;
+  if (help) help.hidden = false;
+  const entry = priceList.find(item => item.id_producto === qs('line-product')?.value);
+  cost.value = entry ? String(entry.precio) : '';
+}
+
+/** 006: al cambiar proveedor o moneda, reprecia el borrador y quita productos fuera de la lista. */
+function applyPriceListToDraft() {
+  const priceList = draftPriceList();
+  if (!priceList.length || currentOrderId) return '';
+  const allowed = productsForSupplier(loadProducts(), priceList, draftCurrency);
+  const prices = new Map(allowed.map(({ entry }) => [entry.id_producto, Number(entry.precio)]));
+  const before = draftLines.length;
+  draftLines = draftLines
+    .filter(line => prices.has(line.id_producto))
+    .map(line => ({ ...line, costo_unitario: prices.get(line.id_producto) }));
+  const removed = before - draftLines.length;
+  return removed > 0
+    ? `Se quitaron ${removed} línea(s) con productos que no están en la lista de precios del proveedor.`
+    : '';
 }
 
 function renderDocumentFilterOptions() {
   const statusSelect = qs('documents-filter-status');
   if (statusSelect) {
     const statuses = config.statusLifecycle?.statuses || [];
-    if (documentFilters.status && !statuses.includes(documentFilters.status)) documentFilters.status = '';
+    // 006: en Compras cada opción tiene un nombre único (grupo por tipo de documento + estado específico).
+    const filterOptions = isPurchasing()
+      ? STATUS_FILTER_OPTIONS.filter(option => option.statuses.every(status => statuses.includes(status)))
+      : statuses.map(status => ({ value: status, label: status }));
+    if (documentFilters.status && !filterOptions.some(option => option.value === documentFilters.status)) documentFilters.status = '';
     const options = ['<option value="">Todos</option>']
-      .concat(statuses.map(status => `<option value="${escapeHtml(status)}">${escapeHtml(isPurchasing() ? statusLabel(status) : status)}</option>`));
+      .concat(filterOptions.map(option => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`));
     statusSelect.innerHTML = options.join('');
     statusSelect.value = documentFilters.status;
   }
@@ -703,10 +765,16 @@ function renderDocumentFilterOptions() {
   }
 }
 
+function renderFolioCell(document) {
+  const request = formatRequestNumber(document.folio) || String(document.folio ?? '');
+  const oc = formatPurchaseOrderFolio(document.ocFolio);
+  return `<span class="request-number">${escapeHtml(request)}</span>${oc ? `<span class="oc-folio">${escapeHtml(oc)}</span>` : ''}`;
+}
+
 function documentFilterSummary() {
   const entity = loadEntities().find(item => item.entity_id === documentFilters.entityId);
   return filterSummary([
-    ['Estado', documentFilters.status ? statusLabel(documentFilters.status) : ''],
+    ['Estado', documentFilters.status ? statusFilterLabel(documentFilters.status) : ''],
     ['Proveedor', entity?.name || ''],
     ['Desde', documentFilters.from],
     ['Hasta', documentFilters.to],
@@ -743,7 +811,7 @@ function renderDocumentTable() {
     ? sorted.map(document => {
         const status = isPurchasing() ? renderStatusBadge(document.status) : (document.status ? `<span class="status-badge">${escapeHtml(document.status)}</span>` : '');
         return `<tr data-order-id="${escapeHtml(document.id)}" tabindex="0" role="button" aria-label="Ver detalle de la orden ${escapeHtml(document.folio)}">
-        <td>${escapeHtml(document.folio)}</td>
+        <td>${isPurchasing() ? renderFolioCell(document) : escapeHtml(document.folio)}</td>
         <td>${escapeHtml(document.entityName ?? entityNames.get(document.entity_id) ?? '')}</td>
         <td>${escapeHtml(formatDate(document.endDate))}</td>
         <td>${escapeHtml(formatMoney(document.total ?? document.totalAmount, document.currency || 'CLP'))}</td>
@@ -858,6 +926,7 @@ function renderDocumentCurrencyControl(origin, value = '') {
   if (select.tagName !== 'SELECT') {
     const replacement = document.createElement('select');
     replacement.id = 'currency';
+    replacement.setAttribute('aria-describedby', 'currency-help');
     select.replaceWith(replacement);
     select = replacement;
   }
@@ -897,6 +966,7 @@ function syncDraftPricing({ preserveCurrency = true, preserveTerms = true } = {}
     currency = defaultCurrencyForOrigin(origin);
   }
   renderDocumentCurrencyControl(origin, currency);
+  syncCurrencyHelp(origin);
   draftCurrency = currency;
   draftTaxRate = taxRateForOrigin(origin);
   if (!preserveTerms) {
@@ -928,6 +998,19 @@ function applyPurchasingFormAdjustments() {
   }
   const endDateHelp = qs('endDate-help');
   if (endDateHelp) endDateHelp.hidden = false;
+  // 006: la solicitud no pide folio; el correlativo se asigna automáticamente al guardar.
+  const folioField = qs('folio')?.closest('.field');
+  if (folioField) folioField.hidden = true;
+}
+
+/** 006: texto de ayuda de Moneda según el origen del proveedor. */
+function syncCurrencyHelp(origin) {
+  const help = qs('currency-help');
+  if (!help) return;
+  help.hidden = !isPurchasing();
+  help.textContent = origin === 'Extranjero'
+    ? 'Proveedor extranjero: elige USD o EUR.'
+    : 'Moneda fija CLP para proveedores nacionales.';
 }
 
 function clearLineInputs() {
@@ -993,7 +1076,19 @@ function addDraftLine() {
     cantidad: qs('line-quantity').value,
     costo_unitario: qs('line-cost').value
   };
+  const priceList = draftPriceList();
+  let notInList = false;
+  if (priceList.length && line.id_producto) {
+    const entry = productsForSupplier(loadProducts(), priceList, draftCurrency)
+      .find(item => item.entry.id_producto === line.id_producto)?.entry;
+    if (entry) line.costo_unitario = entry.precio;
+    else notInList = true;
+  }
   const validation = validatePurchaseOrderLine(line, { existingLines: draftLines });
+  if (notInList) {
+    validation.errors.id_producto = purchasingErrorMessage('PRODUCT_NOT_IN_PRICE_LIST');
+    validation.valid = false;
+  }
   if (line.id_producto && !loadProducts().some(product => (product.id_producto || product.id) === line.id_producto)) {
     validation.errors.id_producto = purchasingErrorMessage('PRODUCT_NOT_FOUND');
     validation.valid = false;
@@ -1074,6 +1169,9 @@ function renderProductCatalog() {
     escapeHtml,
     formatCurrencyCLP,
     canManage: canUse(PERMISSIONS.PRODUCTS_MANAGE),
+    canManagePrices: canUse(PERMISSIONS.PRICELISTS_MANAGE),
+    requirePriceLinks: Boolean(activeSession),
+    formatMoney,
     onChanged: () => {
       renderDocumentEntityOptions();
       renderDashboard();
@@ -1115,6 +1213,7 @@ async function handleLoadDemo() {
       `${created.rubros?.length || 0} rubros`,
       `${created.categories?.length || 0} categorías`,
       `${created.products?.length || 0} productos`,
+      `${created.supplierPrices?.length || 0} precios acordados`,
       `${created.employees?.length || 0} empleados`,
       `${created.users?.length || 0} usuarios de prueba`,
       `${created.orders?.length || 0} órdenes`
@@ -1232,18 +1331,64 @@ function renderSearch() {
     const linkedStatus = linkedDocument?.status
       ? (isPurchasing() ? renderStatusBadge(linkedDocument.status) : `<span class="status-badge">${escapeHtml(linkedDocument.status)}</span>`)
       : '';
+    if (isPurchasing()) {
+      // 006: sin separadores vacíos; los extranjeros muestran su identificación tributaria.
+      const parts = [entity.name, supplierTaxIdentity(entity), rubros].filter(part => String(part ?? '').trim());
+      const label = parts.map(part => escapeHtml(part)).join(' · ') + (custom ? ` · ${custom}` : '');
+      return `<article class="entity-item"><button type="button" class="link-button" data-action="open-supplier-summary" data-id="${escapeHtml(entity.entity_id)}" aria-label="Ver ficha de ${escapeHtml(entity.name)}">${label}</button>${linkedStatus ? ` ${linkedStatus}` : ''}</article>`;
+    }
     return `<article class="entity-item">${escapeHtml(entity.name)} · ${escapeHtml(entity.code)}${rubros ? ` · ${escapeHtml(rubros)}` : ''}${custom ? ` · ${custom}` : ''}${linkedStatus ? ` ${linkedStatus}` : ''}</article>`;
   }).join('');
   for (const document of loadDocuments()) {
-    const haystack = `${document.folio} ${document.startDate} ${document.endDate} ${document.status || ''}`.toLowerCase();
+    const numbers = isPurchasing() ? ` ${formatRequestNumber(document.folio)} ${formatPurchaseOrderFolio(document.ocFolio)}` : '';
+    const haystack = `${document.folio} ${document.startDate} ${document.endDate} ${document.status || ''}${numbers}`.toLowerCase();
     if (query && haystack.includes(query.toLowerCase())) {
       const badge = isPurchasing()
         ? renderStatusBadge(document.status)
         : `<span class="status-badge">${escapeHtml(document.status || '')}</span>`;
-      qs('search-results-list').insertAdjacentHTML('beforeend', `<article class="document-item">Folio ${escapeHtml(document.folio)} · ${escapeHtml(isPurchasing() ? statusLabel(document.status) : document.status || '')}${badge}</article>`);
+      const reference = isPurchasing()
+        ? [formatRequestNumber(document.folio), formatPurchaseOrderFolio(document.ocFolio)].filter(Boolean).join(' · ')
+        : `Folio ${document.folio}`;
+      qs('search-results-list').insertAdjacentHTML('beforeend', `<article class="document-item">${escapeHtml(reference)} · ${escapeHtml(isPurchasing() ? statusLabel(document.status) : document.status || '')}${badge}</article>`);
     }
   }
   qs('search-empty').hidden = qs('search-results-list').children.length > 0;
+  const summary = qs('supplier-summary');
+  if (summary && summary.dataset.entityId && !loadEntities().some(entity => entity.entity_id === summary.dataset.entityId)) {
+    closeSupplierSummary();
+  }
+}
+
+/** 006: ficha del proveedor desde Búsqueda (datos, historial de OC y monto total comprado). */
+function openSupplierSummary(entityId) {
+  const container = qs('supplier-summary');
+  if (!container || !canUse(PERMISSIONS.SEARCH_VIEW)) return;
+  const summary = getSupplierSummary(entityId);
+  if (!summary) return;
+  container.innerHTML = renderSupplierSummary(summary, {
+    escapeHtml,
+    formatMoney,
+    formatDate,
+    paymentTermLabel,
+    rubroNames: renderEntityRubroCell(summary.supplier),
+    canViewCreditLimit: canViewCreditLimit(activeSession),
+    statusBadge: renderStatusBadge,
+    productName: productId => {
+      const product = loadProducts().find(item => (item.id_producto || item.id) === productId);
+      return product?.nombre || product?.name || '';
+    }
+  });
+  container.dataset.entityId = entityId;
+  container.hidden = false;
+  container.querySelector('h2')?.focus();
+}
+
+function closeSupplierSummary() {
+  const container = qs('supplier-summary');
+  if (!container) return;
+  container.hidden = true;
+  container.innerHTML = '';
+  delete container.dataset.entityId;
 }
 
 function collectEntity() {
@@ -1426,6 +1571,13 @@ function bindEvents() {
   qs('action-find').addEventListener('click', () => { showView('search'); qs('search-input').focus(); });
   qs('search-input').addEventListener('input', renderSearch);
   qs('search-rubros')?.addEventListener('change', renderSearch);
+  qs('search-results-list').addEventListener('click', event => {
+    const button = event.target.closest('[data-action="open-supplier-summary"]');
+    if (button) openSupplierSummary(button.dataset.id);
+  });
+  qs('supplier-summary')?.addEventListener('click', event => {
+    if (event.target.closest('[data-action="close-supplier-summary"]')) closeSupplierSummary();
+  });
   qs('add-rubro-button')?.addEventListener('click', addRubroFromForm);
 
   qs('action-load-demo')?.addEventListener('click', handleLoadDemo);
@@ -1610,7 +1762,18 @@ function bindEvents() {
   if (isPurchasing()) {
     qs('document-entity').addEventListener('change', () => {
       syncDraftPricing({ preserveCurrency: false, preserveTerms: false });
+      qs('document-feedback').textContent = applyPriceListToDraft();
+      renderLineProductOptions();
       renderDraftLines();
+    });
+    qs('document-form').addEventListener('change', event => {
+      if (event.target?.id === 'currency') {
+        syncDraftPricing();
+        qs('document-feedback').textContent = applyPriceListToDraft();
+        renderLineProductOptions();
+        renderDraftLines();
+      }
+      if (event.target?.id === 'line-product') syncLineCostFromPriceList();
     });
   }
 
@@ -1632,6 +1795,10 @@ function bindEvents() {
     if (!canUse(permission)) {
       qs('document-feedback').textContent = PERMISSION_DENIED;
       return;
+    }
+    if (isPurchasing() && !String(data.folio ?? '').trim()) {
+      const current = id ? loadDocuments().find(document => document.id === id) : null;
+      data.folio = current?.folio ?? nextRequestFolio();
     }
     const validation = validateDocument(data);
     if (isPurchasing()) {

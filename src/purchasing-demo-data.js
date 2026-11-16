@@ -12,6 +12,7 @@ import {
   addCategory,
   addEmployee,
   addProduct,
+  upsertSupplierPrice,
   changeOrderStatus,
   clearPurchasingData,
   getPurchaseOrderDetail,
@@ -128,6 +129,16 @@ const SUPPLIER_SEEDS = [
     paymentTerms: '90 días',
     rubros: ['Tecnología', 'Servicios']
   }
+];
+
+// 006: precios acordados adicionales [proveedor, producto, precio] para que todo producto
+// tenga al menos un proveedor y cada proveedor (incluido el extranjero sin órdenes) tenga lista.
+const EXTRA_PRICE_SEEDS = [
+  [4, 8, 18990],
+  [7, 11, 110],
+  [7, 10, 40],
+  [1, 0, 5600],
+  [5, 5, 27500]
 ];
 
 const ORDER_PLANS = [
@@ -408,6 +419,7 @@ export function loadDemoData({
     employees: [],
     users: [],
     suppliers: [],
+    supplierPrices: [],
     orders: []
   };
   const limitations = [];
@@ -499,6 +511,25 @@ export function loadDemoData({
       });
       suppliers.push(supplier);
       created.suppliers.push(supplier);
+    }
+
+    // 006: lista de precios producto–proveedor coherente con los precios de las órdenes de ejemplo.
+    const priceSeeds = [
+      ...ORDER_PLANS.flatMap(plan => plan.lines.map(([productIndex, , price]) => [plan.supplier, productIndex, price])),
+      ...EXTRA_PRICE_SEEDS
+    ];
+    const seenPrices = new Set();
+    for (const [supplierIndex, productIndex, price] of priceSeeds) {
+      const key = `${supplierIndex}:${productIndex}`;
+      if (seenPrices.has(key)) continue;
+      seenPrices.add(key);
+      const supplier = suppliers[supplierIndex];
+      const product = created.products[productIndex];
+      created.supplierPrices.push(upsertSupplierPrice({
+        entity_id: supplier.entity_id,
+        id_producto: product.id_producto || product.id,
+        precio: price
+      }, { skipAccessCheck: true }));
     }
 
     const demoUsers = createDemoUsers(priorCargos);

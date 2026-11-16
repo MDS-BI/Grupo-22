@@ -1,3 +1,4 @@
+import { statusesForFilter } from './domain/purchasing.js';
 const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
 
 function text(value) {
@@ -62,7 +63,7 @@ export function filterOrders(orders, filters = {}, context = {}) {
   const today = context.today || new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   return orders.filter(order => {
-    if (status && order.status !== status) return false;
+    if (status && !statusesForFilter(status).includes(order.status)) return false;
     if (entityId && order.entity_id !== entityId) return false;
     if (mineOnly && (!ownEmployeeId || text(order.id_empleado) !== ownEmployeeId)) return false;
     const delivery = normalizeDate(order.endDate);

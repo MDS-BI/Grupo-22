@@ -1,6 +1,6 @@
 import { getPurchaseOrderDetail } from './purchasing-storage.js';
 import { documentLabel } from './access-policy.js';
-import { calculateLineSubtotal, calculateOrderTotals, getAvailableActionItems, actionLabel } from './domain/purchasing.js';
+import { calculateLineSubtotal, calculateOrderTotals, getAvailableActionItems, actionLabel, formatPurchaseOrderFolio, formatRequestNumber } from './domain/purchasing.js';
 import { icon } from './ui-icons.js';
 
 function qs(id) {
@@ -89,7 +89,9 @@ export function renderDetail(detailOrId, options = {}) {
       ${detail.isLegacy ? '<p class="legacy-note">Orden histórica sin metadatos de extensión; el empleado se muestra como desconocido.</p>' : ''}
       <dl class="detail-header">
         <div><dt>Proveedor</dt><dd>${escape(supplierName)}</dd></div>
-        <div><dt>RUT</dt><dd>${escape(supplierCode)}</dd></div>
+        <div><dt>${supplier.origin === 'Extranjero' ? 'Identificación tributaria extranjera' : 'RUT'}</dt><dd>${escape(supplier.origin === 'Extranjero' ? (supplier.foreignTaxId || supplierCode) : supplierCode)}</dd></div>
+        <div><dt>N° de solicitud</dt><dd>${escape(formatRequestNumber(order.folio) || order.folio)}</dd></div>
+        <div><dt>Folio OC</dt><dd>${escape(formatPurchaseOrderFolio(order.ocFolio) || 'Sin emitir')}</dd></div>
         <div><dt>Empleado solicitante</dt><dd>${escape(employeeName)}</dd></div>
         <div><dt>Fecha de emisión</dt><dd>${escape(emissionDate)}</dd></div>
         <div><dt>Fecha de entrega</dt><dd>${escape(formatDate(order.endDate))}</dd></div>
