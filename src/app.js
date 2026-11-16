@@ -66,6 +66,8 @@ import {
   mountPanelForm,
   openSidePanel
 } from './ui-side-panel.js';
+import { initTheme, toggleTheme } from './ui-theme.js';
+import { ensureShellScaffold, updateBreadcrumb, bindGlobalSearch } from './ui-shell.js';
 import {
   buildOrderRows,
   filterEntities,
@@ -479,6 +481,8 @@ function showView(name) {
     if (button.dataset.module === name) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
+  const labels = { dashboard: 'Panel', entities: config?.labels?.entities || 'Proveedores', documents: config?.labels?.documents || 'Órdenes de Compra', products: config?.labels?.products || 'Productos', search: 'Búsqueda', 'order-detail': 'Detalle', print: 'Impresión' };
+  updateBreadcrumb(labels[name] || name);
   if (name === 'dashboard') renderDashboard();
   if (name === 'entities') {
     renderEntityFilterOptions();
@@ -2017,7 +2021,20 @@ export function getRecoveryResult() {
 }
 
 export async function boot() {
+  initTheme();
   bindAuthEvents();
+  ensureShellScaffold();
+  bindGlobalSearch((q) => {
+    if (!getSession()) return;
+    showView('search');
+    const input = qs('search-input');
+    if (input) { input.value = q || ''; input.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
+  const themeToggle = qs('theme-toggle');
+  if (themeToggle && !themeToggle.dataset.bound) {
+    themeToggle.dataset.bound = '1';
+    themeToggle.addEventListener('click', () => toggleTheme());
+  }
   if (!getSession()) {
     revealLoginGate();
     return;

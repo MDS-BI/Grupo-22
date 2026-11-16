@@ -1,0 +1,53 @@
+﻿:root,
+:root[data-theme="light"] {
+  --color-brand-dark: #0F2A3D;
+  --color-brand-accent: #F59E0B;
+  --accent: #0F2A3D;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --text: #172033;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --bg: #f4f7fb;
+  --focus-ring: color-mix(in srgb, var(--accent) 45%, white);
+  --status-draft: #64748b;
+  --status-pending: #d97706;
+  --status-approved: #2563eb;
+  --status-received: #16a34a;
+  --status-cancelled: #dc2626;
+  --radius-sm: 7px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 3px rgba(15,23,42,.08);
+  --shadow-md: 0 10px 30px rgba(15,23,42,.12);
+  --font-heading: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+:root[data-theme="dark"] {
+  --accent: #3b82f6;
+  --surface: #0f172a;
+  --surface-alt: #111827;
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --border: #334155;
+  --bg: #020617;
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, black);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.4);
+  --shadow-md: 0 10px 30px rgba(0,0,0,.45);
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/SpaceGrotesk-Variable.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Variable.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}

@@ -1,7 +1,8 @@
-:root { --accent:#2563eb; --surface:#ffffff; --text:#172033; --muted:#64748b; --border:#e2e8f0; --bg:#f4f7fb; }
+@import "./styles/tokens.css";
 * { box-sizing:border-box; }
 [hidden] { display:none !important; }
-body { margin:0; font-family:Inter,Segoe UI,Arial,sans-serif; color:var(--text); background:var(--bg); }
+body { margin:0; font-family:var(--font-body, Inter, "Segoe UI", system-ui, sans-serif); color:var(--text); background:var(--bg); }
+h1,h2,h3,.brand,.eyebrow { font-family:var(--font-heading, "Space Grotesk", "Segoe UI", system-ui, sans-serif); }
 .topbar { position:fixed; z-index:20; left:0; right:0; top:0; height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 24px; background:var(--surface); border-bottom:1px solid var(--border); }
 .brand { display:flex; align-items:center; gap:10px; }
 .brand svg { width:36px; height:36px; }
@@ -215,3 +216,28 @@ button.danger { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; }
 .supplier-summary-heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; }
 .supplier-total-row strong { margin-right:.5rem; }
 #line-cost[readonly] { background:var(--surface-muted, #f3f4f6); }
+/* 005 shell/login additions (preserve existing selectors) */
+.app-shell { min-height:100vh; }
+.topbar-center { display:flex; align-items:center; gap:16px; flex:1; min-width:0; padding:0 12px; }
+.breadcrumbs ol { list-style:none; margin:0; padding:0; display:flex; gap:8px; color:var(--muted); font-size:.9rem; }
+.global-search { flex:1; max-width:420px; }
+.global-search input { width:100%; min-height:36px; }
+.icon-button { min-width:36px; min-height:36px; }
+.nav-group { display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+.nav-group-title { margin:4px 8px; font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+.sidebar.collapsed { width:72px; }
+.sidebar.collapsed .nav-label, .sidebar.collapsed .nav-group-title { display:none; }
+.sidebar.collapsed .nav-module { justify-content:center; }
+.auth-layout { width:min(1100px,100%); display:grid; grid-template-columns:1.1fr 1fr; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow-md); }
+.auth-brand-panel { position:relative; min-height:420px; background:var(--color-brand-dark,#0F2A3D); color:#fff; display:flex; align-items:flex-end; }
+.auth-brand-panel .brand-pattern { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.auth-brand-copy { position:relative; z-index:1; padding:32px; }
+.auth-brand-copy p { color:rgba(255,255,255,.85); }
+.auth-form-panel { padding:24px; display:flex; align-items:center; justify-content:center; background:var(--bg); }
+.auth-form-panel .auth-card { width:100%; max-width:440px; box-shadow:none; }
+.brand-mark-svg { height:36px; width:auto; display:block; }
+@media (max-width: 800px) {
+  .auth-layout { grid-template-columns:1fr; }
+  .auth-brand-panel { min-height:180px; }
+  .topbar-center { display:none; }
+}
