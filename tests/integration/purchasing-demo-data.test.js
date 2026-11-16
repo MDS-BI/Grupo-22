@@ -39,7 +39,7 @@ describe('carga de datos de demostración desde el panel', () => {
     expect(qs('demo-feedback').textContent).toContain('proveedores');
     expect(qs('demo-feedback').textContent).toContain('usuarios de prueba');
     expect(storage.loadEntities()).toHaveLength(8);
-    expect(storage.loadDocuments()).toHaveLength(12);
+    expect(storage.loadDocuments()).toHaveLength(16);
     expect(storage.loadEntities().every(entity => entity.name.startsWith('Demo '))).toBe(true);
     expect(purchasing.loadEmployees().some(employee => String(employee.cargo).length > 0)).toBe(true);
   });

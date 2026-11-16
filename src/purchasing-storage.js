@@ -59,7 +59,10 @@ const KEYS = {
   orderMetadata: 'erp_purchasing:order-metadata',
   statusHistory: 'erp_purchasing:status-history',
   transactions: 'erp_purchasing:transactions',
-  supplierPrices: 'erp_purchasing:supplier-prices'
+  supplierPrices: 'erp_purchasing:supplier-prices',
+  areas: 'erp_purchasing:areas',
+  budgets: 'erp_purchasing:budgets',
+  notificationReads: 'erp_purchasing:notification-reads'
 };
 
 function read(key) {
@@ -191,7 +194,18 @@ function validateProductData(data, current = {}) {
     error.code = 'PRODUCT_INVALID';
     throw error;
   }
-  return { nombre, unidad_medida: unidad, stock: Number(stockValue), id_categoria: categoria };
+  const result = { nombre, unidad_medida: unidad, stock: Number(stockValue), id_categoria: categoria };
+  // 007: stock mínimo opcional (0 = sin control); solo se guarda si se informa o ya existía.
+  const minimumValue = data.stock_minimo ?? data.stockMinimo ?? current.stock_minimo;
+  if (minimumValue !== undefined && minimumValue !== null && String(minimumValue).trim() !== '') {
+    if (!Number.isInteger(Number(minimumValue)) || Number(minimumValue) < 0) {
+      const error = new Error('El stock mínimo debe ser un entero no negativo');
+      error.code = 'PRODUCT_INVALID';
+      throw error;
+    }
+    result.stock_minimo = Number(minimumValue);
+  }
+  return result;
 }
 
 export function addProduct(data) {
@@ -244,6 +258,7 @@ function buildPriceEntries(productId, values, previous = []) {
       entity_id: value.entity_id,
       precio: value.precio,
       moneda: value.moneda,
+      ...(value.tramos ? { tramos: value.tramos } : {}),
       createdAt: current?.createdAt || timestamp,
       updatedAt: timestamp
     };
@@ -344,6 +359,25 @@ export function applySupplierPriceList(entityId, lines = [], currency = '') {
 export function supplierHasPriceList(entityId) {
   return getSupplierPriceList(entityId).length > 0;
 }
+// --- 007: áreas, presupuestos y lecturas de avisos (persistencia) --------------------------
+export const loadAreas = () => read(KEYS.areas);
+export const saveAreas = areas => write(KEYS.areas, areas);
+export const loadBudgets = () => read(KEYS.budgets);
+export const saveBudgets = budgets => write(KEYS.budgets, budgets);
+
+export function loadNotificationReadsMap() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEYS.notificationReads) || '{}');
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveNotificationReadsMap(map) {
+  localStorage.setItem(KEYS.notificationReads, JSON.stringify(map || {}));
+}
+
 export const loadPurchaseOrderLines = () => read(KEYS.lines);
 export const savePurchaseOrderLines = lines => write(KEYS.lines, lines);
 export const loadOrderMetadata = () => read(KEYS.orderMetadata);
@@ -385,6 +419,10 @@ function permissionDenied() {
   const error = new Error(PERMISSION_DENIED_MESSAGE);
   error.code = 'PERMISSION_DENIED';
   return error;
+}
+
+export function assertPermissionFor(permission, session = getSession()) {
+  assertPermission(permission, session);
 }
 
 function assertPermission(permission, session) {
@@ -600,6 +638,7 @@ export function upsertOrderMetadata(orderId, data = {}) {
     id: uid('metadata'),
     id_orden_compra: orderId,
     id_empleado: data.id_empleado || data.idEmpleado || data.employeeId || '',
+    ...(data.id_area ? { id_area: data.id_area } : {}),
     stock_aplicado: Boolean(data.stock_aplicado),
     appliedAt: data.appliedAt || null,
     createdAt: timestamp,
@@ -982,6 +1021,18 @@ export function savePurchaseOrder(input = {}) {
   if (!supplier) {
     throw createPurchasingError('ORDER_INVALID', 'Debe seleccionar un proveedor existente.');
   }
+  // 007: proveedores inactivos no reciben solicitudes nuevas; área obligatoria si hay áreas activas.
+  if (!orderId && String(supplier.estado || 'activo') === 'inactivo') throw createPurchasingError('SUPPLIER_INACTIVE');
+  const existingAreaId = current ? (getOrderMetadata(current.id)?.id_area || '') : '';
+  const areaId = String(input.id_area ?? metadataInput.id_area ?? orderInput.id_area ?? existingAreaId ?? '').trim();
+  const areas = loadAreas();
+  const activeAreas = areas.filter(area => area.activa !== false);
+  if (areaId) {
+    const area = areas.find(item => item.id_area === areaId);
+    if (!area || (area.activa === false && areaId !== existingAreaId)) throw createPurchasingError('AREA_NOT_FOUND');
+  } else if (activeAreas.length) {
+    throw createPurchasingError('AREA_REQUIRED');
+  }
   const origin = resolveSupplierOrigin(supplier);
   const currency = resolveCurrency(origin, input.currency ?? orderInput.currency);
   const paymentTerms = resolvePaymentTerms(
@@ -1020,7 +1071,7 @@ export function savePurchaseOrder(input = {}) {
       status: current.status
     });
     replaceOrderLines(orderId, pricedLines);
-    upsertOrderMetadata(orderId, { id_empleado: employeeId });
+    upsertOrderMetadata(orderId, { id_empleado: employeeId, ...(areaId ? { id_area: areaId } : {}) });
     return getPurchaseOrderDetail(orderId);
   }
 
@@ -1038,7 +1089,7 @@ export function savePurchaseOrder(input = {}) {
   if (initialStatus !== 'aprobado') setOrderStartDate(created.id, null);
   if (initialStatus === 'aprobado') assignPurchaseOrderFolio(created.id);
   try {
-    upsertOrderMetadata(created.id, { id_empleado: employeeId });
+    upsertOrderMetadata(created.id, { id_empleado: employeeId, ...(areaId ? { id_area: areaId } : {}) });
     replaceOrderLines(created.id, pricedLines, { skipAccessCheck: true });
     return getPurchaseOrderDetail(created.id);
   } catch (error) {

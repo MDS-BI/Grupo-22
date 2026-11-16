@@ -36,7 +36,11 @@ export const PURCHASING_ERRORS = {
   PAYMENT_TERMS_INVALID: 'La condición de pago debe ser una de: Contado, 30 días, 60 días, 90 días.',
   DATE_FORMAT_INVALID: 'La fecha debe tener formato dd-mm-aaaa y ser una fecha válida.',
   PRODUCT_NOT_IN_PRICE_LIST: 'El producto no está en la lista de precios del proveedor seleccionado.',
-  PRICE_CURRENCY_MISMATCH: 'El precio acordado con el proveedor está en otra moneda; cambia la moneda de la orden.'
+  PRICE_CURRENCY_MISMATCH: 'El precio acordado con el proveedor está en otra moneda; cambia la moneda de la orden.',
+  AREA_REQUIRED: 'Debes seleccionar el área o centro de costo de la solicitud.',
+  AREA_NOT_FOUND: 'El área seleccionada no existe o está inactiva.',
+  SUPPLIER_INACTIVE: 'El proveedor está inactivo; reactívalo para crear nuevas solicitudes.',
+  BUDGET_INVALID: 'El presupuesto debe ser un monto entero mayor o igual a cero.'
 };
 
 export const REQUEST_NUMBER_PREFIX = 'SOL-';

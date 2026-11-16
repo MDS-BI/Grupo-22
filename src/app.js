@@ -61,6 +61,37 @@ import { renderPrintable } from './purchase-order-print.js';
 import { renderLineEditor } from './purchase-order-lines.js';
 import { hydrateIcons, icon } from './ui-icons.js';
 import {
+  configureGestion,
+  initGestion,
+  renderReports,
+  renderNotifications,
+  renderReorderCard,
+  gradeTag,
+  downloadCsv,
+  csvFilename
+} from './ui-gestion.js';
+import {
+  configurePurchaseMode,
+  bindPurchaseMode,
+  resetPurchaseMode,
+  setDefaultPurchaseMode,
+  isProductMode,
+  cartError,
+  getCart
+} from './ui-purchase-mode.js';
+import {
+  createRequestsFromCart,
+  duplicatePurchaseOrder,
+  getAreaBudgetForOrder,
+  getAllSupplierEvaluations,
+  loadAreas,
+  orderReference,
+  ordersCountForSupplier,
+  setSupplierStatus,
+  supplierIsActive
+} from './purchasing-management.js';
+import { toCsv, csvNumber } from './domain/reports.js';
+import {
   closeSidePanel,
   initSidePanel,
   mountPanelForm,
@@ -145,7 +176,8 @@ const VIEW_PERMISSIONS = {
   entities: PERMISSIONS.ENTITIES_VIEW,
   documents: PERMISSIONS.DOCUMENTS_VIEW,
   products: PERMISSIONS.PRODUCTS_VIEW,
-  search: PERMISSIONS.SEARCH_VIEW
+  search: PERMISSIONS.SEARCH_VIEW,
+  reports: PERMISSIONS.REPORTS_VIEW
 };
 
 function qs(id) {
@@ -298,6 +330,19 @@ function applyAccessControl() {
   for (const [view, permission] of Object.entries(VIEW_PERMISSIONS)) {
     const button = qs(`nav-${view}`);
     if (button) button.hidden = !canUse(permission);
+  }
+  // 007 · US3: "Reportes" deja de ser una reserva del 005 y pasa a ser navegable.
+  const reportsButton = qs('nav-reports');
+  if (reportsButton) {
+    const allowed = isPurchasing() && canUse(PERMISSIONS.REPORTS_VIEW);
+    reportsButton.hidden = !allowed;
+    reportsButton.disabled = !allowed;
+    reportsButton.setAttribute('aria-disabled', String(!allowed));
+    reportsButton.dataset.module = 'reports';
+    if (!reportsButton.dataset.bound) {
+      reportsButton.dataset.bound = 'true';
+      reportsButton.addEventListener('click', () => showView('reports'));
+    }
   }
   for (const [id, permission] of [
     ['action-new-entity', PERMISSIONS.ENTITIES_CREATE],
@@ -552,7 +597,7 @@ function setDocumentNavigationLabel() {
 function showView(name) {
   if (!canAccessView(name)) name = firstAllowedView();
   currentViewName = name;
-  for (const view of ['dashboard', 'entities', 'documents', 'products', 'search', 'order-detail', 'print']) {
+  for (const view of ['dashboard', 'entities', 'documents', 'products', 'search', 'reports', 'order-detail', 'print']) {
     const element = qs(`view-${view}`);
     if (element) element.hidden = view !== name;
   }
@@ -560,7 +605,7 @@ function showView(name) {
     if (button.dataset.module === name) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
-  const labels = { dashboard: 'Panel', entities: config?.labels?.entities || 'Proveedores', documents: config?.labels?.documents || 'Órdenes de Compra', products: config?.labels?.products || 'Productos', search: 'Búsqueda', 'order-detail': 'Detalle', print: 'Impresión' };
+  const labels = { dashboard: 'Panel', entities: config?.labels?.entities || 'Proveedores', documents: config?.labels?.documents || 'Órdenes de Compra', products: config?.labels?.products || 'Productos', search: 'Búsqueda', reports: 'Reportes', 'order-detail': 'Detalle', print: 'Impresión' };
   updateBreadcrumb(labels[name] || name);
   if (name === 'dashboard') renderDashboard();
   if (name === 'entities') {
@@ -574,6 +619,7 @@ function showView(name) {
     renderStatusControl();
   }
   if (name === 'products') renderProductCatalog();
+  if (name === 'reports') renderReports();
   if (name === 'search') {
     renderSearchRubroOptions();
     renderSearch();
@@ -721,15 +767,20 @@ function renderEntityTable() {
   const canEdit = canUse(PERMISSIONS.ENTITIES_UPDATE);
   const canDelete = canUse(PERMISSIONS.ENTITIES_DELETE);
   const canCreate = canUse(PERMISSIONS.ENTITIES_CREATE);
+  lastEntityRows = rows;
+  const evaluations = isPurchasing() && canUse(PERMISSIONS.REPORTS_VIEW) ? getAllSupplierEvaluations() : {};
+  const exportButton = qs('entities-export');
+  if (exportButton) exportButton.hidden = !isPurchasing() || !rows.length;
   qs('entity-table-body').innerHTML = rows.length
-    ? rows.map(entity => `<tr>
-        <td>${escapeHtml(entity.name)}</td>
+    ? rows.map(entity => `<tr${isPurchasing() && !supplierIsActive(entity) ? ' class="is-inactive"' : ''}>
+        <td>${escapeHtml(entity.name)}${entityTags(entity, evaluations)}</td>
         <td>${escapeHtml(isPurchasing() ? supplierTaxIdentity(entity) : entity.code)}</td>
         <td>${escapeHtml(renderEntityRubroCell(entity))}</td>
         <td>${escapeHtml(entity.origin || '')}</td>
         <td>${escapeHtml(isPurchasing() ? paymentTermLabel(entity.paymentTerms) : entity.paymentTerms ?? '')}</td>
         <td class="table-actions">
           ${canEdit ? `<button type="button" class="secondary" data-action="edit" data-id="${escapeHtml(entity.id)}">${icon('edit', { className: 'ui-icon' })}Editar</button>` : ''}
+          ${canEdit && isPurchasing() ? `<button type="button" class="secondary" data-action="toggle-status" data-id="${escapeHtml(entity.id)}">${supplierIsActive(entity) ? 'Inactivar' : 'Reactivar'}</button>` : ''}
           ${canDelete ? `<button type="button" class="danger" data-action="delete" data-id="${escapeHtml(entity.id)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>` : ''}
         </td>
       </tr>`).join('')
@@ -741,13 +792,50 @@ function renderEntityTable() {
       });
   applySortState(qs('entity-table'), entitySort);
   applyStackedLabels(qs('entity-table'));
-  renderEntityCards(rows, { canEdit, canDelete });
+  renderEntityCards(rows, { canEdit, canDelete, evaluations });
   const summary = qs('entity-filter-summary');
   if (summary) summary.textContent = isPurchasing() ? entityFilterSummary() : '';
   const clear = qs('entities-filter-clear');
   if (clear) clear.hidden = !(isPurchasing() && hasActiveFilters(entityFilters));
 }
 
+
+// 007 · US1/US6: etiquetas "Inactivo" y calificación A/B/C junto al nombre del proveedor.
+let lastEntityRows = [];
+let lastDocumentRows = [];
+
+function entityTags(entity, evaluations = {}) {
+  if (!isPurchasing()) return '';
+  const inactive = supplierIsActive(entity) ? '' : ' <span class="inactive-tag">Inactivo</span>';
+  const evaluation = evaluations[entity.entity_id];
+  return `${inactive}${evaluation ? ` ${gradeTag(evaluation)}` : ''}`;
+}
+
+function exportEntitiesCsv() {
+  const columns = [
+    { key: 'name', label: 'Nombre' },
+    { key: 'id', label: 'RUT / ID tributario', value: entity => supplierTaxIdentity(entity) },
+    { key: 'rubros', label: 'Rubros', value: entity => renderEntityRubroCell(entity) },
+    { key: 'origin', label: 'Origen', value: entity => entity.origin || '' },
+    { key: 'paymentTerms', label: 'Condición de pago', value: entity => paymentTermLabel(entity.paymentTerms) },
+    { key: 'estado', label: 'Estado', value: entity => (supplierIsActive(entity) ? 'Activo' : 'Inactivo') }
+  ];
+  downloadCsv(csvFilename('proveedores'), toCsv(columns, lastEntityRows));
+}
+
+function exportDocumentsCsv() {
+  const columns = [
+    { key: 'solicitud', label: 'N° solicitud', value: row => formatRequestNumber(row.folio) || row.folio },
+    { key: 'oc', label: 'Folio OC', value: row => formatPurchaseOrderFolio(row.ocFolio) || '' },
+    { key: 'proveedor', label: 'Proveedor', value: row => row.entityName },
+    { key: 'estado', label: 'Estado', value: row => statusFilterLabel(row.status) },
+    { key: 'emision', label: 'Fecha de emisión', value: row => (row.startDate ? formatDateMask(row.startDate) : '') },
+    { key: 'entrega', label: 'Fecha de entrega', value: row => (row.endDate ? formatDateMask(row.endDate) : '') },
+    { key: 'moneda', label: 'Moneda', value: row => row.currency || 'CLP' },
+    { key: 'total', label: 'Total', value: row => csvNumber(row.total) }
+  ];
+  downloadCsv(csvFilename('solicitudes-y-oc'), toCsv(columns, lastDocumentRows));
+}
 
 // 005 · US4: vista de tarjetas de proveedores (avatar de iniciales, chips de rubro y origen).
 let entityViewMode = 'table';
@@ -765,7 +853,7 @@ function entityRubroNames(entity) {
     .map(rubroLabel);
 }
 
-function renderEntityCards(rows, { canEdit, canDelete }) {
+function renderEntityCards(rows, { canEdit, canDelete, evaluations = {} }) {
   const container = qs('entity-cards');
   const toggle = qs('entities-view-toggle');
   const tableWrapper = qs('entity-table')?.closest('.table-wrapper');
@@ -791,10 +879,12 @@ function renderEntityCards(rows, { canEdit, canDelete }) {
             <div class="supplier-card-title"><strong>${escapeHtml(entity.name)}</strong><span>${escapeHtml(supplierTaxIdentity(entity))}</span></div>
             <span class="origin-tag ${foreign ? 'origin-foreign' : 'origin-national'}">${foreign ? 'Extranjero' : 'Nacional'}</span>
           </div>
+          ${entityTags(entity, evaluations) ? `<p class="supplier-card-tags">${entityTags(entity, evaluations)}</p>` : ''}
           ${chips ? `<ul class="chip-list" aria-label="Rubros">${chips}</ul>` : '<p class="supplier-card-muted">Sin rubros</p>'}
           <p class="supplier-card-muted">Condición de pago: ${escapeHtml(paymentTermLabel(entity.paymentTerms) || '—')}</p>
           ${canEdit || canDelete ? `<div class="supplier-card-actions">
             ${canEdit ? `<button type="button" class="secondary" data-card-action="edit" data-id="${escapeHtml(entity.id)}">${icon('edit', { className: 'ui-icon' })}Editar</button>` : ''}
+            ${canEdit ? `<button type="button" class="secondary" data-card-action="toggle-status" data-id="${escapeHtml(entity.id)}">${supplierIsActive(entity) ? 'Inactivar' : 'Reactivar'}</button>` : ''}
             ${canDelete ? `<button type="button" class="danger" data-card-action="delete" data-id="${escapeHtml(entity.id)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>` : ''}
           </div>` : ''}
         </li>`;
@@ -802,17 +892,115 @@ function renderEntityCards(rows, { canEdit, canDelete }) {
     : '<p class="insight-empty">No hay proveedores para los filtros seleccionados.</p>';
 }
 
+function toggleSupplierStatus(entity) {
+  const feedback = qs('entity-feedback');
+  if (!canUse(PERMISSIONS.ENTITIES_UPDATE)) {
+    if (feedback) feedback.textContent = PERMISSION_DENIED;
+    return;
+  }
+  const activate = !supplierIsActive(entity);
+  if (!activate && !globalThis.confirm(`¿Inactivar a ${entity.name}? No aparecerá en solicitudes nuevas; sus órdenes existentes no cambian.`)) return;
+  try {
+    setSupplierStatus(entity.id, activate ? 'activo' : 'inactivo');
+    renderEntityTable();
+    renderDocumentEntityOptions();
+    announce(activate ? `${entity.name} quedó activo.` : `${entity.name} quedó inactivo.`);
+  } catch (error) {
+    if (feedback) feedback.textContent = error.message;
+  }
+}
+
 function renderDocumentEntityOptions() {
   const selectedEntity = qs('document-entity').value;
   const selectedEmployee = qs('document-employee').value;
+  // 007 · US6: los proveedores inactivos no se ofrecen en solicitudes nuevas (sí el ya elegido).
   qs('document-entity').innerHTML = `<option value="">Seleccionar ${config.labels.entity}</option>` +
-    loadEntities().map(entity => `<option value="${escapeHtml(entity.entity_id)}">${escapeHtml(entity.name)}</option>`).join('');
+    loadEntities()
+      .filter(entity => !isPurchasing() || supplierIsActive(entity) || entity.entity_id === selectedEntity)
+      .map(entity => `<option value="${escapeHtml(entity.entity_id)}">${escapeHtml(entity.name)}${supplierIsActive(entity) ? '' : ' (inactivo)'}</option>`).join('');
   qs('document-employee').innerHTML = `<option value="">Seleccionar empleado</option>` +
     loadEmployees().map(employee => `<option value="${escapeHtml(employee.id_empleado || employee.id)}">${escapeHtml(employee.nombre || employee.name || '')}</option>`).join('');
   qs('document-entity').value = selectedEntity;
   qs('document-employee').value = selectedEmployee;
   syncRequesterControl();
   renderLineProductOptions();
+  renderAreaOptions(qs('document-area')?.value || '');
+}
+
+/** 007 · US4: área solicitante (solo áreas activas; obligatoria si existe alguna). */
+function renderAreaOptions(selected = '') {
+  const select = qs('document-area');
+  const field = qs('document-area-field');
+  if (!select || !field) return;
+  const areas = isPurchasing() ? loadAreas() : [];
+  const options = areas.filter(area => area.activa !== false || area.id_area === selected);
+  field.hidden = !options.some(area => area.activa !== false) && !selected;
+  select.innerHTML = '<option value="">Seleccionar área</option>' + options
+    .map(area => `<option value="${escapeHtml(area.id_area)}">${escapeHtml(area.nombre)}${area.activa === false ? ' (inactiva)' : ''}</option>`).join('');
+  select.value = selected;
+}
+
+/** 007 · US7: guarda el carrito de "Comprar por producto" (una solicitud por proveedor). */
+function submitProductPurchase() {
+  const feedback = qs('document-feedback');
+  if (!canUse(PERMISSIONS.DOCUMENTS_CREATE)) {
+    feedback.textContent = PERMISSION_DENIED;
+    return;
+  }
+  const employeeId = qs('document-employee').value;
+  const areaVisible = !qs('document-area-field')?.hidden;
+  const areaId = areaVisible ? qs('document-area').value : '';
+  const rawEndDate = qs('endDate').value;
+  const parsedEndDate = parseDateInput(rawEndDate);
+  const errors = {};
+  if (!employeeId) errors.id_empleado = 'Debe seleccionar un empleado solicitante.';
+  if (areaVisible && !areaId) errors.id_area = 'Debe seleccionar el área solicitante.';
+  if (rawEndDate && !parsedEndDate.valid) errors.endDate = 'La fecha debe tener formato dd-mm-aaaa.';
+  setFieldError('error-document-employee', errors.id_empleado);
+  setFieldError('error-document-area', errors.id_area);
+  setFieldError('error-endDate', errors.endDate);
+  const cartMessage = cartError();
+  feedback.textContent = cartMessage;
+  if (Object.keys(errors).length || cartMessage) return;
+  try {
+    const created = createRequestsFromCart(getCart(), {
+      id_empleado: employeeId,
+      id_area: areaId,
+      endDate: parsedEndDate.valid ? parsedEndDate.iso : ''
+    });
+    clearDocumentForm();
+    closeSidePanel({ force: true });
+    renderDocumentFilterOptions();
+    renderDocumentTable();
+    renderDashboard();
+    const message = created.length > 1
+      ? `Se crearon ${created.length} solicitudes en borrador: ${created.map(order => orderReference(order)).join(', ')}.`
+      : `Se creó la solicitud ${orderReference(created[0])} en borrador.`;
+    announce(message);
+  } catch (error) {
+    feedback.textContent = error.message || purchasingErrorMessage(error);
+  }
+}
+
+function setFieldError(id, message = '') {
+  const element = qs(id);
+  if (element) element.textContent = message || '';
+}
+
+function announce(message) {
+  let region = qs('app-announcer');
+  if (!region) {
+    region = document.createElement('div');
+    region.id = 'app-announcer';
+    region.className = 'toast-region';
+    region.setAttribute('role', 'status');
+    region.setAttribute('aria-live', 'polite');
+    document.body.appendChild(region);
+  }
+  region.textContent = message;
+  region.classList.add('is-visible');
+  clearTimeout(announce.timer);
+  announce.timer = setTimeout(() => region.classList.remove('is-visible'), 5000);
 }
 
 /** 006: lista de precios del proveedor seleccionado en el formulario (vacía si no tiene). */
@@ -892,8 +1080,8 @@ function renderDocumentFilterOptions() {
       loadEntities().map(entity => `<option value="${escapeHtml(entity.entity_id)}">${escapeHtml(entity.name)}</option>`).join('');
     entitySelect.value = documentFilters.entityId;
   }
-  if (qs('documents-filter-from')) qs('documents-filter-from').value = documentFilters.from;
-  if (qs('documents-filter-to')) qs('documents-filter-to').value = documentFilters.to;
+  if (qs('documents-filter-from')) qs('documents-filter-from').value = formatDateMask(documentFilters.from);
+  if (qs('documents-filter-to')) qs('documents-filter-to').value = formatDateMask(documentFilters.to);
   if (qs('documents-filter-overdue')) qs('documents-filter-overdue').checked = documentFilters.overdueOnly;
   const canFilterMine = canFilterOwnOrders();
   if (!canFilterMine) documentFilters.mineOnly = false;
@@ -968,8 +1156,8 @@ function documentFilterSummary() {
   return filterSummary([
     ['Estado', documentFilters.status ? statusFilterLabel(documentFilters.status) : ''],
     ['Proveedor', entity?.name || ''],
-    ['Desde', documentFilters.from],
-    ['Hasta', documentFilters.to],
+    ['Desde', documentFilters.from ? formatDateMask(documentFilters.from) : ''],
+    ['Hasta', documentFilters.to ? formatDateMask(documentFilters.to) : ''],
     ['Solo atrasadas', documentFilters.overdueOnly],
     ['Solo mis OC', canFilterOwnOrders() && documentFilters.mineOnly]
   ]);
@@ -996,6 +1184,9 @@ function renderDocumentTable() {
     total: row => Number(row.total ?? row.totalAmount ?? 0),
     status: row => row.status || ''
   });
+  lastDocumentRows = sorted;
+  const documentsExport = qs('documents-export');
+  if (documentsExport) documentsExport.hidden = !isPurchasing() || !sorted.length;
   const canEdit = canUse(PERMISSIONS.DOCUMENTS_UPDATE);
   const canDelete = canUse(PERMISSIONS.DOCUMENTS_DELETE);
   const canCreate = canUse(PERMISSIONS.DOCUMENTS_CREATE);
@@ -1459,8 +1650,47 @@ function detailOptions(detail) {
     canEditLines: canUse(PERMISSIONS.DOCUMENTS_UPDATE),
     allowedNextStatuses: allowedNextStatuses(order.status),
     backLabel: 'Volver a Órdenes de Compra',
-    renderStatus: renderStatusBadge
+    renderStatus: renderStatusBadge,
+    ...(isPurchasing() ? gestionDetailOptions(detail, order) : {})
   };
+}
+
+/** 007 · US4/US6: área, bloque de presupuesto y botón "Duplicar" en el detalle. */
+function gestionDetailOptions(detail, order) {
+  const options = {};
+  const areaId = detail.metadata?.id_area || getOrderMetadata(order.id)?.id_area;
+  const area = areaId ? loadAreas().find(item => item.id_area === areaId) : null;
+  if (areaId) options.areaName = area ? `${area.nombre}${area.activa === false ? ' (inactiva)' : ''}` : 'Área eliminada';
+  const budget = budgetInfoFor(order);
+  if (budget) options.extraHeaderHtml = budgetBlockHtml(budget);
+  if (canUse(PERMISSIONS.DOCUMENTS_CREATE) && !detail.isLegacy) {
+    options.extraActionsHtml = `<button type="button" class="secondary" data-action="duplicate-order">${icon('plus', { className: 'ui-icon' })}Duplicar</button>`;
+  }
+  return options;
+}
+
+function budgetInfoFor(order) {
+  if (!canUse(PERMISSIONS.BUDGETS_MANAGE) && !canUse(PERMISSIONS.ORDERS_APPROVE)) return null;
+  try {
+    return getAreaBudgetForOrder(order.id);
+  } catch {
+    return null;
+  }
+}
+
+function budgetBlockHtml(info) {
+  const month = info.month ? `${info.month.slice(5, 7)}-${info.month.slice(0, 4)}` : '';
+  if (!info.defined) {
+    return `<div class="order-budget" id="order-budget"><strong>Presupuesto ${escapeHtml(info.area?.nombre || '')} · ${escapeHtml(month)}</strong><span>Sin presupuesto definido para el mes.</span></div>`;
+  }
+  const pending = info.availableAfter !== info.available;
+  return `<div class="order-budget${info.exceeds ? ' is-over' : ''}" id="order-budget">
+    <strong>Presupuesto ${escapeHtml(info.area?.nombre || '')} · ${escapeHtml(month)}</strong>
+    <span>Presupuesto ${escapeHtml(formatMoney(info.budget, 'CLP'))} · Gastado ${escapeHtml(formatMoney(info.spent, 'CLP'))} · Disponible ${escapeHtml(formatMoney(info.available, 'CLP'))}</span>
+    ${pending && info.availableAfter >= 0 ? `<span>Si se aprueba esta solicitud quedan <strong>${escapeHtml(formatMoney(info.availableAfter, 'CLP'))}</strong>.</span>` : ''}
+    ${info.exceeds ? `<span class="budget-warning">⚠ Excede el presupuesto del área en ${escapeHtml(formatMoney(info.excessAmount, 'CLP'))}.</span>` : ''}
+    ${info.currency && info.currency !== 'CLP' ? '<span class="muted">Esta orden está en moneda extranjera y no se descuenta del presupuesto en CLP.</span>' : ''}
+  </div>`;
 }
 
 function openOrderDetail(orderId) {
@@ -1481,6 +1711,32 @@ function openOrderDetail(orderId) {
   showView('order-detail');
   qs('order-detail-view').scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   qs('order-actions').querySelector('[data-action="close-order-detail"]')?.focus();
+}
+
+/** 007 · US6: crea una solicitud nueva en borrador con las mismas líneas y precios vigentes. */
+function duplicateCurrentOrder() {
+  const feedback = qs('order-actions').querySelector('.feedback');
+  if (!canUse(PERMISSIONS.DOCUMENTS_CREATE)) {
+    if (feedback) feedback.textContent = PERMISSION_DENIED;
+    return;
+  }
+  try {
+    const metadata = getOrderMetadata(currentOrderId);
+    const area = metadata?.id_area ? loadAreas().find(item => item.id_area === metadata.id_area) : null;
+    const result = duplicatePurchaseOrder(currentOrderId, {
+      id_empleado: activeSession?.role === 'comprador' ? ownEmployeeId() : (metadata?.id_empleado || ownEmployeeId()),
+      ...(area && area.activa !== false ? { id_area: area.id_area } : {})
+    });
+    renderDocumentTable();
+    renderDashboard();
+    openOrderDetail(result.order.id);
+    const message = `Solicitud ${orderReference(result.order)} creada como copia.${result.omitted.length ? ` Se omitieron ${result.omitted.length} producto(s) sin precio vigente.` : ''}`;
+    const nextFeedback = qs('order-actions').querySelector('.feedback');
+    if (nextFeedback) nextFeedback.textContent = message;
+    announce(message);
+  } catch (error) {
+    if (feedback) feedback.textContent = error.message || purchasingErrorMessage(error);
+  }
 }
 
 function printOrder(orderId) {
@@ -1517,6 +1773,10 @@ function renderDashboard() {
   }).length;
   qs('stat-overdue').textContent = String(overdue);
   renderDashboardInsights(documents, entities);
+  if (isPurchasing()) {
+    renderReorderCard();
+    renderNotifications();
+  }
 }
 
 /** 005 · US2: detalle de indicadores, gráficos, top 5 y "Requiere tu atención" (solo lectura). */
@@ -1666,6 +1926,9 @@ function openSupplierSummary(entityId) {
     rubroNames: renderEntityRubroCell(summary.supplier),
     canViewCreditLimit: canViewCreditLimit(activeSession),
     statusBadge: renderStatusBadge,
+    ...(isPurchasing() && canUse(PERMISSIONS.REPORTS_VIEW)
+      ? { evaluation: getAllSupplierEvaluations()[entityId], gradeTag }
+      : {}),
     productName: productId => {
       const product = loadProducts().find(item => (item.id_producto || item.id) === productId);
       return product?.nombre || product?.name || '';
@@ -1714,7 +1977,8 @@ function collectDocument() {
       folio: qs('folio').value,
       endDate: parsedEndDate.valid ? parsedEndDate.iso : rawEndDate,
       currency: qs('currency')?.value ?? '',
-      paymentTerms: qs('docPaymentTerms')?.value ?? ''
+      paymentTerms: qs('docPaymentTerms')?.value ?? '',
+      ...(qs('document-area') && !qs('document-area-field')?.hidden ? { id_area: qs('document-area').value } : {})
     };
     for (const field of config.customFields.filter(item => item.target === 'document')) data[field.key] = qs(`cf-${field.key}`).value;
     return data;
@@ -1792,6 +2056,10 @@ function loadDocumentIntoForm(document) {
   setDocumentFormReadOnly(isTerminalStatus(document.status));
   renderDocumentCurrencyControl(origin, draftCurrency);
   qs('document-submit-button').textContent = `Actualizar ${config.labels.document}`;
+  resetPurchaseMode({ editing: true });
+  if (qs('document-area')) {
+    renderAreaOptions(metadata?.id_area || '');
+  }
   qs('document-feedback').textContent = isTerminalStatus(document.status)
     ? purchasingErrorMessage('ORDER_TERMINAL')
     : metadata ? '' : 'Orden hist��rica sin empleado solicitante; selecciona un empleado para volver a guardarla.';
@@ -1848,18 +2116,21 @@ function bindEvents() {
     clearDocumentForm();
     syncRequesterControl();
     syncDocumentTypeLabel('borrador');
+    resetPurchaseMode({ editing: false, enabled: isPurchasing() });
     showView('documents');
     openSidePanel({
       title: `Agregar ${config.labels.document}`,
       form: qs('document-form'),
       trigger: document.activeElement,
-      focus: qs('document-entity')
+      focus: isProductMode() ? qs('pbp-product') : qs('document-entity')
     });
   };
   qs('action-new-entity').addEventListener('click', openNewEntity);
   qs('entity-list-new')?.addEventListener('click', openNewEntity);
   qs('action-open-entities').addEventListener('click', () => showView('entities'));
   qs('action-new-document').addEventListener('click', openNewDocument);
+  qs('entities-export')?.addEventListener('click', exportEntitiesCsv);
+  qs('documents-export')?.addEventListener('click', exportDocumentsCsv);
   qs('document-list-new')?.addEventListener('click', openNewDocument);
   qs('action-find').addEventListener('click', () => { showView('search'); qs('search-input').focus(); });
   qs('search-input').addEventListener('input', renderSearch);
@@ -1897,14 +2168,27 @@ function bindEvents() {
     documentFilters.entityId = event.target.value;
     renderDocumentTable();
   });
-  qs('documents-filter-from')?.addEventListener('change', event => {
-    documentFilters.from = event.target.value;
-    renderDocumentTable();
-  });
-  qs('documents-filter-to')?.addEventListener('change', event => {
-    documentFilters.to = event.target.value;
-    renderDocumentTable();
-  });
+  // 007 (pendiente del 005): filtros de fecha en formato dd-mm-aaaa con máscara.
+  for (const [id, key] of [['documents-filter-from', 'from'], ['documents-filter-to', 'to']]) {
+    const input = qs(id);
+    if (!input) continue;
+    input.type = 'text';
+    input.placeholder = 'dd-mm-aaaa';
+    input.setAttribute('inputmode', 'numeric');
+    input.autocomplete = 'off';
+    const apply = () => {
+      const masked = maskDateInput(input.value);
+      if (input.value !== masked) input.value = masked;
+      const parsed = parseDateInput(masked);
+      const next = parsed.valid ? parsed.iso : '';
+      if (masked && !parsed.valid) return;
+      if (documentFilters[key] === next) return;
+      documentFilters[key] = next;
+      renderDocumentTable();
+    };
+    input.addEventListener('input', apply);
+    input.addEventListener('change', apply);
+  }
   qs('documents-filter-overdue')?.addEventListener('change', event => {
     documentFilters.overdueOnly = event.target.checked;
     renderDocumentTable();
@@ -2063,11 +2347,20 @@ function bindEvents() {
       });
       return;
     }
+    if (button.dataset.action === 'toggle-status') {
+      toggleSupplierStatus(entity);
+      return;
+    }
     if (!canUse(PERMISSIONS.ENTITIES_DELETE)) {
       qs('entity-feedback').textContent = PERMISSION_DENIED;
       return;
     }
-    if (!globalThis.confirm(`¿Eliminar ${withArticle(config.labels.entity)} ${entity.name}?`)) return;
+    // 007 · US6: la eliminación sigue en cascada (001 FR-003) pero avisa cuántas órdenes se pierden.
+    const linkedOrders = isPurchasing() ? ordersCountForSupplier(entity.entity_id) : 0;
+    const deleteText = linkedOrders
+      ? `¿Eliminar ${withArticle(config.labels.entity)} ${entity.name}?\n\nTambién se eliminarán sus ${linkedOrders} solicitud(es)/OC asociadas. Si solo quieres dejar de comprarle, usa «Inactivar».`
+      : `¿Eliminar ${withArticle(config.labels.entity)} ${entity.name}?`;
+    if (!globalThis.confirm(deleteText)) return;
     deleteEntity(entity.id);
     clearEntityForm();
     closeSidePanel({ force: true });
@@ -2108,6 +2401,10 @@ function bindEvents() {
 
   qs('document-form').addEventListener('submit', event => {
     event.preventDefault();
+    if (isPurchasing() && !qs('document-id').value && isProductMode()) {
+      submitProductPurchase();
+      return;
+    }
     if (isPurchasing()) syncDraftPricing();
     const data = collectDocument();
     const id = qs('document-id').value;
@@ -2242,6 +2539,10 @@ function bindEvents() {
       printOrder(currentOrderId);
       return;
     }
+    if (action === 'duplicate-order') {
+      duplicateCurrentOrder();
+      return;
+    }
     if (action === 'transition') {
       const nextStatus = button.dataset.nextStatus;
       const currentDocument = loadDocuments().find(item => item.id === currentOrderId);
@@ -2250,7 +2551,14 @@ function bindEvents() {
         if (feedback) feedback.textContent = PERMISSION_DENIED;
         return;
       }
-      if (!globalThis.confirm(`¿Confirmar el cambio de estado a "${statusLabel(nextStatus)}"?`)) return;
+      let confirmText = `¿Confirmar el cambio de estado a "${statusLabel(nextStatus)}"?`;
+      if (isPurchasing() && nextStatus === 'aprobado') {
+        const budget = budgetInfoFor(currentDocument || { id: currentOrderId });
+        if (budget?.defined && budget.exceeds) {
+          confirmText += `\n\nAtención: esta solicitud excede el presupuesto de ${budget.area?.nombre || 'su área'} en ${formatMoney(budget.excessAmount, 'CLP')}. Puedes aprobarla igual.`;
+        }
+      }
+      if (!globalThis.confirm(confirmText)) return;
       try {
         const detail = changeOrderStatus(currentOrderId, nextStatus);
         renderDetail(detail, detailOptions(detail));
@@ -2302,6 +2610,22 @@ export async function initApp(normalizedConfig, options = {}) {
   ensureNavOrder();
   mountFormTemplates();
   hydrateIcons();
+  configureGestion({
+    escapeHtml,
+    formatMoney,
+    canUse,
+    getSession: () => activeSession,
+    ownEmployeeId,
+    openOrderDetail,
+    onDataChanged: () => {
+      renderDocumentEntityOptions();
+      renderDocumentTable();
+      renderDashboard();
+    }
+  });
+  configurePurchaseMode({ escapeHtml, formatMoney });
+  bindPurchaseMode();
+  initGestion();
   if (options.recoverTransactions !== false) {
     try {
       recoveryResult = recoverTransactions();
@@ -2345,6 +2669,8 @@ export function getRecoveryResult() {
 }
 
 export async function boot() {
+  // 007 · US7: en la aplicación real, la solicitud nueva abre en "Comprar por producto".
+  setDefaultPurchaseMode('product');
   const initialTheme = initTheme();
   bindAuthEvents();
   ensureShellScaffold();

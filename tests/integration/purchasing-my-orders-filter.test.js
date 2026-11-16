@@ -73,7 +73,7 @@ describe('filtro Solo mis OC', () => {
 
     qs('nav-documents').click();
     const allIds = visibleOrderIds();
-    expect(allIds).toHaveLength(12);
+    expect(allIds).toHaveLength(16);
 
     const documentsBefore = JSON.stringify({
       documents: purchasing.listPurchaseOrdersWithActions(),
@@ -100,7 +100,7 @@ describe('filtro Solo mis OC', () => {
 
     qs('documents-filter-clear').click();
     expect(qs('documents-filter-mine').checked).toBe(false);
-    expect(visibleOrderIds()).toHaveLength(12);
+    expect(visibleOrderIds()).toHaveLength(16);
 
     expect(JSON.stringify({
       documents: purchasing.listPurchaseOrdersWithActions(),

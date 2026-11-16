@@ -87,7 +87,7 @@ describe('sustitución segura de datos de demostración', () => {
 
     expect(storage.loadEntities().some(entity => entity.name === 'Proveedor Uno')).toBe(false);
     expect(storage.loadEntities()).toHaveLength(8);
-    expect(storage.loadDocuments()).toHaveLength(12);
+    expect(storage.loadDocuments()).toHaveLength(16);
     expect(storage.loadRubros()).toHaveLength(3);
     expect(purchasing.loadCategories()).toHaveLength(5);
     expect(purchasing.loadProducts()).toHaveLength(15);

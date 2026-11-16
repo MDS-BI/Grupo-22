@@ -103,17 +103,60 @@ function priceRowMarkup(entry = {}, index = 0) {
         ${currencies.map(code => `<option value="${escape(code)}"${code === selectedCurrency ? ' selected' : ''}>${escape(code)}</option>`).join('')}
       </select></td>
     <td class="table-actions"><button type="button" class="danger" data-action="remove-price-row" data-index="${index}">Quitar</button></td>
+  </tr>
+  <tr class="tier-row" data-tier-for="${index}">
+    <td colspan="4">
+      <div class="tier-editor">
+        <span class="tier-title">Precio por cantidad <small>(el precio de arriba rige desde 1 unidad)</small></span>
+        <ul class="tier-list">${extraTiers(entry).map((tier, tierIndex) => tierMarkup(index, tierIndex, tier)).join('')}</ul>
+        <button type="button" class="secondary tier-add" data-action="add-tier" data-index="${index}">+ Agregar tramo</button>
+      </div>
+    </td>
   </tr>`;
+}
+
+// 007 · US7: tramos por cantidad (desde N unidades → precio) bajo cada proveedor.
+function extraTiers(entry = {}) {
+  return (Array.isArray(entry.tramos) ? entry.tramos : []).filter((tier, index) => !(index === 0 && Number(tier.desde) === 1));
+}
+
+function tierMarkup(rowIndex, tierIndex, tier = {}) {
+  const id = `product-tier-${rowIndex}-${tierIndex}`;
+  return `<li class="tier-item" data-tier-index="${tierIndex}">
+    <label for="${id}-desde">Desde</label>
+    <input id="${id}-desde" data-tier-field="desde" type="number" min="2" step="1" value="${escape(tier.desde ?? '')}">
+    <span>unidades:</span>
+    <label class="sr-only" for="${id}-precio">Precio del tramo</label>
+    <input id="${id}-precio" data-tier-field="precio" type="number" min="0" step="0.01" value="${escape(tier.precio ?? '')}">
+    <button type="button" class="danger tier-remove" data-action="remove-tier" data-index="${rowIndex}" data-tier-index="${tierIndex}" aria-label="Quitar tramo">×</button>
+  </li>`;
+}
+
+function collectTiers(rowIndex, basePrice) {
+  const body = qs('product-prices-body');
+  const tierRow = body?.querySelector(`tr[data-tier-for="${rowIndex}"]`);
+  if (!tierRow) return null;
+  const extras = [...tierRow.querySelectorAll('.tier-item')].map(item => ({
+    desde: item.querySelector('[data-tier-field="desde"]')?.value ?? '',
+    precio: item.querySelector('[data-tier-field="precio"]')?.value ?? ''
+  }));
+  if (!extras.length) return null;
+  return [{ desde: 1, precio: basePrice }, ...extras];
 }
 
 function collectPriceRows() {
   const body = qs('product-prices-body');
   if (!body) return [];
-  return [...body.querySelectorAll('tr[data-price-row]')].map(row => ({
-    entity_id: row.querySelector('[data-field="entity_id"]')?.value || '',
-    precio: row.querySelector('[data-field="precio"]')?.value ?? '',
-    moneda: row.querySelector('[data-field="moneda"]')?.value || ''
-  }));
+  return [...body.querySelectorAll('tr[data-price-row]')].map(row => {
+    const precio = row.querySelector('[data-field="precio"]')?.value ?? '';
+    const tramos = collectTiers(row.dataset.priceRow, precio);
+    return {
+      entity_id: row.querySelector('[data-field="entity_id"]')?.value || '',
+      precio,
+      moneda: row.querySelector('[data-field="moneda"]')?.value || '',
+      ...(tramos ? { tramos } : {})
+    };
+  });
 }
 
 function renderPriceRows(entries = []) {
@@ -143,6 +186,21 @@ function bindPriceRows(form) {
       renderPriceRows(collectPriceRows().filter((_, rowIndex) => rowIndex !== index));
       qs('product-price-add')?.focus();
     }
+    if (button.dataset.action === 'add-tier' || button.dataset.action === 'remove-tier') {
+      const rowIndex = Number(button.dataset.index);
+      const rows = collectPriceRows().map((row, index) => {
+        if (index !== rowIndex) return row;
+        const tiers = row.tramos ? row.tramos.slice(1) : [];
+        const next = button.dataset.action === 'add-tier'
+          ? [...tiers, { desde: '', precio: '' }]
+          : tiers.filter((_, tierIndex) => tierIndex !== Number(button.dataset.tierIndex));
+        return { ...row, tramos: next.length ? [{ desde: 1, precio: row.precio }, ...next] : undefined };
+      });
+      renderPriceRows(rows);
+      const tierRow = qs('product-prices-body').querySelector(`tr[data-tier-for="${rowIndex}"]`);
+      const inputs = tierRow?.querySelectorAll('[data-tier-field="desde"]');
+      (inputs?.[inputs.length - 1] || tierRow?.querySelector('.tier-add'))?.focus();
+    }
   });
   form.addEventListener('change', event => {
     if (event.target?.dataset?.field === 'entity_id') renderPriceRows(collectPriceRows());
@@ -158,19 +216,29 @@ function showPriceErrors(result) {
 // etiqueta "Sin stock" cuando es cero. El número sigue visible como texto.
 function stockCell(product, maxStock) {
   const stock = Number(product.stock || 0);
+  const minimum = Number(product.stock_minimo || 0);
+  // 007 · US2: mínimo visible y etiqueta "Bajo mínimo".
+  const minimumTag = minimum > 0
+    ? `<span class="stock-minimum${stock <= minimum ? ' is-below' : ''}">${stock <= minimum ? 'Bajo mínimo' : 'Mín.'} ${escape(minimum)}</span>`
+    : '';
   if (stock === 0) {
-    return `<span class="stock-cell"><span class="stock-value">0</span><span class="stock-tag-empty">Sin stock</span></span>`;
+    return `<span class="stock-cell"><span class="stock-value">0</span><span class="stock-tag-empty">Sin stock</span>${minimumTag}</span>`;
   }
   const percent = Math.max(6, Math.round((stock / maxStock) * 100));
   const level = percent < 25 ? 'low' : percent < 60 ? 'mid' : 'high';
-  return `<span class="stock-cell"><span class="stock-value">${escape(stock)}</span><span class="stock-meter stock-${level}" aria-hidden="true"><span style="width:${percent}%"></span></span></span>`;
+  return `<span class="stock-cell"><span class="stock-value">${escape(stock)}</span><span class="stock-meter stock-${level}" aria-hidden="true"><span style="width:${percent}%"></span></span>${minimumTag}</span>`;
 }
 
 function supplierPricesSummary(product) {
   const entries = getSupplierPricesForProduct(productId(product));
   if (!entries.length) return 'Sin proveedor';
   const names = new Map(loadEntities().map(entity => [entity.entity_id, entity.name]));
-  return entries.map(entry => `${names.get(entry.entity_id) || ''} (${money(entry.precio, entry.moneda)})`).join('; ');
+  return entries.map(entry => {
+    const tiers = Array.isArray(entry.tramos) && entry.tramos.length > 1
+      ? `; desde ${entry.tramos.slice(1).map(tier => `${tier.desde} u.: ${money(tier.precio, entry.moneda)}`).join(', ')}`
+      : '';
+    return `${names.get(entry.entity_id) || ''} (${money(entry.precio, entry.moneda)}${tiers})`;
+  }).join('; ');
 }
 
 function productId(product) {
@@ -320,6 +388,7 @@ function clearProductForm() {
   if (qs('product-nombre')) qs('product-nombre').value = '';
   if (qs('product-unidad')) qs('product-unidad').value = '';
   if (qs('product-stock')) qs('product-stock').value = '0';
+  if (qs('product-stock-minimo')) qs('product-stock-minimo').value = '0';
   if (qs('product-submit-button')) qs('product-submit-button').textContent = 'Guardar producto';
   if (qs('product-form-feedback')) qs('product-form-feedback').textContent = '';
   clearProductErrors();
@@ -355,12 +424,14 @@ function submitProduct() {
     nombre: qs('product-nombre').value,
     unidad_medida: qs('product-unidad').value,
     stock: qs('product-stock').value,
+    stock_minimo: qs('product-stock-minimo')?.value ?? '0',
     id_categoria: qs('product-categoria').value
   };
   const errors = {};
   if (!String(data.nombre || '').trim()) errors.nombre = 'El nombre es obligatorio';
   if (!String(data.unidad_medida || '').trim()) errors.unidad_medida = 'La unidad de medida es obligatoria';
   if (!Number.isInteger(Number(data.stock)) || Number(data.stock) < 0) errors.stock = 'El stock debe ser un entero no negativo';
+  if (!Number.isInteger(Number(data.stock_minimo || 0)) || Number(data.stock_minimo || 0) < 0) errors.stock_minimo = 'El stock mínimo debe ser un entero no negativo';
   if (!data.id_categoria || !loadCategories().some(category => String(categoryId(category)) === String(data.id_categoria))) {
     errors.id_categoria = 'La categoría es obligatoria';
   }
@@ -368,6 +439,7 @@ function submitProduct() {
   setError('error-product-nombre', errors.nombre);
   setError('error-product-unidad', errors.unidad_medida);
   setError('error-product-stock', errors.stock);
+  setError('error-product-stock-minimo', errors.stock_minimo);
   setError('error-product-categoria', errors.id_categoria);
   const managePrices = canManagePrices();
   if (!editingProductId && !canCreateProduct()) {
@@ -391,7 +463,8 @@ function submitProduct() {
       nombre: String(data.nombre).trim(),
       unidad_medida: String(data.unidad_medida).trim(),
       stock: Number(data.stock),
-      id_categoria: data.id_categoria
+      id_categoria: data.id_categoria,
+      ...(String(data.stock_minimo ?? '').trim() !== '' && (Number(data.stock_minimo) > 0 || editingProductId) ? { stock_minimo: Number(data.stock_minimo) } : {})
     };
     const priceOptions = { requireAtLeastOne: requirePriceLinks() };
     if (editingProductId) {
@@ -460,6 +533,7 @@ function openProductForm(product = null) {
     qs('product-nombre').value = productName(product);
     qs('product-unidad').value = product.unidad_medida || product.unit || '';
     qs('product-stock').value = product.stock ?? 0;
+    if (qs('product-stock-minimo')) qs('product-stock-minimo').value = product.stock_minimo ?? 0;
     renderCategoryOptions(product.id_categoria || '');
     qs('product-submit-button').textContent = 'Actualizar producto';
   }

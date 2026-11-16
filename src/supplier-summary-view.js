@@ -29,6 +29,18 @@ function definition(label, value, escape) {
 }
 
 /** HTML de la ficha del proveedor: datos, monto total comprado, lista de precios e historial de OC. */
+/** 007 · US1: sección de evaluación de entregas (solo con `reports.view`). */
+function evaluationSection(evaluation, { escape, gradeTag = () => '' }) {
+  const pct = value => String(value).replace('.', ',');
+  const body = evaluation.evaluables
+    ? `${escape(evaluation.aTiempo)} de ${escape(evaluation.evaluables)} entregas a tiempo (${escape(pct(evaluation.porcentajeATiempo))} %) · atraso promedio ${escape(pct(evaluation.atrasoPromedio))} días${evaluation.aproximada ? ' · algunas fechas de recepción son aproximadas' : ''}`
+    : 'Aún no hay órdenes recibidas para evaluar.';
+  return `<section class="supplier-evaluation" id="supplier-evaluation" aria-label="Evaluación del proveedor">
+      <h3>Evaluación ${gradeTag(evaluation)}</h3>
+      <p>${body}</p>
+    </section>`;
+}
+
 export function renderSupplierSummary(summary, options = {}) {
   const escape = options.escapeHtml || fallbackEscape;
   const money = options.formatMoney || ((value, currency) => `${currency} ${value}`);
@@ -45,7 +57,13 @@ export function renderSupplierSummary(summary, options = {}) {
     : `<strong class="supplier-total">${escape(money(0, isForeign ? 'USD' : 'CLP'))}</strong>`;
 
   const priceRows = priceList.length
-    ? priceList.map(entry => `<tr><td>${escape(productName(entry.id_producto))}</td><td>${escape(money(entry.precio, entry.moneda))}</td></tr>`).join('')
+    ? priceList.map(entry => {
+        // 007 · US7: tramos por cantidad, si el precio los tiene.
+        const tiers = Array.isArray(entry.tramos) && entry.tramos.length > 1
+          ? `<small class="tier-applied">${entry.tramos.slice(1).map(tier => `desde ${escape(tier.desde)} u.: ${escape(money(tier.precio, entry.moneda))}`).join(' · ')}</small>`
+          : '';
+        return `<tr><td>${escape(productName(entry.id_producto))}</td><td>${escape(money(entry.precio, entry.moneda))}${tiers}</td></tr>`;
+      }).join('')
     : '<tr><td colspan="2" class="empty-row">Sin lista de precios.</td></tr>';
 
   const orderRows = orders.length
@@ -78,6 +96,7 @@ export function renderSupplierSummary(summary, options = {}) {
       ${options.canViewCreditLimit ? definition('Límite de crédito', supplier.creditLimit, escape) : ''}
     </dl>
     <p class="supplier-total-row">Monto total comprado (${escape(emittedCount)} OC emitidas): ${totalsHtml}</p>
+    ${options.evaluation ? evaluationSection(options.evaluation, { escape, gradeTag: options.gradeTag }) : ''}
     <h3>Lista de precios</h3>
     <div class="table-wrapper">
       <table class="data-table" id="supplier-summary-prices">

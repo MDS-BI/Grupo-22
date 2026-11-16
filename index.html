@@ -61,6 +61,16 @@
             <p class="insight-subtitle">OC emitidas (aprobadas y recibidas), por moneda</p>
             <div id="top-suppliers"></div>
           </section>
+          <section class="insight-card" id="insight-reorder" aria-labelledby="reorder-heading" hidden>
+            <h2 id="reorder-heading">Productos bajo el mínimo</h2>
+            <p class="insight-subtitle" id="reorder-subtitle"></p>
+            <ul class="reorder-list" id="reorder-list"></ul>
+            <div class="reorder-actions">
+              <div class="field" id="reorder-area-field" hidden><label for="reorder-area">Área</label><select id="reorder-area"></select></div>
+              <button type="button" class="primary" id="reorder-create" hidden>Crear solicitudes sugeridas</button>
+            </div>
+            <p class="feedback" id="reorder-feedback" role="status" aria-live="polite"></p>
+          </section>
           <section class="insight-card" id="insight-attention" aria-labelledby="attention-heading">
             <h2 id="attention-heading">Requiere tu atención</h2>
             <p class="insight-subtitle" id="attention-subtitle"></p>
@@ -72,7 +82,7 @@
       <section id="view-entities" class="view" hidden>
         <div class="page-heading">
           <div><span class="eyebrow">Directorio</span><h1 id="entities-view-heading">Proveedores</h1></div>
-          <button type="button" class="primary" id="entity-list-new" data-action="new-entity">+ Nuevo</button>
+          <div class="heading-actions"><button type="button" class="secondary" id="entities-export" hidden>Exportar CSV</button><button type="button" class="primary" id="entity-list-new" data-action="new-entity">+ Nuevo</button></div>
         </div>
         <section class="list-section" aria-labelledby="edit-entity-heading">
           <h2 id="edit-entity-heading">Editar o eliminar el proveedor</h2>
@@ -106,7 +116,7 @@
       <section id="view-documents" class="view" hidden>
         <div class="page-heading">
           <div><span class="eyebrow">Compras</span><h1 id="documents-view-heading">Órdenes de Compra</h1></div>
-          <button type="button" class="primary" id="document-list-new" data-action="new-document">+ Nuevo</button>
+          <div class="heading-actions"><button type="button" class="secondary" id="documents-export" hidden>Exportar CSV</button><button type="button" class="primary" id="document-list-new" data-action="new-document">+ Nuevo</button></div>
         </div>
         <section class="list-section" aria-labelledby="edit-document-heading">
           <h2 id="edit-document-heading">Editar o eliminar la orden de compra</h2>
@@ -158,6 +168,8 @@
       <section id="view-print" class="view print-view" hidden>
         <div id="print-order-view"></div>
       </section>
+
+      <section id="view-reports" class="view" hidden aria-labelledby="reports-heading"></section>
 
       <section id="view-search" class="view" hidden>
         <h1 id="search-view-heading">Buscar Proveedores</h1>
@@ -245,10 +257,26 @@
       <h2 id="document-form-heading">Agregar / Editar Orden de Compra</h2>
       <p class="document-type-label" id="document-type-label">Solicitud de compra</p>
       <input type="hidden" id="document-id">
+      <div class="purchase-mode-toggle view-toggle" id="purchase-mode" role="group" aria-label="Cómo quieres comprar" hidden>
+        <button type="button" data-purchase-mode="product" aria-pressed="false">Comprar por producto</button>
+        <button type="button" data-purchase-mode="supplier" aria-pressed="true">Por proveedor</button>
+      </div>
+      <section class="form-section purchase-by-product" id="purchase-by-product" aria-labelledby="purchase-by-product-heading" hidden>
+        <h3 id="purchase-by-product-heading">¿Qué necesitas comprar?</h3>
+        <div class="form-grid">
+          <div class="field"><label for="pbp-product">Producto</label><select id="pbp-product"></select></div>
+          <div class="field"><label for="pbp-quantity">Cantidad</label><input id="pbp-quantity" type="number" min="1" step="1" value="1"></div>
+        </div>
+        <small class="field-error" aria-live="polite" id="error-pbp"></small>
+        <div id="pbp-options" class="pbp-options" aria-live="polite"></div>
+        <h3 class="pbp-cart-heading" id="pbp-cart-heading">Carrito</h3>
+        <div id="pbp-cart" class="pbp-cart" aria-labelledby="pbp-cart-heading"></div>
+      </section>
       <section class="form-section" data-form-section="header">
         <h3>Cabecera</h3>
         <div class="form-grid">
           <div class="field"><label for="document-entity" id="document-entity-label">Proveedor</label><select id="document-entity"></select><small class="field-error" aria-live="polite" id="error-document-entity"></small></div>
+          <div class="field" id="document-area-field" hidden><label for="document-area">Área solicitante</label><select id="document-area"></select><small class="field-error" aria-live="polite" id="error-document-area"></small></div>
           <div class="field" id="document-employee-field"><label for="document-employee" id="document-employee-label">Empleado solicitante</label><select id="document-employee" data-readonly-employee="false"></select><small class="field-error" aria-live="polite" id="error-document-employee"></small></div>
           <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" aria-live="polite" id="error-folio"></small></div>
           <div class="field"><label for="endDate" id="endDate-label">Fecha de entrega</label><input id="endDate" type="date"><small class="field-help" id="endDate-help" hidden>Formato dd-mm-aaaa</small><small class="field-error" aria-live="polite" id="error-endDate"></small></div>
@@ -304,6 +332,7 @@
           <div class="field required"><label for="product-nombre">Nombre *</label><input id="product-nombre" required aria-required="true"><small class="field-error" aria-live="polite" id="error-product-nombre"></small></div>
           <div class="field required"><label for="product-unidad">Unidad de medida *</label><input id="product-unidad" required aria-required="true"><small class="field-error" aria-live="polite" id="error-product-unidad"></small></div>
           <div class="field"><label for="product-stock">Stock</label><input id="product-stock" type="number" min="0" step="1" value="0"><small class="field-error" aria-live="polite" id="error-product-stock"></small></div>
+          <div class="field"><label for="product-stock-minimo">Stock mínimo</label><input id="product-stock-minimo" type="number" min="0" step="1" value="0" aria-describedby="product-stock-minimo-help"><small class="field-help" id="product-stock-minimo-help">0 = sin control. Bajo este nivel el Panel sugiere reponer hasta el doble.</small><small class="field-error" aria-live="polite" id="error-product-stock-minimo"></small></div>
           <div class="field required"><label for="product-categoria">Categoría *</label><select id="product-categoria" required aria-required="true"></select><small class="field-error" aria-live="polite" id="error-product-categoria"></small></div>
         </div>
       </section>

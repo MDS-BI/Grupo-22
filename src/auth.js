@@ -21,6 +21,8 @@ export const PERMISSIONS = Object.freeze({
   PRODUCTS_VIEW: 'products.view',
   PRODUCTS_MANAGE: 'products.manage',
   PRICELISTS_MANAGE: 'pricelists.manage',
+  REPORTS_VIEW: 'reports.view',
+  BUDGETS_MANAGE: 'budgets.manage',
   SEARCH_VIEW: 'search.view',
   ORDERS_PRINT: 'orders.print'
 });
@@ -57,7 +59,9 @@ export const ROLE_DEFINITIONS = Object.freeze({
       P.ORDERS_RECEIVE,
       P.ORDERS_CANCEL,
       P.PRODUCTS_MANAGE,
-      P.PRICELISTS_MANAGE
+      P.PRICELISTS_MANAGE,
+      P.REPORTS_VIEW,
+      P.BUDGETS_MANAGE
     ]
   },
   comprador: {

@@ -82,7 +82,7 @@ export function ensureShellScaffold() {
     reports.disabled = true;
     reports.setAttribute('aria-disabled', 'true');
     reports.hidden = true;
-    reports.innerHTML = '<span class="nav-label">Reportes</span>';
+    reports.innerHTML = '<span data-icon="chart"></span><span class="nav-label">Reportes</span>';
     tools.appendChild(reports);
     sidebar.innerHTML = '';
     sidebar.append(ops, masters, tools);

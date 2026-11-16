@@ -21,8 +21,14 @@ import {
   loadProducts,
   restorePurchasingData,
   savePurchaseOrder,
-  snapshotPurchasingData
+  snapshotPurchasingData,
+  loadAreas,
+  saveAreas,
+  loadBudgets,
+  saveBudgets,
+  loadOrderMetadata
 } from './purchasing-storage.js';
+import { monthKey, areaSpend } from './domain/budget.js';
 import {
   PERMISSIONS,
   can,
@@ -54,22 +60,39 @@ const RUBRO_SEEDS = ['Insumos de oficina', 'Tecnología', 'Servicios'];
 
 const CATEGORY_SEEDS = ['Papelería', 'Tecnología', 'Mobiliario', 'Servicios', 'Insumos de aseo'];
 
+// [nombre, unidad, categoría, stock, stock mínimo (007 · US2)]. Quedan bajo el mínimo:
+// Archivadores y Escritorio (ya en una solicitud abierta) y Lámpara, Guantes y Papel higiénico.
 const PRODUCT_SEEDS = [
-  ['Resma de papel A4', 'paquete', 'Papelería', 40],
-  ['Lápices grafito', 'caja', 'Papelería', 25],
-  ['Archivadores', 'unidad', 'Papelería', 12],
-  ['Monitor de 24 pulgadas', 'unidad', 'Tecnología', 8],
-  ['Teclado mecánico', 'unidad', 'Tecnología', 15],
-  ['Mouse inalámbrico', 'unidad', 'Tecnología', 30],
-  ['Silla ergonómica', 'unidad', 'Mobiliario', 4],
-  ['Escritorio plegable', 'unidad', 'Mobiliario', 0],
-  ['Lámpara de escritorio', 'unidad', 'Mobiliario', 6],
-  ['Servicio de aseo mensual', 'servicio', 'Servicios', 1],
-  ['Soporte técnico remoto', 'hora', 'Servicios', 20],
-  ['Licencia de respaldo', 'licencia', 'Tecnología', 2],
-  ['Guantes de nitrilo', 'caja', 'Insumos de aseo', 0],
-  ['Detergente industrial', 'bidón', 'Insumos de aseo', 9],
-  ['Papel higiénico', 'fardo', 'Insumos de aseo', 35]
+  ['Resma de papel A4', 'paquete', 'Papelería', 40, 20],
+  ['Lápices grafito', 'caja', 'Papelería', 25, 10],
+  ['Archivadores', 'unidad', 'Papelería', 12, 15],
+  ['Monitor de 24 pulgadas', 'unidad', 'Tecnología', 8, 3],
+  ['Teclado mecánico', 'unidad', 'Tecnología', 15, 5],
+  ['Mouse inalámbrico', 'unidad', 'Tecnología', 30, 10],
+  ['Silla ergonómica', 'unidad', 'Mobiliario', 4, 2],
+  ['Escritorio plegable', 'unidad', 'Mobiliario', 0, 2],
+  ['Lámpara de escritorio', 'unidad', 'Mobiliario', 6, 8],
+  ['Servicio de aseo mensual', 'servicio', 'Servicios', 1, 0],
+  ['Soporte técnico remoto', 'hora', 'Servicios', 20, 0],
+  ['Licencia de respaldo', 'licencia', 'Tecnología', 2, 0],
+  ['Guantes de nitrilo', 'caja', 'Insumos de aseo', 0, 5],
+  ['Detergente industrial', 'bidón', 'Insumos de aseo', 9, 4],
+  ['Papel higiénico', 'fardo', 'Insumos de aseo', 35, 40]
+];
+
+// 007 · US4: áreas solicitantes de la demostración y su presupuesto mensual en CLP.
+// El de Tecnología se calcula al cargar para que la solicitud pendiente de Cobre y Cumbre lo exceda.
+const AREA_SEEDS = [
+  ['adm', 'Administración', 2500000],
+  ['ops', 'Operaciones', 1500000],
+  ['tec', 'Tecnología', null]
+];
+
+// 007 · US7: tramos por cantidad [proveedor, producto, [[desde, precio], ...]].
+const TIER_SEEDS = [
+  [0, 0, [[1, 5500], [10, 5100], [50, 4800]]],
+  [2, 5, [[1, 28000], [5, 26500]]],
+  [3, 1, [[1, 1800], [20, 1650]]]
 ];
 
 const SUPPLIER_SEEDS = [
@@ -145,6 +168,7 @@ const ORDER_PLANS = [
   {
     target: 'borrador',
     supplier: 0,
+    area: 'tec',
     requester: 'comprador',
     endOffset: 10,
     lines: [[7, 1, 85000], [0, 2, 5500]]
@@ -152,6 +176,7 @@ const ORDER_PLANS = [
   {
     target: 'borrador',
     supplier: 1,
+    area: 'adm',
     requester: 'gerente',
     endOffset: 16,
     lines: [[2, 4, 3200]]
@@ -159,6 +184,7 @@ const ORDER_PLANS = [
   {
     target: 'pendiente',
     supplier: 2,
+    area: 'tec',
     requester: 'comprador',
     endOffset: -5,
     lines: [[3, 2, 145000], [5, 1, 28000]]
@@ -166,6 +192,7 @@ const ORDER_PLANS = [
   {
     target: 'pendiente',
     supplier: 3,
+    area: 'ops',
     requester: 'bodeguero',
     endOffset: -3,
     lines: [[1, 8, 1800], [13, 3, 12000]]
@@ -173,6 +200,7 @@ const ORDER_PLANS = [
   {
     target: 'aprobado',
     supplier: 4,
+    area: 'adm',
     requester: 'comprador',
     endOffset: 8,
     lines: [[6, 2, 74990]]
@@ -180,6 +208,7 @@ const ORDER_PLANS = [
   {
     target: 'aprobado',
     supplier: 5,
+    area: 'tec',
     requester: 'consulta',
     endOffset: 12,
     lines: [[4, 5, 23990], [2, 6, 3200]]
@@ -187,6 +216,7 @@ const ORDER_PLANS = [
   {
     target: 'aprobado',
     supplier: 6,
+    area: 'tec',
     requester: 'gerente',
     endOffset: 20,
     lines: [[11, 3, 120], [9, 2, 450]]
@@ -194,28 +224,43 @@ const ORDER_PLANS = [
   {
     target: 'recibido',
     supplier: 0,
+    area: 'adm',
     requester: 'comprador',
     endOffset: -6,
+    emitOffset: -12,
+    receiveOffset: -7,
     lines: [[0, 4, 5500], [1, 3, 1800]]
   },
   {
     target: 'recibido',
     supplier: 2,
+    area: 'tec',
     requester: 'gerente',
     endOffset: -4,
+    emitOffset: -10,
+    receiveOffset: -1,
     lines: [[3, 2, 145000], [5, 2, 28000]]
   },
   {
     target: 'recibido',
     supplier: 0,
+    area: 'ops',
     requester: 'bodeguero',
     endOffset: -2,
+    emitOffset: -9,
+    receiveOffset: -3,
     lines: [[6, 1, 74990], [10, 4, 35000]]
   },
+  // 007 · US1: historial de Fábrica de Ideas con 3 de 4 entregas a tiempo (calificación B).
+  { target: 'recibido', supplier: 5, area: 'tec', requester: 'gerente', endOffset: -8, emitOffset: -14, receiveOffset: -9, lines: [[4, 2, 23990]] },
+  { target: 'recibido', supplier: 5, area: 'tec', requester: 'bodeguero', endOffset: -5, emitOffset: -11, receiveOffset: -6, lines: [[5, 1, 27500]] },
+  { target: 'recibido', supplier: 5, area: 'tec', requester: 'gerente', endOffset: -3, emitOffset: -9, receiveOffset: -4, lines: [[4, 1, 23990]] },
+  { target: 'recibido', supplier: 5, area: 'ops', requester: 'bodeguero', endOffset: -7, emitOffset: -13, receiveOffset: -4, lines: [[5, 1, 27500]] },
   {
     target: 'cancelado',
     cancelPath: 'direct',
     supplier: 1,
+    area: 'adm',
     requester: 'comprador',
     endOffset: 6,
     lines: [[12, 2, 7600]]
@@ -224,6 +269,7 @@ const ORDER_PLANS = [
     target: 'cancelado',
     cancelPath: 'pending',
     supplier: 4,
+    area: 'ops',
     requester: 'consulta',
     endOffset: 9,
     lines: [[14, 10, 950]]
@@ -420,6 +466,7 @@ export function loadDemoData({
     users: [],
     suppliers: [],
     supplierPrices: [],
+    areas: [],
     orders: []
   };
   const limitations = [];
@@ -482,7 +529,7 @@ export function loadDemoData({
     ]));
 
     const existingProductNames = loadProducts().map(product => product.nombre || product.name || '');
-    for (const [base, unit, categoryName, stock] of PRODUCT_SEEDS) {
+    for (const [base, unit, categoryName, stock, stockMinimo] of PRODUCT_SEEDS) {
       const name = uniqueName(`${DEMO_PREFIX} ${base}`, existingProductNames);
       existingProductNames.push(name);
       const category = categoriesByName.get(categoryName);
@@ -491,6 +538,7 @@ export function loadDemoData({
         nombre: name,
         unidad_medida: unit,
         stock,
+        ...(stockMinimo ? { stock_minimo: stockMinimo } : {}),
         id_categoria: category.id_categoria || category.id
       }));
     }
@@ -525,12 +573,32 @@ export function loadDemoData({
       seenPrices.add(key);
       const supplier = suppliers[supplierIndex];
       const product = created.products[productIndex];
+      const tiers = TIER_SEEDS.find(([tierSupplier, tierProduct]) => tierSupplier === supplierIndex && tierProduct === productIndex)?.[2];
       created.supplierPrices.push(upsertSupplierPrice({
         entity_id: supplier.entity_id,
         id_producto: product.id_producto || product.id,
-        precio: price
+        precio: tiers ? tiers[0][1] : price,
+        ...(tiers ? { tramos: tiers.map(([desde, precio]) => ({ desde, precio })) } : {})
       }, { skipAccessCheck: true }));
     }
+
+    // 007 · US4: áreas (se crean antes de las órdenes, porque con áreas activas el área es obligatoria).
+    const existingAreas = loadAreas();
+    const areaIds = new Map();
+    const areaTimestamp = new Date().toISOString();
+    const newAreas = AREA_SEEDS.map(([key, nombre]) => {
+      const area = {
+        id_area: `area-demo-${key}-${Date.now().toString(36)}`,
+        nombre: uniqueName(nombre, existingAreas.map(item => item.nombre)),
+        activa: true,
+        createdAt: areaTimestamp,
+        updatedAt: areaTimestamp
+      };
+      areaIds.set(key, area.id_area);
+      return area;
+    });
+    saveAreas([...existingAreas, ...newAreas]);
+    created.areas = newAreas;
 
     const demoUsers = createDemoUsers(priorCargos);
     created.employees = demoUsers.employees;
@@ -556,6 +624,7 @@ export function loadDemoData({
       const detail = savePurchaseOrder({
         entityId: supplier.entity_id,
         id_empleado: requester.id_empleado || requester.id,
+        id_area: areaIds.get(plan.area) || '',
         folio: folio++,
         endDate: addDays(today, plan.endOffset),
         paymentTerms: supplier.paymentTerms,
@@ -574,7 +643,11 @@ export function loadDemoData({
           break;
         }
         try {
-          changeOrderStatus(detail.id, nextStatus, transitionAt);
+          // 007 · US1: fechas de emisión y recepción variadas para que la evaluación muestre A/B/C.
+          const at = nextStatus === 'recibido' && plan.receiveOffset !== undefined
+            ? timestampFor(today, plan.receiveOffset)
+            : plan.emitOffset !== undefined ? timestampFor(today, plan.emitOffset) : transitionAt;
+          changeOrderStatus(detail.id, nextStatus, at);
         } catch (error) {
           if (error?.code === 'PERMISSION_DENIED') {
             limitations.push(`El rol activo no puede ejecutar la transición a "${nextStatus}"; se conservó el estado "${current}".`);
@@ -585,6 +658,19 @@ export function loadDemoData({
         current = getPurchaseOrderDetail(detail.id).status;
       }
     }
+
+    // 007 · US4: presupuestos del mes en curso. Tecnología queda 150.000 por sobre lo ya emitido,
+    // así la solicitud pendiente de Cobre y Cumbre lo excede (aviso en el detalle y en la campana).
+    const month = monthKey(today);
+    const metadataByOrder = new Map(loadOrderMetadata().map(item => [item.id_orden_compra, item]));
+    const budgets = loadBudgets().filter(item => !newAreas.some(area => area.id_area === item.id_area));
+    for (const [key, , amount] of AREA_SEEDS) {
+      const areaId = areaIds.get(key);
+      const spent = areaSpend(loadDocuments(), metadataByOrder, areaId, month).clp;
+      const monto = amount ?? Math.ceil((spent + 150000) / 10000) * 10000;
+      budgets.push({ id: `budget-demo-${key}-${month}`, id_area: areaId, mes: month, monto, createdAt: areaTimestamp, updatedAt: areaTimestamp });
+    }
+    saveBudgets(budgets);
 
     let sessionInvalidated = false;
     if (sessionWasDemo) {

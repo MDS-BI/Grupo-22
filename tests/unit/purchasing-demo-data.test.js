@@ -92,7 +92,7 @@ describe('datos de demostración', () => {
     expect(new Set(products.filter(product => Number(product.stock) > 0).map(product => Number(product.stock))).size)
       .toBeGreaterThanOrEqual(3);
 
-    expect(result.created.orders).toHaveLength(12);
+    expect(result.created.orders).toHaveLength(16);
     expect(unique(folios)).toBe(true);
 
     const details = result.created.orders.map(orderId => getPurchaseOrderDetail(orderId));

@@ -4,7 +4,7 @@
 
 **Creada**: 2026-11-16
 
-**Estado**: Borrador (pendiente de `/speckit.analyze` y de la reunión del grupo)
+**Estado**: Implementada (2026-11-16). Ver la nota de implementación al final de `tasks.md`.
 
 **Entrada**: Pedido del profesor: «más funcionalidad». El grupo propuso seis capacidades nuevas sobre el módulo de Compras: evaluación de proveedores, stock mínimo con solicitud sugerida, reportes, presupuesto por área, bandeja de notificaciones y mejoras rápidas (duplicar OC, proveedor inactivo, exportar a CSV). En la revisión del 2026-11-16 se agregó una séptima: la nueva solicitud es poco intuitiva porque obliga a elegir primero el proveedor; al comprar un producto, el sistema debe ofrecer los proveedores que ya lo venden con su precio acordado según la cantidad.
 
@@ -105,7 +105,7 @@ Como **Administrador**, quiero definir áreas y su presupuesto mensual; como **G
 
 **Escenarios de Aceptación**:
 
-1. **Dado** un rol con `budgets.manage` (Administrador), **cuando** abre «Áreas y presupuestos» (pestaña en Reportes), **entonces** puede crear, editar y desactivar áreas (nombre único) y fijar su presupuesto mensual en CLP por mes (`aaaa-mm`).
+1. **Dado** un rol con `budgets.manage` (Administrador o Gerente), **cuando** abre «Áreas y presupuestos» (pestaña en Reportes), **entonces** puede crear, editar y desactivar áreas (nombre único) y fijar su presupuesto mensual en CLP por mes (`aaaa-mm`).
 2. **Dada** al menos un área activa, **cuando** se crea o edita una solicitud, **entonces** el formulario pide «Área» (obligatoria); si no hay áreas, el campo no aparece y rige el comportamiento de `002`.
 3. **Dada** una solicitud pendiente con área, **cuando** el Gerente abre su detalle, **entonces** ve: presupuesto del mes, gastado del mes (OC emitidas del área en el mes de emisión, en CLP), disponible y el disponible tras aprobar.
 4. **Dado** que el total de la OC supera el disponible, **cuando** el Gerente pulsa «Aprobar», **entonces** el diálogo de confirmación muestra la advertencia «Esta OC excede el presupuesto del área en $X» y permite aprobar igual (advertencia, no bloqueo).
@@ -194,7 +194,7 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 
 #### Presupuesto por área
 
-- **FR-017**: Se DEBE agregar el permiso `budgets.manage` (Administrador) y las entidades Área (nombre único, activa/inactiva) y Presupuesto mensual (área, mes `aaaa-mm`, monto CLP ≥ 0, único por área y mes).
+- **FR-017**: Se DEBE agregar el permiso `budgets.manage` (Administrador y Gerente, para conservar la paridad Gerente–Administrador de `004`) y las entidades Área (nombre único, activa/inactiva) y Presupuesto mensual (área, mes `aaaa-mm`, monto CLP ≥ 0, único por área y mes).
 - **FR-018**: Si existe al menos un área activa, la solicitud DEBE exigir un área (guardada en la metadata de la orden); si no hay áreas, el comportamiento de `002` no cambia.
 - **FR-019**: El detalle de una solicitud pendiente con área DEBE mostrar, a roles con `orders.approve`, presupuesto, gastado y disponible del mes en curso, y el disponible tras aprobar.
 - **FR-020**: Aprobar una OC que excede el disponible DEBE mostrar una advertencia en el diálogo de confirmación sin bloquear la aprobación.
@@ -235,7 +235,7 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 
 | Spec / FR afectado | Comportamiento anterior | Comportamiento con 007 |
 |---|---|---|
-| `004` FR-015, FR-016, FR-017 | 19 permisos | Se agregan `reports.view` (Administrador, Gerente) y `budgets.manage` (Administrador). La paridad Gerente–Administrador se mantiene salvo `budgets.manage`. |
+| `004` FR-015, FR-016, FR-017 | 19 permisos | Se agregan `reports.view` y `budgets.manage` (ambos para Administrador y Gerente). La paridad Gerente–Administrador se mantiene (la exige una prueba de `004`). |
 | `005` FR-012 y FR-013 | «Reportes» y campana reservados y ocultos | Se habilitan según permisos (FR-013, FR-022). |
 | `001` FR-021, `006` FR-004 | Producto con nombre, unidad, stock, categoría y precios | Agrega «Stock mínimo» (FR-006). |
 | `002` FR-001 a FR-006 (formulario de solicitud) | Sin área | Exige área si hay áreas activas (FR-018). |
@@ -246,7 +246,9 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 | `006` FR-001 y FR-011 (precio acordado) | Un precio por producto y proveedor | El precio admite tramos por cantidad y la línea usa el tramo aplicable (FR-031 a FR-033); sin tramos, el comportamiento es idéntico. |
 | `006` FR-004 (formulario de producto) | Proveedor, precio y moneda | Agrega tramos por proveedor (FR-038). |
 | `006` FR-010 y `002` (formulario de solicitud) | Se elige primero el proveedor | Modo «Comprar por producto» por defecto con comparación de proveedores y carrito multi-proveedor; el modo anterior se conserva (FR-034 a FR-037). |
-| `003` FR-075, FR-081, FR-086 (demostración) | Sin áreas ni mínimos | Agrega datos del 007 (FR-029, FR-030). |
+| `003` FR-075, FR-081, FR-086 (demostración) | Sin áreas ni mínimos; 12 órdenes | Agrega datos del 007 (FR-029, FR-030) y 4 órdenes recibidas de Fábrica de Ideas para la calificación B: la demo queda con **16 órdenes**. Las pruebas de demostración que contaban 12 se actualizan a 16. |
+| `005` US4 (filtros de Solicitudes y OC) | «Fecha desde/hasta» como `type="date"` (mm/dd/aaaa según el navegador) | Campos de texto con máscara `dd-mm-aaaa`, igual que la fecha de entrega. |
+| `005` US5 (modo oscuro) | Fondos de hover y de filtros mezclados con blanco | Se mezclan con `--surface`: en modo claro no cambia nada y en modo oscuro el texto sigue legible. |
 
 ### Entidades Clave
 

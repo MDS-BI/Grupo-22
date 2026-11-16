@@ -1,3 +1,4 @@
+import { normalizeTiers, unitPriceFor, validateTiers } from './price-tiers.js';
 import {
   createPurchasingError,
   currenciesForOrigin,
@@ -53,10 +54,21 @@ export function validateSupplierPriceEntry(entry = {}, { supplier = null } = {})
       errors.moneda = PRICE_LIST_ERRORS.CURRENCY_INVALID;
     }
   }
+  // 007: tramos por cantidad opcionales; el tramo desde 1 define el precio base.
+  let tramos = null;
+  if (Array.isArray(entry.tramos) && entry.tramos.length) {
+    const tierCheck = validateTiers(entry.tramos);
+    if (!tierCheck.valid) errors.tramos = [...new Set(tierCheck.errors.map(error => error.message))].join(' ');
+    else {
+      tramos = normalizeTiers({ tramos: entry.tramos }).map(tier => ({ desde: tier.desde, precio: roundMoney(tier.precio) }));
+      if (errors.precio && tramos[0]?.precio > 0) delete errors.precio;
+    }
+  }
+  const base = tramos ? tramos[0].precio : roundMoney(price);
   return {
     valid: Object.keys(errors).length === 0,
     errors,
-    value: { entity_id: supplierIdOf(entry), precio: roundMoney(price), moneda }
+    value: { entity_id: supplierIdOf(entry), precio: base, moneda, ...(tramos && tramos.length > 1 ? { tramos } : {}) }
   };
 }
 
@@ -92,7 +104,7 @@ export function priceLinesFromList(lines = [], priceEntries = [], currency = '')
     if (code && text(entry.moneda).toUpperCase() && text(entry.moneda).toUpperCase() !== code) {
       throw createPurchasingError('PRICE_CURRENCY_MISMATCH');
     }
-    return { ...line, costo_unitario: priceOf(entry) };
+    return { ...line, costo_unitario: unitPriceFor(entry, Number(line.cantidad ?? line.quantity ?? 1)).precio };
   });
 }
 

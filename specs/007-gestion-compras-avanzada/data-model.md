@@ -88,7 +88,7 @@ Reglas:
 | Permiso | Administrador | Gerente | Comprador | Bodeguero | Consulta |
 |---|:---:|:---:|:---:|:---:|:---:|
 | `reports.view` | ✓ | ✓ | — | — | — |
-| `budgets.manage` | ✓ | — | — | — | — |
+| `budgets.manage` | ✓ | ✓ | — | — | — |
 
 ## Vistas Derivadas (no persistidas)
 
