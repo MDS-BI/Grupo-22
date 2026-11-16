@@ -134,3 +134,38 @@ export function bindGlobalSearch(onNavigateToSearch) {
   });
 }
 
+
+/**
+ * 005 · US5: en celular las tablas se muestran como tarjetas apiladas; cada celda recibe la
+ * etiqueta de su columna (data-label) para no perder el contexto.
+ */
+export function applyStackedLabels(table) {
+  if (!table) return;
+  table.classList.add('stacked-table');
+  const headers = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+  for (const row of table.querySelectorAll('tbody tr')) {
+    [...row.children].forEach((cell, index) => {
+      if (cell.colSpan > 1) return;
+      if (headers[index]) cell.dataset.label = headers[index];
+    });
+  }
+}
+
+/** Abre o cierra la barra lateral como menú desplegable en pantallas pequeñas. */
+export function toggleMobileNav(force) {
+  const sidebar = document.getElementById('sidebar');
+  const toggle = document.getElementById('sidebar-toggle');
+  if (!sidebar) return false;
+  const open = typeof force === 'boolean' ? force : !sidebar.classList.contains('mobile-open');
+  sidebar.classList.toggle('mobile-open', open);
+  if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  return open;
+}
+
+export function isSmallScreen() {
+  try {
+    return Boolean(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
+  } catch {
+    return false;
+  }
+}

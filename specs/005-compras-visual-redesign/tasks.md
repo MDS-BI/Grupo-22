@@ -72,8 +72,8 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 - [X] T019c [US1] Aplicar identidad en `src/styles.css`: barra lateral `#0F2A3D`, ítem activo con contraste AA e indicador ámbar, acción principal `.primary` ámbar `#F59E0B` con texto oscuro, buscador integrado en la barra superior (sin el recuadro de `form`)
 - [X] T019d [US1] Tarjetas de usuarios de prueba: la tabla accesible de 003 se presenta como tarjetas con ícono y cargo; cada tarjeta ingresa con un clic enviando el mismo formulario de `login()` (004); prueba en `tests/integration/login-theme-005.integration.test.js`
 - [X] T019e [US1] Botón de tema con íconos SVG y `aria-label` que cambia según el tema; campana reservada con ícono SVG en lugar de emoji
-- [ ] T019f [US1] Menú de usuario con avatar de iniciales y cargo (FR-013): hoy la barra superior muestra nombre, User ID y rol, sin avatar
-- [ ] T019g [US1] La etiqueta visible del botón `nav-documents` sigue diciendo "Órdenes de Compra" (su `aria-label` ya dice "Solicitudes y Órdenes de Compra"); unificar sin romper las pruebas de 003
+- [X] T019f [US1] Menú de usuario con avatar de iniciales y cargo (FR-013): avatar `#session-avatar` junto al nombre; el cargo queda en el título del bloque de sesión
+- [X] T019g [US1] El botón `nav-documents` muestra "Solicitudes y Órdenes de Compra" agregando un prefijo visible; `#nav-documents-label` conserva "Órdenes de Compra" porque las pruebas de 001/003 lo leen
 
 **Checkpoint**: US1 funcional e independiente (MVP visual/navegación).
 
@@ -84,12 +84,13 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 **Objetivo**: Panel con indicadores, gráficos SVG, ranking y "Requiere tu atención" por rol 004.  
 **Prueba independiente**: Con datos existentes, validar tarjetas, gráficos de estado y gasto (6 meses, emitidas aprobado/recibido, separado por moneda), top 5 proveedores, alternativas textuales/tabla, y lista por rol (gerente/admin, bodeguero, comprador, consulta).
 
-- [ ] T020 [P] [US2] Implementar funciones SVG puras para gráfico de OC por estado, gasto mensual y ranking top 5 con alternativas textuales/tabla en `src/ui-charts.js`
-- [ ] T021 [US2] Implementar cálculo en presentación de métricas (OC emitidas aprobado/recibido por fecha de emisión, separadas por moneda, sin conversión) y estados vacíos en `src/ui-dashboard.js`
-- [ ] T022 [US2] Implementar consulta reutilizable "Requiere tu atención" por rol 004 (Gerente/Administrador: pendientes de aprobar; Bodeguero: aprobadas por recibir y atrasadas; Comprador: sus borradores; Consulta: OC atrasadas solo lectura) en `src/ui-dashboard.js`
-- [ ] T023 [US2] Integrar tarjetas de indicadores, gráficos, ranking y lista "Requiere tu atención" en la vista Panel de `src/app.js` y `src/styles.css` preservando contenedores/ids existentes
-- [ ] T024 [P] [US2] Crear pruebas de integración de panel por rol y métricas (separación por moneda, estados vacíos, definición consulta/atención) en `tests/integration/dashboard-role.integration.test.js`
-- [ ] T025 [US2] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T020 [P] [US2] Implementar funciones SVG puras para gráfico de OC por estado, gasto mensual y ranking top 5 con alternativas textuales/tabla en `src/ui-charts.js`
+- [X] T021 [US2] Implementar cálculo en presentación de métricas (OC emitidas aprobado/recibido por fecha de emisión, separadas por moneda, sin conversión) y estados vacíos en `src/ui-dashboard.js`
+- [X] T022 [US2] Implementar consulta reutilizable "Requiere tu atención" por rol 004 (Gerente/Administrador: pendientes de aprobar; Bodeguero: aprobadas por recibir y atrasadas; Comprador: sus borradores; Consulta: OC atrasadas solo lectura) en `src/ui-dashboard.js`
+- [X] T023 [US2] Integrar tarjetas de indicadores, gráficos, ranking y lista "Requiere tu atención" en la vista Panel de `src/app.js` y `src/styles.css` preservando contenedores/ids existentes
+- [X] T024 [P] [US2] Crear pruebas de integración de panel por rol y métricas (separación por moneda, estados vacíos, definición consulta/atención) en `tests/integration/dashboard-role.integration.test.js`
+- [X] T024a [US2] Insignias de estado: la denominación de 004 se conserva en el elemento `[data-status]` y se agrega el estado específico al lado (`.status-detail`), sin romper las pruebas que leen la insignia; el desglose del Panel usa los nombres únicos del filtro 006
+- [X] T025 [US2] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 **Checkpoint**: US1 y US2 operativas de forma independiente.
 
@@ -100,12 +101,12 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 **Objetivo**: Listado tabla/tablero, formulario ordenado, detalle con progreso/historial/totales e impresión formal.  
 **Prueba independiente**: Alternar tabla/tablero (solo lectura), validar orden Cabecera→Detalle→Totales sin tarjeta vacía, progreso/timeline/acciones permitidas, e impresión con folio OC-0001 o SOL-0001 si no emitida.
 
-- [ ] T026 [US3] Implementar alternancia de vista tabla/tablero por columnas de estado (tablero solo lectura, sin arrastrar) en `src/app.js` y `src/styles.css` conservando ids/`data-action` de OC
-- [ ] T027 [US3] Reestructurar visualmente formulario de OC en secciones Cabecera, Detalle de compra y Totales (ocultar/omitir tarjeta de totales vacía) en `src/app.js` y `src/styles.css` sin cambiar validaciones ni flujo
-- [ ] T028 [US3] Implementar detalle de OC con barra de progreso de estados, línea de tiempo vertical de historial, tarjeta de totales y acciones permitidas destacadas en `src/app.js` y `src/styles.css`
-- [ ] T029 [US3] Implementar estilos de impresión de OC/documento formal (logo/datos módulo, folio destacado OC o SOL, proveedor/solicitante, líneas, totales, firma aprobador) en `src/styles.css` y plantilla/markup en `src/app.js`
-- [ ] T030 [P] [US3] Crear pruebas de integración de tablero OC (alternancia tabla/tablero, solo lectura, preservación de ids/acciones) en `tests/integration/oc-board.integration.test.js`
-- [ ] T031 [US3] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T026 [US3] Implementar alternancia de vista tabla/tablero por columnas de estado (tablero solo lectura, sin arrastrar) en `src/app.js` y `src/styles.css` conservando ids/`data-action` de OC
+- [X] T027 [US3] Reestructurar visualmente formulario de OC en secciones Cabecera, Detalle de compra y Totales (ocultar/omitir tarjeta de totales vacía) en `src/app.js` y `src/styles.css` sin cambiar validaciones ni flujo
+- [X] T028 [US3] Implementar detalle de OC con barra de progreso de estados, línea de tiempo vertical de historial, tarjeta de totales y acciones permitidas destacadas en `src/app.js` y `src/styles.css`
+- [X] T029 [US3] Implementar estilos de impresión de OC/documento formal (logo/datos módulo, folio destacado OC o SOL, proveedor/solicitante, líneas, totales, firma aprobador) en `src/styles.css` y plantilla/markup en `src/app.js`
+- [X] T030 [P] [US3] Crear pruebas de integración de tablero OC (alternancia tabla/tablero, solo lectura, preservación de ids/acciones) en `tests/integration/oc-board.integration.test.js`
+- [X] T031 [US3] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 **Checkpoint**: US3 operativa e independiente; flujo de estados sin cambios.
 
@@ -116,12 +117,12 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 **Objetivo**: Vistas alternativas en proveedores/productos y controles (chips de rubros sincronizados, stock, ficha 006).  
 **Prueba independiente**: Alternar vistas proveedores, ver barra/etiqueta stock, seleccionar rubros por chips con selects originales ocultos y sincronizados, y validar formulario producto/ficha proveedor/ayuda Moneda del 006 sin cortes (móvil apilado).
 
-- [ ] T032 [US4] Implementar alternancia tabla/tarjetas en Proveedores con avatar de iniciales, chips de rubro y etiqueta Nacional/Extranjero en `src/app.js` y `src/styles.css`
-- [ ] T033 [US4] Implementar indicador visual de nivel de stock y etiqueta "Sin stock" en listados de Productos en `src/app.js` y `src/styles.css`
-- [ ] T034 [US4] Implementar componente visual de chips de rubros sincronizado bidireccionalmente con selects múltiples originales (`supplier-rubros`, `search-rubros` y equivalentes) manteniéndolos ocultos en DOM en `src/ui-shell.js` o `src/app.js` y `src/styles.css`
-- [ ] T035 [US4] Ajustar presentación del formulario de producto y ficha de proveedor en Búsqueda (006) para que la tabla de proveedores y precios quepa en panel lateral (móvil filas apiladas) preservando costo unitario no editable con lista de precios y ayuda de Moneda en `src/app.js` y `src/styles.css`
-- [ ] T036 [P] [US4] Crear pruebas de integración de chips de rubros (sincronía con select oculto, selección/reflejo de valor) en `tests/integration/rubro-chips.integration.test.js`
-- [ ] T037 [US4] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T032 [US4] Implementar alternancia tabla/tarjetas en Proveedores con avatar de iniciales, chips de rubro y etiqueta Nacional/Extranjero en `src/app.js` y `src/styles.css`
+- [X] T033 [US4] Implementar indicador visual de nivel de stock y etiqueta "Sin stock" en listados de Productos en `src/app.js` y `src/styles.css`
+- [X] T034 [US4] Implementar componente visual de chips de rubros sincronizado bidireccionalmente con selects múltiples originales (`supplier-rubros`, `search-rubros` y equivalentes) manteniéndolos ocultos en DOM en `src/ui-shell.js` o `src/app.js` y `src/styles.css`
+- [X] T035 [US4] Ajustar presentación del formulario de producto y ficha de proveedor en Búsqueda (006) para que la tabla de proveedores y precios quepa en panel lateral (móvil filas apiladas) preservando costo unitario no editable con lista de precios y ayuda de Moneda en `src/app.js` y `src/styles.css`
+- [X] T036 [P] [US4] Crear pruebas de integración de chips de rubros (sincronía con select oculto, selección/reflejo de valor) en `tests/integration/rubro-chips.integration.test.js`
+- [X] T037 [US4] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 **Checkpoint**: US4 operativa e independiente; elementos 006 preservados.
 
@@ -132,12 +133,12 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 **Objetivo**: WCAG 2.1 AA, teclado completo, reduced-motion y responsive (sidebar colapsada/menú desplegable, tarjetas apiladas).  
 **Prueba independiente**: Auditar contraste y foco, navegar solo con teclado, emular `prefers-reduced-motion`/`prefers-color-scheme` y validar anchos medianos/pequeños sin scroll horizontal.
 
-- [ ] T038 [P] [US5] Aplicar estilos de foco visible, contraste AA y etiquetas/alternativas textuales para gráficos y controles en `src/styles.css` y `src/ui-charts.js`
-- [ ] T039 [P] [US5] Implementar reglas responsive (sidebar contraída en mediano, menú desplegable y tablas→tarjetas apiladas con etiquetas en pequeño) en `src/styles.css` y `src/ui-shell.js`
-- [ ] T040 [US5] Implementar soporte `prefers-reduced-motion` para transiciones/animaciones y verificar coherencia de modo oscuro en `src/styles.css` y `src/ui-theme.js`
-- [ ] T041 [US5] Revisar y ajustar orden de tabulación/atributos accesibles en vistas principales (`src/app.js`, `src/ui-shell.js`) sin alterar ids/`data-*`
-- [ ] T042 [US5] Ampliar pruebas de integración de accesibilidad/adaptabilidad (si la convención lo permite) o validar cobertura manual documentada en `tests/integration/shell-sidebar.integration.test.js` y `tests/integration/theme.integration.test.js`
-- [ ] T043 [US5] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T038 [P] [US5] Aplicar estilos de foco visible, contraste AA y etiquetas/alternativas textuales para gráficos y controles en `src/styles.css` y `src/ui-charts.js`
+- [X] T039 [P] [US5] Implementar reglas responsive (sidebar contraída en mediano, menú desplegable y tablas→tarjetas apiladas con etiquetas en pequeño) en `src/styles.css` y `src/ui-shell.js`
+- [X] T040 [US5] Implementar soporte `prefers-reduced-motion` para transiciones/animaciones y verificar coherencia de modo oscuro en `src/styles.css` y `src/ui-theme.js`
+- [X] T041 [US5] Revisar y ajustar orden de tabulación/atributos accesibles en vistas principales (`src/app.js`, `src/ui-shell.js`) sin alterar ids/`data-*`
+- [X] T042 [US5] Ampliar pruebas de integración de accesibilidad/adaptabilidad (si la convención lo permite) o validar cobertura manual documentada en `tests/integration/shell-sidebar.integration.test.js` y `tests/integration/theme.integration.test.js`
+- [X] T043 [US5] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 **Checkpoint**: Todas las historias de usuario cumplen criterios de accesibilidad y adaptabilidad.
 
@@ -147,10 +148,10 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 
 **Propósito**: Consolidación, rendimiento y validación final según quickstart.
 
-- [ ] T044 [P] Revisar que no existan recursos externos cargados (fuentes/íconos/gráficos) y que `.woff2`/SVG sean locales en `src/styles.css`, `public/fonts/` y `src/ui-charts.js`
-- [ ] T045 [P] Revisar presupuestos de rendimiento 001 y optimizar peso/ejecución de SVG y CSS en `src/ui-charts.js` y `src/styles.css`
-- [ ] T046 Ejecutar validación manual completa descrita en `specs/005-compras-visual-redesign/quickstart.md` y ajustar hallazgos en archivos `src/*` correspondientes
-- [ ] T047 Verificación final de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T044 [P] Revisar que no existan recursos externos cargados (fuentes/íconos/gráficos) y que `.woff2`/SVG sean locales en `src/styles.css`, `public/fonts/` y `src/ui-charts.js`
+- [X] T045 [P] Revisar presupuestos de rendimiento 001 y optimizar peso/ejecución de SVG y CSS en `src/ui-charts.js` y `src/styles.css`
+- [X] T046 Ejecutar validación manual completa descrita en `specs/005-compras-visual-redesign/quickstart.md` y ajustar hallazgos en archivos `src/*` correspondientes
+- [X] T047 Verificación final de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 ---
 

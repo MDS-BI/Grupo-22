@@ -84,8 +84,10 @@ export function renderDetail(detailOrId, options = {}) {
   if (header) {
     header.innerHTML = `
       <div class="page-heading">
-        <div><span class="eyebrow">${escape(typeLabel)}</span><h1>${escape(typeLabel)} �� Folio ${escape(order.folio)}</h1></div>
+        <div><span class="eyebrow">${escape(typeLabel)}</span><h1>${escape(typeLabel)} · Folio ${escape(order.folio)}</h1></div>
+        <p class="detail-reference"><strong>${escape(formatPurchaseOrderFolio(order.ocFolio) || formatRequestNumber(order.folio) || order.folio)}</strong></p>
       </div>
+      ${renderStatusProgress(order.status, detail.history || [])}
       ${detail.isLegacy ? '<p class="legacy-note">Orden histórica sin metadatos de extensión; el empleado se muestra como desconocido.</p>' : ''}
       <dl class="detail-header">
         <div><dt>Proveedor</dt><dd>${escape(supplierName)}</dd></div>
@@ -132,6 +134,7 @@ export function renderDetail(detailOrId, options = {}) {
   const totalsContainer = qs('order-totals');
   if (totalsContainer) {
     totalsContainer.innerHTML = `
+      <h2 class="totals-heading">Totales</h2>
       <div><span>Neto</span><strong>${escape(currency(totals.neto, currencyCode))}</strong></div>
       <div><span>IVA (${Math.round(taxRate * 100)} %)</span><strong>${escape(currency(totals.iva, currencyCode))}</strong></div>
       <div class="order-total"><span>Total</span><strong>${escape(currency(totals.total, currencyCode))}</strong></div>`;
@@ -140,10 +143,10 @@ export function renderDetail(detailOrId, options = {}) {
   const actionsContainer = qs('order-actions');
   if (actionsContainer) {
     actionsContainer.innerHTML = `
-      ${options.canPrint === false ? '' : `<button type="button" class="primary" data-action="print-order">${icon('print', { className: 'ui-icon' })}Imprimir orden</button>`}
       ${actions
-        .map(action => `<button type="button" class="secondary" data-action="transition" data-next-status="${escape(action.nextStatus)}">${icon('check', { className: 'ui-icon' })}${escape(action.label || actionLabel(action.nextStatus))}</button>`)
+        .map(action => `<button type="button" class="${action.nextStatus === 'cancelado' ? 'danger' : 'primary'}" data-action="transition" data-next-status="${escape(action.nextStatus)}">${icon('check', { className: 'ui-icon' })}${escape(action.label || actionLabel(action.nextStatus))}</button>`)
         .join('')}
+      ${options.canPrint === false ? '' : `<button type="button" class="secondary" data-action="print-order">${icon('print', { className: 'ui-icon' })}Imprimir orden</button>`}
       <button type="button" class="secondary" data-action="close-order-detail">${icon('back', { className: 'ui-icon' })}${escape(options.backLabel || 'Volver a la lista')}</button>
       <span class="feedback" aria-live="polite"></span>`;
   }
@@ -154,12 +157,41 @@ export function renderDetail(detailOrId, options = {}) {
     historyContainer.innerHTML = `
       <h2>Historial de cambios de estado</h2>
       ${history.length
-        ? `<ol>${history
-            .map(record => `<li><strong>${escape(record.from)} → ${escape(record.to)}</strong> <time datetime="${escape(record.changedAt)}">${escape(formatHistoryDate(record.changedAt))}</time></li>`)
+        ? `<ol class="timeline">${history
+            .map(record => `<li class="timeline-item timeline-${escape(record.to)}"><span class="timeline-dot" aria-hidden="true"></span><strong>${escape(record.from)} → ${escape(record.to)}</strong> <span class="timeline-label">${escape(PROGRESS_LABELS[record.to] || record.to)}</span> <time datetime="${escape(record.changedAt)}">${escape(formatHistoryDate(record.changedAt))}</time></li>`)
             .join('')}</ol>`
         : '<p class="empty-row">Sin cambios de estado registrados.</p>'}
       ${stockApplied ? '<p class="stock-applied">Recepción aplicada al stock de los productos.</p>' : ''}`;
   }
 
   return detail;
+}
+
+// 005 · US3: barra de progreso de estados (borrador → pendiente → aprobado → recibido).
+const PROGRESS_STEPS = ['borrador', 'pendiente', 'aprobado', 'recibido'];
+const PROGRESS_LABELS = {
+  borrador: 'Borrador',
+  pendiente: 'Pendiente de aprobación',
+  aprobado: 'Aprobada',
+  recibido: 'Recibida',
+  cancelado: 'Cancelada'
+};
+
+export function renderStatusProgress(status, history = []) {
+  const current = String(status || '').trim();
+  const cancelled = current === 'cancelado';
+  const reached = cancelled
+    ? (history.filter(record => record.to === 'cancelado').map(record => record.from).pop() || 'borrador')
+    : current;
+  const reachedIndex = Math.max(0, PROGRESS_STEPS.indexOf(reached));
+  const items = PROGRESS_STEPS.map((step, index) => {
+    let state = 'todo';
+    if (index < reachedIndex || (!cancelled && index === reachedIndex && step === 'recibido')) state = 'done';
+    else if (index === reachedIndex) state = cancelled ? 'stopped' : 'current';
+    const label = PROGRESS_LABELS[step];
+    const sr = state === 'done' ? 'completado' : state === 'current' ? 'estado actual' : state === 'stopped' ? 'detenida aquí' : 'pendiente';
+    return `<li class="progress-step progress-${state}"${state === 'current' ? ' aria-current="step"' : ''}><span class="progress-marker" aria-hidden="true">${index + 1}</span><span class="progress-label">${label}</span><span class="sr-only"> (${sr})</span></li>`;
+  }).join('');
+  const cancelNote = cancelled ? '<li class="progress-step progress-cancelled" aria-current="step"><span class="progress-marker" aria-hidden="true">×</span><span class="progress-label">Cancelada</span></li>' : '';
+  return `<ol class="status-progress" aria-label="Progreso de estados">${items}${cancelNote}</ol>`;
 }

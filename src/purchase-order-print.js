@@ -1,7 +1,7 @@
 import { getPurchaseOrderDetail } from './purchasing-storage.js';
 import { documentLabel } from './access-policy.js';
 import { getConfig } from './module-config.js';
-import { calculateLineSubtotal, calculateOrderTotals, formatPurchaseOrderFolio, formatRequestNumber } from './domain/purchasing.js';
+import { calculateLineSubtotal, calculateOrderTotals, formatPurchaseOrderFolio, formatRequestNumber, statusFilterLabel } from './domain/purchasing.js';
 import { formatHistoryDate } from './purchase-order-detail.js';
 
 function qs(id) {
@@ -62,8 +62,15 @@ export function renderPrintable(detailOrId, options = {}) {
 
   container.innerHTML = `
     <article class="print-document">
-      <header>
-        <p class="eyebrow">${escape(config.moduleName)}</p>
+      <header class="print-header">
+        <div class="print-brand">
+          <svg class="print-logo" viewBox="0 0 36 36" width="44" height="44" aria-hidden="true"><rect width="36" height="36" rx="8" fill="#0F2A3D"></rect><path d="M8 24l6-10 5 6 4-4 5 8" fill="none" stroke="#F59E0B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div><p class="eyebrow">${escape(config.moduleName)}</p><p class="print-module-sub">Módulo de Adquisiciones y Compras</p></div>
+        </div>
+        <div class="print-folio">
+          <span>${escape(typeLabel)}</span>
+          <strong>${escape(formatPurchaseOrderFolio(order.ocFolio) || formatRequestNumber(order.folio) || order.folio)}</strong>
+        </div>
         <h1>${escape(typeLabel)} · Folio ${escape(order.folio)}</h1>
       </header>
       <dl class="print-meta">
@@ -75,7 +82,7 @@ export function renderPrintable(detailOrId, options = {}) {
         <div><dt>Condición de pago</dt><dd>${escape(order.paymentTerms || '')}</dd></div>
         <div><dt>Fecha de emisión</dt><dd>${escape(emissionDate)}</dd></div>
         <div><dt>Fecha de entrega</dt><dd>${escape(date(order.endDate))}</dd></div>
-        <div><dt>Estado</dt><dd>${escape(order.status || '')}</dd></div>
+        <div><dt>Estado</dt><dd>${escape(statusFilterLabel(order.status) || order.status || '')}</dd></div>
         <div><dt>Moneda</dt><dd>${escape(currencyCode)}</dd></div>
         <div><dt>Stock aplicado</dt><dd>${stockApplied ? 'Sí' : 'No'}</dd></div>
       </dl>
@@ -111,6 +118,10 @@ export function renderPrintable(detailOrId, options = {}) {
               .join('')}</ol>`
           : '<p>Sin cambios de estado registrados.</p>'}
         ${stockApplied ? '<p>Recepción aplicada al stock de los productos.</p>' : ''}
+      </section>
+      <section class="print-signatures">
+        <div><span class="signature-line"></span><p>Solicitante: ${escape(employeeName)}</p></div>
+        <div><span class="signature-line"></span><p>${order.ocFolio || ['aprobado', 'recibido'].includes(order.status) ? 'Firma del aprobador' : 'Aprobador: pendiente de aprobación'}</p><p class="print-note">El sistema no registra el nombre del aprobador.</p></div>
       </section>
       <footer class="print-footer">Sistema de Orden de Compra</footer>
     </article>`;

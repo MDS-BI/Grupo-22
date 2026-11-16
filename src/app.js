@@ -67,7 +67,16 @@ import {
   openSidePanel
 } from './ui-side-panel.js';
 import { initTheme, toggleTheme } from './ui-theme.js';
-import { ensureShellScaffold, updateBreadcrumb, bindGlobalSearch, navGroupFor, syncThemeToggle } from './ui-shell.js';
+import {
+  applyStackedLabels,
+  bindGlobalSearch,
+  ensureShellScaffold,
+  isSmallScreen,
+  navGroupFor,
+  syncThemeToggle,
+  toggleMobileNav,
+  updateBreadcrumb
+} from './ui-shell.js';
 import {
   buildOrderRows,
   filterEntities,
@@ -94,9 +103,20 @@ import { productsForSupplier } from './domain/price-list.js';
 import {
   getSupplierPriceList,
   getSupplierSummary,
+  loadOrderMetadata,
   nextRequestFolio
 } from './purchasing-storage.js';
 import { renderSupplierSummary, supplierTaxIdentity } from './supplier-summary-view.js';
+import {
+  attentionItemsForRole,
+  attentionTitle,
+  countByStatus,
+  isOverdueOrder,
+  monthlySpend,
+  topSuppliers
+} from './ui-dashboard.js';
+import { spendColumnsSvg, statusBarChartSvg } from './ui-charts.js';
+import { mountChips } from './ui-chips.js';
 import { loadDemoData, requiresDemoReplacement } from './purchasing-demo-data.js';
 import { confirmAction } from './ui-feedback.js';
 
@@ -240,6 +260,24 @@ function firstAllowedView() {
   return 'dashboard';
 }
 
+// 005 (T019f): avatar con iniciales y cargo junto al usuario de la sesión.
+function renderSessionAvatar() {
+  const info = qs('session-info');
+  if (!info || !activeSession) return;
+  let avatar = qs('session-avatar');
+  if (!avatar) {
+    avatar = document.createElement('span');
+    avatar.id = 'session-avatar';
+    avatar.className = 'avatar avatar-sm';
+    avatar.setAttribute('aria-hidden', 'true');
+    info.insertBefore(avatar, info.firstChild);
+  }
+  avatar.textContent = initialsOf(activeSession.nombre || activeSession.userId);
+  const user = loadUsers().find(item => item.userId === activeSession.userId);
+  const cargo = String(user?.cargo || activeSession.cargo || '').trim();
+  info.title = cargo ? `${activeSession.nombre} · ${cargo}` : activeSession.nombre || '';
+}
+
 function renderSessionInfo() {
   const info = qs('session-info');
   if (!info) return;
@@ -247,6 +285,7 @@ function renderSessionInfo() {
     info.hidden = false;
     qs('session-user').textContent = `${activeSession.nombre} · ${activeSession.userId}`;
     qs('session-role').textContent = roleLabel(activeSession.role);
+    renderSessionAvatar();
   } else {
     info.hidden = true;
   }
@@ -492,6 +531,21 @@ function setDocumentNavigationLabel() {
   if (!button) return;
   if (isPurchasing()) button.setAttribute('aria-label', 'Solicitudes y Órdenes de Compra');
   else button.removeAttribute('aria-label');
+  // 005 (T019g): el texto visible coincide con el nombre accesible sin cambiar #nav-documents-label.
+  const label = qs('nav-documents-label');
+  let prefix = button.querySelector('.nav-label-prefix');
+  if (isPurchasing() && label && !prefix) {
+    const group = document.createElement('span');
+    group.className = 'nav-label-group';
+    prefix = document.createElement('span');
+    prefix.className = 'nav-label-prefix';
+    prefix.textContent = 'Solicitudes y ';
+    label.replaceWith(group);
+    group.append(prefix, label);
+  } else if (!isPurchasing() && prefix) {
+    const group = prefix.parentElement;
+    group.replaceWith(label);
+  }
 }
 
 
@@ -541,6 +595,7 @@ function renderRubroOptions(selectedIds = []) {
   select.innerHTML = loadRubros()
     .map(rubro => `<option value="${escapeHtml(rubroValue(rubro))}"${selected.has(rubroValue(rubro)) ? ' selected' : ''}>${escapeHtml(rubroLabel(rubro))}</option>`)
     .join('');
+  if (isPurchasing()) mountChips(select, { labelId: 'supplier-rubros-label', emptyText: 'Sin rubros registrados' });
 }
 
 function renderSearchRubroOptions() {
@@ -550,6 +605,7 @@ function renderSearchRubroOptions() {
   select.innerHTML = loadRubros()
     .map(rubro => `<option value="${escapeHtml(rubroValue(rubro))}"${selected.has(rubroValue(rubro)) ? ' selected' : ''}>${escapeHtml(rubroLabel(rubro))}</option>`)
     .join('');
+  if (isPurchasing()) mountChips(select, { labelId: 'search-rubros-label', emptyText: 'Sin rubros registrados' });
 }
 
 function selectedSearchRubros() {
@@ -634,6 +690,7 @@ function renderEntityFilterOptions() {
   select.innerHTML = loadRubros()
     .map(rubro => `<option value="${escapeHtml(rubroValue(rubro))}"${selected.has(String(rubroValue(rubro))) ? ' selected' : ''}>${escapeHtml(rubroLabel(rubro))}</option>`)
     .join('');
+  if (isPurchasing()) mountChips(select, { labelId: 'entities-filter-rubros-label', emptyText: 'Sin rubros registrados' });
   const origin = qs('entities-filter-origin');
   if (origin) origin.value = entityFilters.origin;
 }
@@ -683,12 +740,67 @@ function renderEntityTable() {
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('entity-table'), entitySort);
+  applyStackedLabels(qs('entity-table'));
+  renderEntityCards(rows, { canEdit, canDelete });
   const summary = qs('entity-filter-summary');
   if (summary) summary.textContent = isPurchasing() ? entityFilterSummary() : '';
   const clear = qs('entities-filter-clear');
   if (clear) clear.hidden = !(isPurchasing() && hasActiveFilters(entityFilters));
 }
 
+
+// 005 · US4: vista de tarjetas de proveedores (avatar de iniciales, chips de rubro y origen).
+let entityViewMode = 'table';
+
+function initialsOf(name) {
+  const words = String(name || '').replace(/^Demo\s+/i, '').split(/\s+/).filter(word => /[A-Za-zÁÉÍÓÚÑáéíóúñ0-9]/.test(word));
+  return (words.slice(0, 2).map(word => word[0]).join('') || '?').toUpperCase();
+}
+
+function entityRubroNames(entity) {
+  const rubros = loadRubros();
+  return (entity.rubro_ids || [])
+    .map(id => rubros.find(item => rubroValue(item) === String(id)))
+    .filter(Boolean)
+    .map(rubroLabel);
+}
+
+function renderEntityCards(rows, { canEdit, canDelete }) {
+  const container = qs('entity-cards');
+  const toggle = qs('entities-view-toggle');
+  const tableWrapper = qs('entity-table')?.closest('.table-wrapper');
+  if (!container || !toggle) return;
+  toggle.hidden = !isPurchasing();
+  const showCards = isPurchasing() && entityViewMode === 'cards';
+  container.hidden = !showCards;
+  if (tableWrapper) tableWrapper.hidden = showCards;
+  for (const button of toggle.querySelectorAll('[data-view-mode]')) {
+    button.setAttribute('aria-pressed', button.dataset.viewMode === entityViewMode ? 'true' : 'false');
+  }
+  if (!showCards) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = rows.length
+    ? `<ul class="supplier-card-list">${rows.map(entity => {
+        const foreign = String(entity.origin || '').trim() === 'Extranjero';
+        const chips = entityRubroNames(entity).map(name => `<li class="chip chip-static">${escapeHtml(name)}</li>`).join('');
+        return `<li class="supplier-card">
+          <div class="supplier-card-head">
+            <span class="avatar" aria-hidden="true">${escapeHtml(initialsOf(entity.name))}</span>
+            <div class="supplier-card-title"><strong>${escapeHtml(entity.name)}</strong><span>${escapeHtml(supplierTaxIdentity(entity))}</span></div>
+            <span class="origin-tag ${foreign ? 'origin-foreign' : 'origin-national'}">${foreign ? 'Extranjero' : 'Nacional'}</span>
+          </div>
+          ${chips ? `<ul class="chip-list" aria-label="Rubros">${chips}</ul>` : '<p class="supplier-card-muted">Sin rubros</p>'}
+          <p class="supplier-card-muted">Condición de pago: ${escapeHtml(paymentTermLabel(entity.paymentTerms) || '—')}</p>
+          ${canEdit || canDelete ? `<div class="supplier-card-actions">
+            ${canEdit ? `<button type="button" class="secondary" data-card-action="edit" data-id="${escapeHtml(entity.id)}">${icon('edit', { className: 'ui-icon' })}Editar</button>` : ''}
+            ${canDelete ? `<button type="button" class="danger" data-card-action="delete" data-id="${escapeHtml(entity.id)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>` : ''}
+          </div>` : ''}
+        </li>`;
+      }).join('')}</ul>`
+    : '<p class="insight-empty">No hay proveedores para los filtros seleccionados.</p>';
+}
 
 function renderDocumentEntityOptions() {
   const selectedEntity = qs('document-entity').value;
@@ -800,6 +912,57 @@ function renderFolioCell(document) {
   return `<span class="request-number">${escapeHtml(request)}</span>${oc ? `<span class="oc-folio">${escapeHtml(oc)}</span>` : ''}`;
 }
 
+// 005 · US3: vista tablero (solo lectura) por columnas de estado, sobre las mismas filas filtradas.
+let documentViewMode = 'table';
+const BOARD_COLUMNS = Object.freeze([
+  ['borrador', 'Solicitud – Borrador'],
+  ['pendiente', 'Solicitud – Pendiente de aprobación'],
+  ['aprobado', 'OC emitida – Aprobada'],
+  ['recibido', 'OC – Recibida'],
+  ['cancelado', 'Cancelada']
+]);
+
+function renderDocumentBoard(rows, entityNames) {
+  const board = qs('document-board');
+  const toggle = qs('documents-view-toggle');
+  const tableWrapper = qs('document-table')?.closest('.table-wrapper');
+  if (!board || !toggle) return;
+  const purchasing = isPurchasing();
+  toggle.hidden = !purchasing;
+  const showBoard = purchasing && documentViewMode === 'board';
+  board.hidden = !showBoard;
+  if (tableWrapper) tableWrapper.hidden = showBoard;
+  for (const button of toggle.querySelectorAll('[data-view-mode]')) {
+    button.setAttribute('aria-pressed', button.dataset.viewMode === documentViewMode ? 'true' : 'false');
+  }
+  if (!showBoard) {
+    board.innerHTML = '';
+    return;
+  }
+  const today = new Date();
+  board.innerHTML = BOARD_COLUMNS.map(([status, label]) => {
+    const items = rows.filter(row => row.status === status);
+    const cards = items.map(row => {
+      const reference = [formatRequestNumber(row.folio) || row.folio, formatPurchaseOrderFolio(row.ocFolio)].filter(Boolean).join(' · ');
+      const overdue = isOverdueOrder(row, today);
+      return `<li><button type="button" class="board-card" data-action="board-view-order" data-id="${escapeHtml(row.id)}" aria-label="Ver detalle de ${escapeHtml(reference)}">
+        <span class="board-card-head"><strong>${escapeHtml(reference)}</strong>${overdue ? '<span class="board-flag">Atrasada</span>' : ''}</span>
+        <span class="board-card-supplier">${escapeHtml(row.entityName ?? entityNames.get(row.entity_id) ?? '')}</span>
+        <span class="board-card-foot"><span>Entrega ${escapeHtml(formatDate(row.endDate))}</span><strong>${escapeHtml(formatMoney(row.total ?? row.totalAmount, row.currency || 'CLP'))}</strong></span>
+      </button></li>`;
+    }).join('');
+    return `<section class="board-column board-column-${status}" aria-labelledby="board-heading-${status}">
+      <h3 id="board-heading-${status}"><span>${escapeHtml(label)}</span><span class="board-count">${items.length}</span></h3>
+      <ul class="board-list">${cards || '<li class="board-empty">Sin órdenes</li>'}</ul>
+    </section>`;
+  }).join('');
+}
+
+function setDocumentViewMode(mode) {
+  documentViewMode = mode === 'board' ? 'board' : 'table';
+  renderDocumentTable();
+}
+
 function documentFilterSummary() {
   const entity = loadEntities().find(item => item.entity_id === documentFilters.entityId);
   return filterSummary([
@@ -859,6 +1022,8 @@ function renderDocumentTable() {
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('document-table'), documentSort);
+  applyStackedLabels(qs('document-table'));
+  renderDocumentBoard(sorted, entityNames);
   const summary = qs('document-filter-summary');
   if (summary) summary.textContent = isPurchasing() ? documentFilterSummary() : '';
   const clear = qs('documents-filter-clear');
@@ -1030,6 +1195,10 @@ function applyPurchasingFormAdjustments() {
   // 006: la solicitud no pide folio; el correlativo se asigna automáticamente al guardar.
   const folioField = qs('folio')?.closest('.field');
   if (folioField) folioField.hidden = true;
+  // 005 · US3 (FR-020/021): la sección heredada de totales manuales queda oculta (todos sus campos
+  // ya lo estaban); el formulario queda Cabecera → Detalle de compra → Totales.
+  const legacySection = qs('document-legacy-fields');
+  if (legacySection) legacySection.hidden = true;
 }
 
 /** 006: texto de ayuda de Moneda según el origen del proveedor. */
@@ -1081,6 +1250,11 @@ function renderDraftLines() {
     currency: draftCurrency,
     taxRate: draftTaxRate
   });
+  // 005 · US3 (FR-021): sin líneas no se muestra una tarjeta de totales vacía.
+  const totals = qs('document-totals');
+  if (totals && isPurchasing()) totals.hidden = draftLines.length === 0;
+  const totalsHeading = qs('document-totals-heading');
+  if (totalsHeading && totals) totalsHeading.hidden = totals.hidden;
 }
 
 function showLineErrors(errors) {
@@ -1333,7 +1507,7 @@ function renderDashboard() {
   if (qs('stat-products')) qs('stat-products').textContent = String(loadProducts().length);
   const statuses = config.statusLifecycle?.statuses || [];
   qs('stat-status-breakdown').innerHTML = statuses.length
-    ? statuses.map(status => `<li data-status="${escapeHtml(status)}"${isPurchasing() ? ' role="button" tabindex="0"' : ''}><span>${escapeHtml(isPurchasing() ? statusLabel(status) : status)}</span><strong>${documents.filter(document => document.status === status).length}</strong></li>`).join('')
+    ? statuses.map(status => `<li data-status="${escapeHtml(status)}"${isPurchasing() ? ' role="button" tabindex="0"' : ''}><span>${isPurchasing() ? `<span class="status-dot status-dot-${escapeHtml(status)}" aria-hidden="true"></span>` : ''}${escapeHtml(isPurchasing() ? statusFilterLabel(status) : status)}</span><strong>${documents.filter(document => document.status === status).length}</strong></li>`).join('')
     : '<li class="empty-row">Sin estados configurados.</li>';
   const today = new Date();
   const overdue = documents.filter(document => {
@@ -1342,6 +1516,96 @@ function renderDashboard() {
     return new Date(year, month - 1, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
   }).length;
   qs('stat-overdue').textContent = String(overdue);
+  renderDashboardInsights(documents, entities);
+}
+
+/** 005 · US2: detalle de indicadores, gráficos, top 5 y "Requiere tu atención" (solo lectura). */
+function renderDashboardInsights(documents, entities) {
+  const container = qs('dashboard-insights');
+  if (!container) return;
+  container.hidden = !isPurchasing() || !canUse(PERMISSIONS.DOCUMENTS_VIEW);
+  for (const id of ['stat-entities-detail', 'stat-documents-detail', 'stat-overdue-detail', 'stat-products-detail']) {
+    if (qs(id)) qs(id).textContent = '';
+  }
+  if (container.hidden) return;
+  const today = new Date();
+  const metadata = new Map(loadOrderMetadata().map(item => [item.id_orden_compra, item]));
+  const orders = documents.map(document => ({ ...document, id_empleado: metadata.get(document.id)?.id_empleado || '' }));
+  const statuses = config.statusLifecycle?.statuses || [];
+
+  const foreign = entities.filter(entity => String(entity.origin || '').trim() === 'Extranjero').length;
+  setText('stat-entities-detail', entities.length ? `${entities.length - foreign} nacionales · ${foreign} extranjeros` : 'Sin proveedores registrados');
+  const emitted = orders.filter(order => ['aprobado', 'recibido'].includes(order.status)).length;
+  const requests = orders.filter(order => ['borrador', 'pendiente'].includes(order.status)).length;
+  setText('stat-documents-detail', `${requests} solicitudes · ${emitted} OC emitidas`);
+  setText('stat-overdue-detail', 'Entrega vencida y sin recibir');
+  const products = loadProducts();
+  const outOfStock = products.filter(product => Number(product.stock || 0) === 0).length;
+  setText('stat-products-detail', outOfStock ? `${outOfStock} sin stock` : 'Todos con stock');
+
+  const counts = countByStatus(orders, statuses).map(item => ({
+    ...item,
+    label: statusFilterLabel(item.status),
+    shortLabel: STATUS_SHORT_LABELS[item.status] || item.status
+  }));
+  qs('chart-status').innerHTML = orders.length
+    ? statusBarChartSvg(counts, { title: 'Órdenes por estado' })
+    : '<p class="insight-empty">Aún no hay órdenes registradas.</p>';
+  qs('chart-status-table').querySelector('tbody').innerHTML = counts
+    .map(item => `<tr><td>${escapeHtml(item.label)}</td><td>${item.count}</td></tr>`).join('');
+
+  const spend = monthlySpend(orders, { today, months: 6 });
+  const mainCurrency = spend.currencies[0] || 'CLP';
+  setText('chart-spend-subtitle', `Últimos 6 meses por fecha de emisión · ${mainCurrency}`);
+  qs('chart-spend').innerHTML = spend.currencies.length
+    ? spendColumnsSvg(spend.buckets, mainCurrency, { formatMoney, title: 'Gasto mensual' })
+    : '<p class="insight-empty">Sin OC emitidas en los últimos 6 meses.</p>';
+  qs('chart-spend-table').querySelector('tbody').innerHTML = spend.buckets
+    .map(bucket => `<tr><td>${escapeHtml(bucket.label)}</td><td>${escapeHtml(spend.currencies.map(currency => formatMoney(bucket.totals[currency] || 0, currency)).join(' · ') || formatMoney(0, 'CLP'))}</td></tr>`).join('');
+  const others = spend.currencies.slice(1).map(currency => {
+    const total = spend.buckets.reduce((sum, bucket) => sum + (bucket.totals[currency] || 0), 0);
+    return `${formatMoney(total, currency)} en ${currency}`;
+  });
+  setText('chart-spend-other', others.length ? `También: ${others.join(' · ')} (sin convertir).` : '');
+
+  const topSection = qs('insight-top');
+  if (topSection) topSection.hidden = !canUse(PERMISSIONS.ENTITIES_VIEW);
+  const top = topSuppliers(orders, entities, { limit: 5 });
+  const currencies = Object.keys(top).sort((a, b) => (a === 'CLP' ? -1 : b === 'CLP' ? 1 : a.localeCompare(b)));
+  qs('top-suppliers').innerHTML = currencies.length
+    ? currencies.map(currency => {
+        const rows = top[currency];
+        const max = Math.max(1, ...rows.map(row => row.total));
+        return `<div class="top-group"><h3>${escapeHtml(currency)}</h3><ol class="top-list">${rows.map(row => `<li>
+          <span class="top-name">${escapeHtml(row.name)}</span>
+          <span class="top-bar" aria-hidden="true"><span style="width:${Math.max(4, Math.round((row.total / max) * 100))}%"></span></span>
+          <strong class="top-amount">${escapeHtml(formatMoney(row.total, currency))}</strong>
+        </li>`).join('')}</ol></div>`;
+      }).join('')
+    : '<p class="insight-empty">Sin OC emitidas todavía.</p>';
+
+  const role = activeSession?.role || 'administrador';
+  const items = attentionItemsForRole(role, orders, { suppliers: entities, ownEmployeeId: ownEmployeeId(), today });
+  setText('attention-subtitle', `${attentionTitle(role)} · ${items.length}`);
+  qs('attention-list').innerHTML = items.length
+    ? items.slice(0, 6).map(item => `<li><button type="button" class="attention-item" data-action="open-attention" data-id="${escapeHtml(item.id)}">
+        <span class="attention-main"><strong>${escapeHtml(item.reference)}</strong><span>${escapeHtml(item.supplier)}</span></span>
+        <span class="attention-meta"><span class="attention-reason${isOverdueOrder(item, today) ? ' is-overdue' : ''}">${escapeHtml(item.reason)}</span><strong>${escapeHtml(formatMoney(item.total, item.currency))}</strong></span>
+      </button></li>`).join('')
+    : '<li class="insight-empty">Nada pendiente por ahora.</li>';
+}
+
+const STATUS_SHORT_LABELS = Object.freeze({
+  borrador: 'Borrador',
+  pendiente: 'Pendiente',
+  aprobado: 'Aprobada',
+  recibido: 'Recibida',
+  cancelado: 'Cancelada'
+});
+
+function setText(id, value) {
+  const element = qs(id);
+  if (element) element.textContent = value;
 }
 
 
@@ -1686,6 +1950,10 @@ function bindEvents() {
     if (!canUse(PERMISSIONS.PRODUCTS_VIEW)) return showPermissionDenied('demo-feedback');
     showView('products');
   });
+  qs('attention-list')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-action="open-attention"]');
+    if (button) openOrderDetail(button.dataset.id);
+  });
   qs('stat-overdue-card')?.addEventListener('click', () => {
     if (!canUse(PERMISSIONS.DOCUMENTS_VIEW)) return showPermissionDenied('demo-feedback');
     documentFilters.overdueOnly = true;
@@ -1716,7 +1984,16 @@ function bindEvents() {
     });
   }
 
-  qs('sidebar-toggle').addEventListener('click', () => qs('sidebar').classList.toggle('collapsed'));
+  qs('sidebar-toggle').addEventListener('click', () => {
+    if (isSmallScreen()) {
+      toggleMobileNav();
+      return;
+    }
+    qs('sidebar').classList.toggle('collapsed');
+  });
+  qs('sidebar').addEventListener('click', event => {
+    if (event.target.closest('.nav-module') && isSmallScreen()) toggleMobileNav(false);
+  });
 
   qs('entity-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -1749,6 +2026,20 @@ function bindEvents() {
     }
   });
 
+  qs('entities-view-toggle')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-view-mode]');
+    if (!button) return;
+    entityViewMode = button.dataset.viewMode === 'cards' ? 'cards' : 'table';
+    renderEntityTable();
+  });
+  qs('entity-cards')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-card-action]');
+    if (!button) return;
+    // Reutiliza exactamente las acciones (y permisos) de la tabla, que sigue en el DOM.
+    const target = [...qs('entity-table-body').querySelectorAll('button[data-action]')]
+      .find(item => item.dataset.action === button.dataset.cardAction && item.dataset.id === button.dataset.id);
+    target?.click();
+  });
   qs('entity-table-body').addEventListener('click', event => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
@@ -1867,6 +2158,14 @@ function bindEvents() {
     if (!row || event.target.closest('button')) return;
     event.preventDefault();
     openOrderDetail(row.dataset.orderId);
+  });
+  qs('documents-view-toggle')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-view-mode]');
+    if (button) setDocumentViewMode(button.dataset.viewMode);
+  });
+  qs('document-board')?.addEventListener('click', event => {
+    const card = event.target.closest('[data-action="board-view-order"]');
+    if (card) openOrderDetail(card.dataset.id);
   });
   qs('document-table-body').addEventListener('click', event => {
     const button = event.target.closest('button[data-action]');

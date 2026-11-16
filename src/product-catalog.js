@@ -15,6 +15,7 @@ import { loadEntities } from './storage.js';
 import { currenciesForOrigin, defaultCurrencyForOrigin } from './domain/purchasing.js';
 import { validateProductSupplierPrices } from './domain/price-list.js';
 import { icon } from './ui-icons.js';
+import { applyStackedLabels } from './ui-shell.js';
 import { PERMISSION_DENIED_MESSAGE } from './auth.js';
 import { mountPanelForm, openSidePanel, closeSidePanel } from './ui-side-panel.js';
 import { filterProducts, sortRows } from './purchasing-list-query.js';
@@ -153,6 +154,18 @@ function showPriceErrors(result) {
   setError('error-product-prices', messages.filter(Boolean).join(' '));
 }
 
+// 005 · US4: indicador visual del nivel de stock (relativo al mayor stock del catálogo) y
+// etiqueta "Sin stock" cuando es cero. El número sigue visible como texto.
+function stockCell(product, maxStock) {
+  const stock = Number(product.stock || 0);
+  if (stock === 0) {
+    return `<span class="stock-cell"><span class="stock-value">0</span><span class="stock-tag-empty">Sin stock</span></span>`;
+  }
+  const percent = Math.max(6, Math.round((stock / maxStock) * 100));
+  const level = percent < 25 ? 'low' : percent < 60 ? 'mid' : 'high';
+  return `<span class="stock-cell"><span class="stock-value">${escape(stock)}</span><span class="stock-meter stock-${level}" aria-hidden="true"><span style="width:${percent}%"></span></span></span>`;
+}
+
 function supplierPricesSummary(product) {
   const entries = getSupplierPricesForProduct(productId(product));
   if (!entries.length) return 'Sin proveedor';
@@ -239,12 +252,13 @@ function renderProductTable() {
     id_categoria: product => categories.get(String(product.id_categoria)) || '',
     stock: product => Number(product.stock || 0)
   });
+  const maxStock = Math.max(1, ...loadProducts().map(product => Number(product.stock || 0)));
   body.innerHTML = rows.length
     ? rows.map(product => `<tr>
         <td>${escape(productName(product))}</td>
         <td>${escape(product.unidad_medida || product.unit || '')}</td>
         <td>${escape(categories.get(String(product.id_categoria)) || '')}</td>
-        <td>${escape(Number(product.stock || 0))}</td>
+        <td>${stockCell(product, maxStock)}</td>
         <td>${escape(supplierPricesSummary(product))}</td>
         ${manage ? `<td class="table-actions">
           <button type="button" class="secondary" data-action="edit-product" data-id="${escape(productId(product))}">${icon('edit', { className: 'ui-icon' })}Editar</button>
@@ -258,6 +272,7 @@ function renderProductTable() {
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('product-table'), productSort);
+  applyStackedLabels(qs('product-table'));
   const summary = qs('product-filter-summary');
   if (summary) {
     summary.textContent = filterSummary([
