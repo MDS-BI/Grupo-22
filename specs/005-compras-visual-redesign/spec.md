@@ -2,7 +2,7 @@
 
 **Rama de Funcionalidad**: `005-compras-visual-redesign`  
 **Creado**: 2026-11-15  
-**Estado**: Borrador  
+**Estado**: Implementada (2026-11-16)  
 **Entrada**: Descripción del usuario: "Rediseño visual completo del módulo de Compras por instrucción del profesor. EXCEPCIÓN APROBADA: este spec puede modificar la presentación visual (HTML, CSS y componentes de interfaz) del módulo base; NO cambia funcionalidades, reglas de negocio, permisos, flujo de estados ni modelo de datos de los specs 001 a 004, y todas las pruebas existentes deben seguir pasando."
 
 ## Aclaraciones

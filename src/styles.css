@@ -429,3 +429,52 @@ button.danger { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; }
   #product-prices-table, #product-prices-table tbody, #product-prices-table tr, #product-prices-table td { display:block; width:100%; }
   #product-prices-table tr { border:1px solid var(--border); border-radius:10px; padding:8px; margin-bottom:8px; }
 }
+
+/* 005 · US5 — accesibilidad, movimiento reducido, adaptabilidad y menú de usuario */
+.avatar-sm { width:34px; height:34px; font-size:.85rem; }
+.session-info { display:flex; align-items:center; gap:10px; }
+.nav-label-group { display:inline; }
+.sidebar.collapsed .nav-label-group { display:none; }
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline:3px solid var(--action-bg); outline-offset:2px; }
+.chip:focus-visible, .board-card:focus-visible, .attention-item:focus-visible { outline:3px solid var(--action-bg); outline-offset:2px; }
+.side-panel, .toast, .chip, .board-card, .attention-item, .nav-module, .primary, .secondary, .danger, .stat-card-button { transition:background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.board-card:hover, .attention-item:hover, .stat-card-button:hover { transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition:none !important; animation:none !important; scroll-behavior:auto !important; }
+  .board-card:hover, .attention-item:hover, .stat-card-button:hover { transform:none; }
+}
+:root[data-theme="dark"] .list-filters, :root[data-theme="dark"] .form-section { background:var(--surface-alt); border-color:var(--border); }
+:root[data-theme="dark"] .status-badge { filter:saturate(.9); }
+:root[data-theme="dark"] .secondary { background:var(--surface-alt); color:var(--text); border-color:var(--border); }
+:root[data-theme="dark"] .data-table th { color:var(--muted); }
+:root[data-theme="dark"] .demo-feedback, :root[data-theme="dark"] .feedback { color:var(--text); }
+/* Pantallas medianas: barra lateral contraída a íconos */
+@media (max-width: 1100px) and (min-width: 721px) {
+  .sidebar { width:72px; padding:16px 10px; }
+  .sidebar .nav-label, .sidebar .nav-group-title, .sidebar .nav-label-group { display:none; }
+  .sidebar .nav-module { justify-content:center; }
+  .main-content { margin-left:72px; }
+  .topbar-center .global-search { max-width:260px; min-width:180px; }
+  .session-user, .session-role { display:none; }
+}
+/* Celular: menú desplegable desde la barra superior y tablas como tarjetas apiladas */
+@media (max-width: 720px) {
+  .topbar { padding:0 12px; gap:8px; }
+  .brand strong { display:none; }
+  .session-user, .session-role { display:none; }
+  .sidebar { width:min(280px,85vw); transform:translateX(-100%); visibility:hidden; box-shadow:var(--shadow-md); }
+  .sidebar.mobile-open { transform:none; visibility:visible; }
+  .sidebar .nav-label, .sidebar .nav-group-title, .sidebar .nav-label-group { display:inline; }
+  .sidebar .nav-group-title { display:block; }
+  .main-content { margin-left:0; padding:80px 12px 24px; }
+  .quick-actions, .stats-grid, .dashboard-insights { grid-template-columns:1fr; }
+  .data-table.stacked-table { min-width:0; }
+  .data-table.stacked-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+  .data-table.stacked-table, .data-table.stacked-table tbody, .data-table.stacked-table tr, .data-table.stacked-table td { display:block; width:100%; }
+  .data-table.stacked-table tr { border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:10px; background:var(--surface); }
+  .data-table.stacked-table td { border:0; padding:4px 0; display:flex; justify-content:space-between; gap:12px; text-align:right; }
+  .data-table.stacked-table td::before { content:attr(data-label); color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; text-align:left; }
+  .data-table.stacked-table td.table-actions { justify-content:flex-start; flex-wrap:wrap; }
+  .data-table.stacked-table td.table-actions::before { display:none; }
+  .print-signatures { grid-template-columns:1fr; }
+}

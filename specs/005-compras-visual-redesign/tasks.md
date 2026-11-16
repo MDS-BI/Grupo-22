@@ -72,8 +72,8 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 - [X] T019c [US1] Aplicar identidad en `src/styles.css`: barra lateral `#0F2A3D`, ítem activo con contraste AA e indicador ámbar, acción principal `.primary` ámbar `#F59E0B` con texto oscuro, buscador integrado en la barra superior (sin el recuadro de `form`)
 - [X] T019d [US1] Tarjetas de usuarios de prueba: la tabla accesible de 003 se presenta como tarjetas con ícono y cargo; cada tarjeta ingresa con un clic enviando el mismo formulario de `login()` (004); prueba en `tests/integration/login-theme-005.integration.test.js`
 - [X] T019e [US1] Botón de tema con íconos SVG y `aria-label` que cambia según el tema; campana reservada con ícono SVG en lugar de emoji
-- [ ] T019f [US1] Menú de usuario con avatar de iniciales y cargo (FR-013): hoy la barra superior muestra nombre, User ID y rol, sin avatar
-- [ ] T019g [US1] La etiqueta visible del botón `nav-documents` sigue diciendo "Órdenes de Compra" (su `aria-label` ya dice "Solicitudes y Órdenes de Compra"); unificar sin romper las pruebas de 003
+- [X] T019f [US1] Menú de usuario con avatar de iniciales y cargo (FR-013): avatar `#session-avatar` junto al nombre; el cargo queda en el título del bloque de sesión
+- [X] T019g [US1] El botón `nav-documents` muestra "Solicitudes y Órdenes de Compra" agregando un prefijo visible; `#nav-documents-label` conserva "Órdenes de Compra" porque las pruebas de 001/003 lo leen
 
 **Checkpoint**: US1 funcional e independiente (MVP visual/navegación).
 
@@ -133,12 +133,12 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 **Objetivo**: WCAG 2.1 AA, teclado completo, reduced-motion y responsive (sidebar colapsada/menú desplegable, tarjetas apiladas).  
 **Prueba independiente**: Auditar contraste y foco, navegar solo con teclado, emular `prefers-reduced-motion`/`prefers-color-scheme` y validar anchos medianos/pequeños sin scroll horizontal.
 
-- [ ] T038 [P] [US5] Aplicar estilos de foco visible, contraste AA y etiquetas/alternativas textuales para gráficos y controles en `src/styles.css` y `src/ui-charts.js`
-- [ ] T039 [P] [US5] Implementar reglas responsive (sidebar contraída en mediano, menú desplegable y tablas→tarjetas apiladas con etiquetas en pequeño) en `src/styles.css` y `src/ui-shell.js`
-- [ ] T040 [US5] Implementar soporte `prefers-reduced-motion` para transiciones/animaciones y verificar coherencia de modo oscuro en `src/styles.css` y `src/ui-theme.js`
-- [ ] T041 [US5] Revisar y ajustar orden de tabulación/atributos accesibles en vistas principales (`src/app.js`, `src/ui-shell.js`) sin alterar ids/`data-*`
-- [ ] T042 [US5] Ampliar pruebas de integración de accesibilidad/adaptabilidad (si la convención lo permite) o validar cobertura manual documentada en `tests/integration/shell-sidebar.integration.test.js` y `tests/integration/theme.integration.test.js`
-- [ ] T043 [US5] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T038 [P] [US5] Aplicar estilos de foco visible, contraste AA y etiquetas/alternativas textuales para gráficos y controles en `src/styles.css` y `src/ui-charts.js`
+- [X] T039 [P] [US5] Implementar reglas responsive (sidebar contraída en mediano, menú desplegable y tablas→tarjetas apiladas con etiquetas en pequeño) en `src/styles.css` y `src/ui-shell.js`
+- [X] T040 [US5] Implementar soporte `prefers-reduced-motion` para transiciones/animaciones y verificar coherencia de modo oscuro en `src/styles.css` y `src/ui-theme.js`
+- [X] T041 [US5] Revisar y ajustar orden de tabulación/atributos accesibles en vistas principales (`src/app.js`, `src/ui-shell.js`) sin alterar ids/`data-*`
+- [X] T042 [US5] Ampliar pruebas de integración de accesibilidad/adaptabilidad (si la convención lo permite) o validar cobertura manual documentada en `tests/integration/shell-sidebar.integration.test.js` y `tests/integration/theme.integration.test.js`
+- [X] T043 [US5] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 **Checkpoint**: Todas las historias de usuario cumplen criterios de accesibilidad y adaptabilidad.
 
@@ -148,10 +148,10 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 
 **Propósito**: Consolidación, rendimiento y validación final según quickstart.
 
-- [ ] T044 [P] Revisar que no existan recursos externos cargados (fuentes/íconos/gráficos) y que `.woff2`/SVG sean locales en `src/styles.css`, `public/fonts/` y `src/ui-charts.js`
-- [ ] T045 [P] Revisar presupuestos de rendimiento 001 y optimizar peso/ejecución de SVG y CSS en `src/ui-charts.js` y `src/styles.css`
-- [ ] T046 Ejecutar validación manual completa descrita en `specs/005-compras-visual-redesign/quickstart.md` y ajustar hallazgos en archivos `src/*` correspondientes
-- [ ] T047 Verificación final de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T044 [P] Revisar que no existan recursos externos cargados (fuentes/íconos/gráficos) y que `.woff2`/SVG sean locales en `src/styles.css`, `public/fonts/` y `src/ui-charts.js`
+- [X] T045 [P] Revisar presupuestos de rendimiento 001 y optimizar peso/ejecución de SVG y CSS en `src/ui-charts.js` y `src/styles.css`
+- [X] T046 Ejecutar validación manual completa descrita en `specs/005-compras-visual-redesign/quickstart.md` y ajustar hallazgos en archivos `src/*` correspondientes
+- [X] T047 Verificación final de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 ---
 

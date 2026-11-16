@@ -67,7 +67,16 @@ import {
   openSidePanel
 } from './ui-side-panel.js';
 import { initTheme, toggleTheme } from './ui-theme.js';
-import { ensureShellScaffold, updateBreadcrumb, bindGlobalSearch, navGroupFor, syncThemeToggle } from './ui-shell.js';
+import {
+  applyStackedLabels,
+  bindGlobalSearch,
+  ensureShellScaffold,
+  isSmallScreen,
+  navGroupFor,
+  syncThemeToggle,
+  toggleMobileNav,
+  updateBreadcrumb
+} from './ui-shell.js';
 import {
   buildOrderRows,
   filterEntities,
@@ -251,6 +260,24 @@ function firstAllowedView() {
   return 'dashboard';
 }
 
+// 005 (T019f): avatar con iniciales y cargo junto al usuario de la sesión.
+function renderSessionAvatar() {
+  const info = qs('session-info');
+  if (!info || !activeSession) return;
+  let avatar = qs('session-avatar');
+  if (!avatar) {
+    avatar = document.createElement('span');
+    avatar.id = 'session-avatar';
+    avatar.className = 'avatar avatar-sm';
+    avatar.setAttribute('aria-hidden', 'true');
+    info.insertBefore(avatar, info.firstChild);
+  }
+  avatar.textContent = initialsOf(activeSession.nombre || activeSession.userId);
+  const user = loadUsers().find(item => item.userId === activeSession.userId);
+  const cargo = String(user?.cargo || activeSession.cargo || '').trim();
+  info.title = cargo ? `${activeSession.nombre} · ${cargo}` : activeSession.nombre || '';
+}
+
 function renderSessionInfo() {
   const info = qs('session-info');
   if (!info) return;
@@ -258,6 +285,7 @@ function renderSessionInfo() {
     info.hidden = false;
     qs('session-user').textContent = `${activeSession.nombre} · ${activeSession.userId}`;
     qs('session-role').textContent = roleLabel(activeSession.role);
+    renderSessionAvatar();
   } else {
     info.hidden = true;
   }
@@ -503,6 +531,21 @@ function setDocumentNavigationLabel() {
   if (!button) return;
   if (isPurchasing()) button.setAttribute('aria-label', 'Solicitudes y Órdenes de Compra');
   else button.removeAttribute('aria-label');
+  // 005 (T019g): el texto visible coincide con el nombre accesible sin cambiar #nav-documents-label.
+  const label = qs('nav-documents-label');
+  let prefix = button.querySelector('.nav-label-prefix');
+  if (isPurchasing() && label && !prefix) {
+    const group = document.createElement('span');
+    group.className = 'nav-label-group';
+    prefix = document.createElement('span');
+    prefix.className = 'nav-label-prefix';
+    prefix.textContent = 'Solicitudes y ';
+    label.replaceWith(group);
+    group.append(prefix, label);
+  } else if (!isPurchasing() && prefix) {
+    const group = prefix.parentElement;
+    group.replaceWith(label);
+  }
 }
 
 
@@ -697,6 +740,7 @@ function renderEntityTable() {
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('entity-table'), entitySort);
+  applyStackedLabels(qs('entity-table'));
   renderEntityCards(rows, { canEdit, canDelete });
   const summary = qs('entity-filter-summary');
   if (summary) summary.textContent = isPurchasing() ? entityFilterSummary() : '';
@@ -978,6 +1022,7 @@ function renderDocumentTable() {
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('document-table'), documentSort);
+  applyStackedLabels(qs('document-table'));
   renderDocumentBoard(sorted, entityNames);
   const summary = qs('document-filter-summary');
   if (summary) summary.textContent = isPurchasing() ? documentFilterSummary() : '';
@@ -1939,7 +1984,16 @@ function bindEvents() {
     });
   }
 
-  qs('sidebar-toggle').addEventListener('click', () => qs('sidebar').classList.toggle('collapsed'));
+  qs('sidebar-toggle').addEventListener('click', () => {
+    if (isSmallScreen()) {
+      toggleMobileNav();
+      return;
+    }
+    qs('sidebar').classList.toggle('collapsed');
+  });
+  qs('sidebar').addEventListener('click', event => {
+    if (event.target.closest('.nav-module') && isSmallScreen()) toggleMobileNav(false);
+  });
 
   qs('entity-form').addEventListener('submit', event => {
     event.preventDefault();

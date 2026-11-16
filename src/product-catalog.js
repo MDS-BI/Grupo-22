@@ -15,6 +15,7 @@ import { loadEntities } from './storage.js';
 import { currenciesForOrigin, defaultCurrencyForOrigin } from './domain/purchasing.js';
 import { validateProductSupplierPrices } from './domain/price-list.js';
 import { icon } from './ui-icons.js';
+import { applyStackedLabels } from './ui-shell.js';
 import { PERMISSION_DENIED_MESSAGE } from './auth.js';
 import { mountPanelForm, openSidePanel, closeSidePanel } from './ui-side-panel.js';
 import { filterProducts, sortRows } from './purchasing-list-query.js';
@@ -271,6 +272,7 @@ function renderProductTable() {
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('product-table'), productSort);
+  applyStackedLabels(qs('product-table'));
   const summary = qs('product-filter-summary');
   if (summary) {
     summary.textContent = filterSummary([
