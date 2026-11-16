@@ -13,7 +13,11 @@ const iconPaths = {
   check: '<path d="m20 6-11 11-5-5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   chevronRight: '<path d="m9 18 6-6-6-6"/>',
-  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>'
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6Z"/>',
+  chart: '<path d="M4 19V5M4 19h16"/><path d="M8 15l4-4 3 3 5-6"/>'
 };
 
 export const iconNames = Object.freeze(Object.keys(iconPaths));

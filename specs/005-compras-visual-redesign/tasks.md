@@ -84,12 +84,13 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 **Objetivo**: Panel con indicadores, gráficos SVG, ranking y "Requiere tu atención" por rol 004.  
 **Prueba independiente**: Con datos existentes, validar tarjetas, gráficos de estado y gasto (6 meses, emitidas aprobado/recibido, separado por moneda), top 5 proveedores, alternativas textuales/tabla, y lista por rol (gerente/admin, bodeguero, comprador, consulta).
 
-- [ ] T020 [P] [US2] Implementar funciones SVG puras para gráfico de OC por estado, gasto mensual y ranking top 5 con alternativas textuales/tabla en `src/ui-charts.js`
-- [ ] T021 [US2] Implementar cálculo en presentación de métricas (OC emitidas aprobado/recibido por fecha de emisión, separadas por moneda, sin conversión) y estados vacíos en `src/ui-dashboard.js`
-- [ ] T022 [US2] Implementar consulta reutilizable "Requiere tu atención" por rol 004 (Gerente/Administrador: pendientes de aprobar; Bodeguero: aprobadas por recibir y atrasadas; Comprador: sus borradores; Consulta: OC atrasadas solo lectura) en `src/ui-dashboard.js`
-- [ ] T023 [US2] Integrar tarjetas de indicadores, gráficos, ranking y lista "Requiere tu atención" en la vista Panel de `src/app.js` y `src/styles.css` preservando contenedores/ids existentes
-- [ ] T024 [P] [US2] Crear pruebas de integración de panel por rol y métricas (separación por moneda, estados vacíos, definición consulta/atención) en `tests/integration/dashboard-role.integration.test.js`
-- [ ] T025 [US2] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T020 [P] [US2] Implementar funciones SVG puras para gráfico de OC por estado, gasto mensual y ranking top 5 con alternativas textuales/tabla en `src/ui-charts.js`
+- [X] T021 [US2] Implementar cálculo en presentación de métricas (OC emitidas aprobado/recibido por fecha de emisión, separadas por moneda, sin conversión) y estados vacíos en `src/ui-dashboard.js`
+- [X] T022 [US2] Implementar consulta reutilizable "Requiere tu atención" por rol 004 (Gerente/Administrador: pendientes de aprobar; Bodeguero: aprobadas por recibir y atrasadas; Comprador: sus borradores; Consulta: OC atrasadas solo lectura) en `src/ui-dashboard.js`
+- [X] T023 [US2] Integrar tarjetas de indicadores, gráficos, ranking y lista "Requiere tu atención" en la vista Panel de `src/app.js` y `src/styles.css` preservando contenedores/ids existentes
+- [X] T024 [P] [US2] Crear pruebas de integración de panel por rol y métricas (separación por moneda, estados vacíos, definición consulta/atención) en `tests/integration/dashboard-role.integration.test.js`
+- [X] T024a [US2] Insignias de estado: la denominación de 004 se conserva en el elemento `[data-status]` y se agrega el estado específico al lado (`.status-detail`), sin romper las pruebas que leen la insignia; el desglose del Panel usa los nombres únicos del filtro 006
+- [X] T025 [US2] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 **Checkpoint**: US1 y US2 operativas de forma independiente.
 

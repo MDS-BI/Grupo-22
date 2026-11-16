@@ -94,9 +94,19 @@ import { productsForSupplier } from './domain/price-list.js';
 import {
   getSupplierPriceList,
   getSupplierSummary,
+  loadOrderMetadata,
   nextRequestFolio
 } from './purchasing-storage.js';
 import { renderSupplierSummary, supplierTaxIdentity } from './supplier-summary-view.js';
+import {
+  attentionItemsForRole,
+  attentionTitle,
+  countByStatus,
+  isOverdueOrder,
+  monthlySpend,
+  topSuppliers
+} from './ui-dashboard.js';
+import { spendColumnsSvg, statusBarChartSvg } from './ui-charts.js';
 import { loadDemoData, requiresDemoReplacement } from './purchasing-demo-data.js';
 import { confirmAction } from './ui-feedback.js';
 
@@ -1333,7 +1343,7 @@ function renderDashboard() {
   if (qs('stat-products')) qs('stat-products').textContent = String(loadProducts().length);
   const statuses = config.statusLifecycle?.statuses || [];
   qs('stat-status-breakdown').innerHTML = statuses.length
-    ? statuses.map(status => `<li data-status="${escapeHtml(status)}"${isPurchasing() ? ' role="button" tabindex="0"' : ''}><span>${escapeHtml(isPurchasing() ? statusLabel(status) : status)}</span><strong>${documents.filter(document => document.status === status).length}</strong></li>`).join('')
+    ? statuses.map(status => `<li data-status="${escapeHtml(status)}"${isPurchasing() ? ' role="button" tabindex="0"' : ''}><span>${isPurchasing() ? `<span class="status-dot status-dot-${escapeHtml(status)}" aria-hidden="true"></span>` : ''}${escapeHtml(isPurchasing() ? statusFilterLabel(status) : status)}</span><strong>${documents.filter(document => document.status === status).length}</strong></li>`).join('')
     : '<li class="empty-row">Sin estados configurados.</li>';
   const today = new Date();
   const overdue = documents.filter(document => {
@@ -1342,6 +1352,96 @@ function renderDashboard() {
     return new Date(year, month - 1, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
   }).length;
   qs('stat-overdue').textContent = String(overdue);
+  renderDashboardInsights(documents, entities);
+}
+
+/** 005 · US2: detalle de indicadores, gráficos, top 5 y "Requiere tu atención" (solo lectura). */
+function renderDashboardInsights(documents, entities) {
+  const container = qs('dashboard-insights');
+  if (!container) return;
+  container.hidden = !isPurchasing() || !canUse(PERMISSIONS.DOCUMENTS_VIEW);
+  for (const id of ['stat-entities-detail', 'stat-documents-detail', 'stat-overdue-detail', 'stat-products-detail']) {
+    if (qs(id)) qs(id).textContent = '';
+  }
+  if (container.hidden) return;
+  const today = new Date();
+  const metadata = new Map(loadOrderMetadata().map(item => [item.id_orden_compra, item]));
+  const orders = documents.map(document => ({ ...document, id_empleado: metadata.get(document.id)?.id_empleado || '' }));
+  const statuses = config.statusLifecycle?.statuses || [];
+
+  const foreign = entities.filter(entity => String(entity.origin || '').trim() === 'Extranjero').length;
+  setText('stat-entities-detail', entities.length ? `${entities.length - foreign} nacionales · ${foreign} extranjeros` : 'Sin proveedores registrados');
+  const emitted = orders.filter(order => ['aprobado', 'recibido'].includes(order.status)).length;
+  const requests = orders.filter(order => ['borrador', 'pendiente'].includes(order.status)).length;
+  setText('stat-documents-detail', `${requests} solicitudes · ${emitted} OC emitidas`);
+  setText('stat-overdue-detail', 'Entrega vencida y sin recibir');
+  const products = loadProducts();
+  const outOfStock = products.filter(product => Number(product.stock || 0) === 0).length;
+  setText('stat-products-detail', outOfStock ? `${outOfStock} sin stock` : 'Todos con stock');
+
+  const counts = countByStatus(orders, statuses).map(item => ({
+    ...item,
+    label: statusFilterLabel(item.status),
+    shortLabel: STATUS_SHORT_LABELS[item.status] || item.status
+  }));
+  qs('chart-status').innerHTML = orders.length
+    ? statusBarChartSvg(counts, { title: 'Órdenes por estado' })
+    : '<p class="insight-empty">Aún no hay órdenes registradas.</p>';
+  qs('chart-status-table').querySelector('tbody').innerHTML = counts
+    .map(item => `<tr><td>${escapeHtml(item.label)}</td><td>${item.count}</td></tr>`).join('');
+
+  const spend = monthlySpend(orders, { today, months: 6 });
+  const mainCurrency = spend.currencies[0] || 'CLP';
+  setText('chart-spend-subtitle', `Últimos 6 meses por fecha de emisión · ${mainCurrency}`);
+  qs('chart-spend').innerHTML = spend.currencies.length
+    ? spendColumnsSvg(spend.buckets, mainCurrency, { formatMoney, title: 'Gasto mensual' })
+    : '<p class="insight-empty">Sin OC emitidas en los últimos 6 meses.</p>';
+  qs('chart-spend-table').querySelector('tbody').innerHTML = spend.buckets
+    .map(bucket => `<tr><td>${escapeHtml(bucket.label)}</td><td>${escapeHtml(spend.currencies.map(currency => formatMoney(bucket.totals[currency] || 0, currency)).join(' · ') || formatMoney(0, 'CLP'))}</td></tr>`).join('');
+  const others = spend.currencies.slice(1).map(currency => {
+    const total = spend.buckets.reduce((sum, bucket) => sum + (bucket.totals[currency] || 0), 0);
+    return `${formatMoney(total, currency)} en ${currency}`;
+  });
+  setText('chart-spend-other', others.length ? `También: ${others.join(' · ')} (sin convertir).` : '');
+
+  const topSection = qs('insight-top');
+  if (topSection) topSection.hidden = !canUse(PERMISSIONS.ENTITIES_VIEW);
+  const top = topSuppliers(orders, entities, { limit: 5 });
+  const currencies = Object.keys(top).sort((a, b) => (a === 'CLP' ? -1 : b === 'CLP' ? 1 : a.localeCompare(b)));
+  qs('top-suppliers').innerHTML = currencies.length
+    ? currencies.map(currency => {
+        const rows = top[currency];
+        const max = Math.max(1, ...rows.map(row => row.total));
+        return `<div class="top-group"><h3>${escapeHtml(currency)}</h3><ol class="top-list">${rows.map(row => `<li>
+          <span class="top-name">${escapeHtml(row.name)}</span>
+          <span class="top-bar" aria-hidden="true"><span style="width:${Math.max(4, Math.round((row.total / max) * 100))}%"></span></span>
+          <strong class="top-amount">${escapeHtml(formatMoney(row.total, currency))}</strong>
+        </li>`).join('')}</ol></div>`;
+      }).join('')
+    : '<p class="insight-empty">Sin OC emitidas todavía.</p>';
+
+  const role = activeSession?.role || 'administrador';
+  const items = attentionItemsForRole(role, orders, { suppliers: entities, ownEmployeeId: ownEmployeeId(), today });
+  setText('attention-subtitle', `${attentionTitle(role)} · ${items.length}`);
+  qs('attention-list').innerHTML = items.length
+    ? items.slice(0, 6).map(item => `<li><button type="button" class="attention-item" data-action="open-attention" data-id="${escapeHtml(item.id)}">
+        <span class="attention-main"><strong>${escapeHtml(item.reference)}</strong><span>${escapeHtml(item.supplier)}</span></span>
+        <span class="attention-meta"><span class="attention-reason${isOverdueOrder(item, today) ? ' is-overdue' : ''}">${escapeHtml(item.reason)}</span><strong>${escapeHtml(formatMoney(item.total, item.currency))}</strong></span>
+      </button></li>`).join('')
+    : '<li class="insight-empty">Nada pendiente por ahora.</li>';
+}
+
+const STATUS_SHORT_LABELS = Object.freeze({
+  borrador: 'Borrador',
+  pendiente: 'Pendiente',
+  aprobado: 'Aprobada',
+  recibido: 'Recibida',
+  cancelado: 'Cancelada'
+});
+
+function setText(id, value) {
+  const element = qs(id);
+  if (element) element.textContent = value;
 }
 
 
@@ -1685,6 +1785,10 @@ function bindEvents() {
   qs('stat-products-card')?.addEventListener('click', () => {
     if (!canUse(PERMISSIONS.PRODUCTS_VIEW)) return showPermissionDenied('demo-feedback');
     showView('products');
+  });
+  qs('attention-list')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-action="open-attention"]');
+    if (button) openOrderDetail(button.dataset.id);
   });
   qs('stat-overdue-card')?.addEventListener('click', () => {
     if (!canUse(PERMISSIONS.DOCUMENTS_VIEW)) return showPermissionDenied('demo-feedback');

@@ -37,11 +37,35 @@
         </div>
         <div id="demo-feedback" class="feedback" role="status" aria-live="polite"></div>
         <div class="stats-grid">
-          <article class="stat-card stat-card-button" id="stat-entities-card" tabindex="0" role="button" aria-label="Abrir Proveedores"><span id="stat-entities-label">Proveedores</span><strong id="stat-entities">0</strong></article>
-          <article class="stat-card stat-card-button" id="stat-documents-card" tabindex="0" role="button" aria-label="Abrir Órdenes de Compra"><span id="stat-documents-label">Órdenes de Compra</span><strong id="stat-documents">0</strong></article>
+          <article class="stat-card stat-card-button" id="stat-entities-card" tabindex="0" role="button" aria-label="Abrir Proveedores"><span class="stat-icon stat-icon-entities" data-icon="suppliers"></span><span id="stat-entities-label">Proveedores</span><strong id="stat-entities">0</strong><small class="stat-detail" id="stat-entities-detail"></small></article>
+          <article class="stat-card stat-card-button" id="stat-documents-card" tabindex="0" role="button" aria-label="Abrir Órdenes de Compra"><span class="stat-icon stat-icon-documents" data-icon="orders"></span><span id="stat-documents-label">Órdenes de Compra</span><strong id="stat-documents">0</strong><small class="stat-detail" id="stat-documents-detail"></small></article>
           <article class="stat-card stat-statuses"><span id="stat-statuses-label">Órdenes por estado</span><ul id="stat-status-breakdown" class="status-breakdown"></ul></article>
-          <article class="stat-card stat-card-button" id="stat-overdue-card" tabindex="0" role="button" aria-label="Ver órdenes atrasadas"><span>Atrasadas</span><strong id="stat-overdue">0</strong></article>
-          <article class="stat-card stat-card-button" id="stat-products-card" tabindex="0" role="button" aria-label="Abrir Productos"><span id="stat-products-label">Productos</span><strong id="stat-products">0</strong></article>
+          <article class="stat-card stat-card-button" id="stat-overdue-card" tabindex="0" role="button" aria-label="Ver órdenes atrasadas"><span class="stat-icon stat-icon-overdue" data-icon="clock"></span><span>Atrasadas</span><strong id="stat-overdue">0</strong><small class="stat-detail" id="stat-overdue-detail"></small></article>
+          <article class="stat-card stat-card-button" id="stat-products-card" tabindex="0" role="button" aria-label="Abrir Productos"><span class="stat-icon stat-icon-products" data-icon="products"></span><span id="stat-products-label">Productos</span><strong id="stat-products">0</strong><small class="stat-detail" id="stat-products-detail"></small></article>
+        </div>
+        <div class="dashboard-insights" id="dashboard-insights" hidden>
+          <section class="insight-card" id="insight-status" aria-labelledby="chart-status-heading">
+            <h2 id="chart-status-heading">OC por estado</h2>
+            <div id="chart-status" class="chart-host"></div>
+            <table class="sr-only" id="chart-status-table"><caption>Órdenes por estado</caption><thead><tr><th scope="col">Estado</th><th scope="col">Cantidad</th></tr></thead><tbody></tbody></table>
+          </section>
+          <section class="insight-card" id="insight-spend" aria-labelledby="chart-spend-heading">
+            <h2 id="chart-spend-heading">Gasto por mes · OC emitidas</h2>
+            <p class="insight-subtitle" id="chart-spend-subtitle"></p>
+            <div id="chart-spend" class="chart-host"></div>
+            <table class="sr-only" id="chart-spend-table"><caption>Gasto mensual de OC emitidas por moneda</caption><thead><tr><th scope="col">Mes</th><th scope="col">Monto</th></tr></thead><tbody></tbody></table>
+            <p class="insight-note" id="chart-spend-other"></p>
+          </section>
+          <section class="insight-card" id="insight-top" aria-labelledby="top-suppliers-heading">
+            <h2 id="top-suppliers-heading">Top 5 proveedores por monto</h2>
+            <p class="insight-subtitle">OC emitidas (aprobadas y recibidas), por moneda</p>
+            <div id="top-suppliers"></div>
+          </section>
+          <section class="insight-card" id="insight-attention" aria-labelledby="attention-heading">
+            <h2 id="attention-heading">Requiere tu atención</h2>
+            <p class="insight-subtitle" id="attention-subtitle"></p>
+            <ul class="attention-list" id="attention-list"></ul>
+          </section>
         </div>
       </section>
 
