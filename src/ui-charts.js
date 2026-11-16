@@ -1,4 +1,4 @@
-﻿export function brandMarkSvg(label = 'Compras') {
+export function brandMarkSvg(label = 'Compras') {
   const safe = String(label).replace(/[<>&"]/g, '');
   return `<svg class="brand-mark-svg" viewBox="0 0 120 36" role="img" aria-label="${safe}">
     <rect x="0" y="0" width="36" height="36" rx="8" fill="#0F2A3D"/>

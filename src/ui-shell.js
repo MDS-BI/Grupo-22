@@ -1,4 +1,4 @@
-﻿import { brandPatternSvg } from './ui-charts.js';
+import { brandPatternSvg } from './ui-charts.js';
 
 export function ensureShellScaffold() {
   const gate = document.getElementById('auth-gate');
@@ -39,15 +39,17 @@ export function ensureShellScaffold() {
       bell.setAttribute('aria-disabled', 'true');
       bell.disabled = true;
       bell.hidden = true;
-      bell.innerHTML = '🔔';
+      bell.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg>';
       actions.insertBefore(bell, actions.firstChild);
     }
     if (actions && !document.getElementById('theme-toggle')) {
       const theme = document.createElement('button');
       theme.type = 'button';
       theme.id = 'theme-toggle';
-      theme.className = 'secondary';
-      theme.textContent = 'Tema';
+      theme.className = 'secondary icon-button theme-toggle';
+      theme.innerHTML = `${THEME_ICON_MOON}${THEME_ICON_SUN}`;
+      theme.setAttribute('aria-label', 'Cambiar a modo oscuro');
+      theme.title = 'Cambiar a modo oscuro';
       actions.insertBefore(theme, actions.querySelector('#sidebar-toggle') || null);
     }
   }
@@ -56,10 +58,15 @@ export function ensureShellScaffold() {
   if (sidebar && !sidebar.querySelector('.nav-group')) {
     const get = id => document.getElementById(id);
     const makeGroup = (title, ids) => {
-      const section = document.createElement('section');
+      const key = NAV_GROUP_KEYS[title];
+      const section = document.createElement('div');
       section.className = 'nav-group';
+      section.dataset.navGroup = key;
+      section.setAttribute('role', 'group');
+      section.setAttribute('aria-labelledby', `nav-group-${key}`);
       const h = document.createElement('p');
       h.className = 'nav-group-title';
+      h.id = `nav-group-${key}`;
       h.textContent = title;
       section.appendChild(h);
       for (const id of ids) { const el = get(id); if (el) section.appendChild(el); }
@@ -80,6 +87,34 @@ export function ensureShellScaffold() {
     sidebar.innerHTML = '';
     sidebar.append(ops, masters, tools);
   }
+}
+
+const NAV_GROUP_KEYS = { 'Operación': 'operacion', 'Maestros': 'maestros', 'Herramientas': 'herramientas' };
+const NAV_GROUP_BY_BUTTON = {
+  'nav-dashboard': 'operacion',
+  'nav-documents': 'operacion',
+  'nav-entities': 'maestros',
+  'nav-products': 'maestros',
+  'nav-search': 'herramientas',
+  'nav-reports': 'herramientas'
+};
+
+/** Grupo de la barra lateral al que pertenece cada botón de navegación. */
+export function navGroupFor(buttonId) {
+  return NAV_GROUP_BY_BUTTON[buttonId] || 'herramientas';
+}
+
+const THEME_ICON_MOON = '<svg class="theme-icon theme-icon-moon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>';
+const THEME_ICON_SUN = '<svg class="theme-icon theme-icon-sun" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>';
+
+/** Actualiza el nombre accesible del botón de tema según el tema activo. */
+export function syncThemeToggle(theme) {
+  const button = document.getElementById('theme-toggle');
+  if (!button) return;
+  const label = theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.dataset.theme = theme === 'dark' ? 'dark' : 'light';
 }
 
 export function updateBreadcrumb(label) {

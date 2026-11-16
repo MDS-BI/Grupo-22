@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { bootPurchasing, installDom, installStyles, qs } from '../helpers/purchasing-app.js';
 
 let dom;
@@ -31,5 +31,22 @@ describe('shell y barra lateral (005 US1)', () => {
     if (bell) {
       expect(bell.hidden || bell.getAttribute('aria-hidden') === 'true').toBe(true);
     }
+  });
+});
+
+describe('agrupación de la barra lateral (005 US1)', () => {
+  it('mantiene cada botón dentro de su grupo después de inicializar la app', async () => {
+    const shell = await import('../../src/ui-shell.js');
+    shell.ensureShellScaffold();
+    await bootPurchasing(dom);
+    const groupOf = id => qs(id)?.closest('[data-nav-group]')?.dataset.navGroup;
+    expect(groupOf('nav-dashboard')).toBe('operacion');
+    expect(groupOf('nav-documents')).toBe('operacion');
+    expect(groupOf('nav-entities')).toBe('maestros');
+    expect(groupOf('nav-products')).toBe('maestros');
+    expect(groupOf('nav-search')).toBe('herramientas');
+    const order = [...qs('sidebar').querySelectorAll('.nav-module:not(.nav-reserved)')].map(button => button.id);
+    expect(order).toEqual(['nav-dashboard', 'nav-documents', 'nav-entities', 'nav-products', 'nav-search']);
+    expect([...qs('sidebar').children].every(child => child.matches('[data-nav-group]'))).toBe(true);
   });
 });

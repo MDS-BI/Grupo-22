@@ -1,4 +1,4 @@
-﻿export const THEME_STORAGE_KEY = 'compras.ui.theme';
+export const THEME_STORAGE_KEY = 'compras.ui.theme';
 
 export function getStoredTheme() {
   try {

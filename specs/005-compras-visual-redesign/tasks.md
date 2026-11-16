@@ -63,6 +63,18 @@
 - [X] T018 [P] [US1] Crear pruebas de integración de shell/sidebar (agrupación, entrada única Solicitudes y Órdenes, colapso, reservas 007 ocultas/deshabilitadas, buscador a Búsqueda existente) en `tests/integration/shell-sidebar.integration.test.js`
 - [X] T019 [US1] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
+### Correcciones post-revisión de US1 (2026-11-16)
+
+Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
+
+- [X] T019a [US1] Reemplazar los `.woff2` de 4 bytes de `public/fonts/` por Inter y Space Grotesk variables reales (subconjunto latino de Fontsource, licencia SIL OFL 1.1, con `LICENSE-*.txt`)
+- [X] T019b [US1] Corregir `ensureNavOrder()` en `src/app.js` para ordenar los botones dentro de sus grupos (`data-nav-group`) sin cambiar el orden de 003; los grupos de `src/ui-shell.js` pasan a `div[role=group]` con título asociado; prueba en `tests/integration/shell-sidebar.integration.test.js`
+- [X] T019c [US1] Aplicar identidad en `src/styles.css`: barra lateral `#0F2A3D`, ítem activo con contraste AA e indicador ámbar, acción principal `.primary` ámbar `#F59E0B` con texto oscuro, buscador integrado en la barra superior (sin el recuadro de `form`)
+- [X] T019d [US1] Tarjetas de usuarios de prueba: la tabla accesible de 003 se presenta como tarjetas con ícono y cargo; cada tarjeta ingresa con un clic enviando el mismo formulario de `login()` (004); prueba en `tests/integration/login-theme-005.integration.test.js`
+- [X] T019e [US1] Botón de tema con íconos SVG y `aria-label` que cambia según el tema; campana reservada con ícono SVG en lugar de emoji
+- [ ] T019f [US1] Menú de usuario con avatar de iniciales y cargo (FR-013): hoy la barra superior muestra nombre, User ID y rol, sin avatar
+- [ ] T019g [US1] La etiqueta visible del botón `nav-documents` sigue diciendo "Órdenes de Compra" (su `aria-label` ya dice "Solicitudes y Órdenes de Compra"); unificar sin romper las pruebas de 003
+
 **Checkpoint**: US1 funcional e independiente (MVP visual/navegación).
 
 ---
