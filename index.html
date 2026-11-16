@@ -131,6 +131,7 @@
         <div class="field"><label for="search-rubros" id="search-rubros-label">Rubros</label><select id="search-rubros" multiple size="4"></select></div>
         <div id="search-results-list"></div>
         <div id="search-empty" hidden>No se encontraron coincidencias.</div>
+        <section id="supplier-summary" class="supplier-summary" aria-live="polite" hidden></section>
       </section>
     </main>
   </div>
@@ -217,7 +218,7 @@
           <div class="field" id="document-employee-field"><label for="document-employee" id="document-employee-label">Empleado solicitante</label><select id="document-employee" data-readonly-employee="false"></select><small class="field-error" aria-live="polite" id="error-document-employee"></small></div>
           <div class="field"><label for="folio">Folio</label><input id="folio" type="number"><small class="field-error" aria-live="polite" id="error-folio"></small></div>
           <div class="field"><label for="endDate" id="endDate-label">Fecha de entrega</label><input id="endDate" type="date"><small class="field-help" id="endDate-help" hidden>Formato dd-mm-aaaa</small><small class="field-error" aria-live="polite" id="error-endDate"></small></div>
-          <div class="field"><label for="currency">Moneda</label><input id="currency"></div>
+          <div class="field"><label for="currency">Moneda</label><input id="currency" aria-describedby="currency-help"><small class="field-help" id="currency-help" hidden>Moneda fija CLP para proveedores nacionales.</small></div>
           <div class="field"><label for="docPaymentTerms">Condiciones de pago</label><input id="docPaymentTerms"></div>
         </div>
       </section>
@@ -240,7 +241,7 @@
         <div class="line-editor-controls">
           <div class="field"><label for="line-product">Producto</label><select id="line-product"></select><small class="field-error" aria-live="polite" id="error-line-product"></small></div>
           <div class="field"><label for="line-quantity">Cantidad</label><input id="line-quantity" type="number" min="1" step="1"><small class="field-error" aria-live="polite" id="error-line-quantity"></small></div>
-          <div class="field"><label for="line-cost">Costo unitario</label><input id="line-cost" type="number" min="0" step="0.01"><small class="field-error" aria-live="polite" id="error-line-cost"></small></div>
+          <div class="field"><label for="line-cost">Costo unitario</label><input id="line-cost" type="number" min="0" step="0.01" aria-describedby="line-cost-help"><small class="field-help" id="line-cost-help" hidden>Precio acordado según la lista de precios del proveedor (no editable).</small><small class="field-error" aria-live="polite" id="error-line-cost"></small></div>
           <button type="button" class="secondary" id="add-line-button" data-action="add-line">Agregar línea</button>
         </div>
         <div class="table-wrapper">
@@ -270,6 +271,18 @@
           <div class="field"><label for="product-stock">Stock</label><input id="product-stock" type="number" min="0" step="1" value="0"><small class="field-error" aria-live="polite" id="error-product-stock"></small></div>
           <div class="field required"><label for="product-categoria">Categoría *</label><select id="product-categoria" required aria-required="true"></select><small class="field-error" aria-live="polite" id="error-product-categoria"></small></div>
         </div>
+      </section>
+      <section class="form-section" data-form-section="product-prices" id="product-prices-section">
+        <h3 id="product-prices-heading">Proveedores y precios acordados</h3>
+        <p class="field-help" id="product-prices-help">Vincula el producto a uno o más proveedores con el precio acordado de cada uno. En la orden de compra solo se ofrecen los productos de la lista del proveedor y el precio se completa automáticamente.</p>
+        <div class="table-wrapper">
+          <table class="data-table" id="product-prices-table" aria-labelledby="product-prices-heading">
+            <thead><tr><th>Proveedor</th><th>Precio acordado</th><th>Moneda</th><th>Acciones</th></tr></thead>
+            <tbody id="product-prices-body"></tbody>
+          </table>
+        </div>
+        <button type="button" class="secondary" id="product-price-add" data-action="add-price-row">Agregar proveedor</button>
+        <small class="field-error" aria-live="polite" id="error-product-prices"></small>
       </section>
       <div class="panel-form-actions">
         <button class="primary" type="submit" id="product-submit-button">Guardar producto</button>

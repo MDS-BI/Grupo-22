@@ -39,8 +39,17 @@ import {
   resolvePaymentTerms,
   taxRateForOrigin,
   normalizeDateInput,
-  emissionDateFor
+  emissionDateFor,
+  nextCorrelative
 } from './domain/purchasing.js';
+import {
+  priceLinesFromList,
+  productIdOfEntry,
+  supplierIdOf,
+  validateProductSupplierPrices,
+  validateSupplierPriceEntry,
+  PRICE_LIST_ERRORS
+} from './domain/price-list.js';
 
 const KEYS = {
   employees: 'erp_purchasing:employees',
@@ -49,7 +58,8 @@ const KEYS = {
   lines: 'erp_purchasing:purchase-order-lines',
   orderMetadata: 'erp_purchasing:order-metadata',
   statusHistory: 'erp_purchasing:status-history',
-  transactions: 'erp_purchasing:transactions'
+  transactions: 'erp_purchasing:transactions',
+  supplierPrices: 'erp_purchasing:supplier-prices'
 };
 
 function read(key) {
@@ -186,6 +196,153 @@ function validateProductData(data, current = {}) {
 
 export function addProduct(data) {
   return record('products', validateProductData(data), 'product');
+}
+
+// --- 006: listas de precios producto–proveedor -------------------------------------------
+
+export const loadSupplierPrices = () => read(KEYS.supplierPrices);
+export const saveSupplierPrices = prices => write(KEYS.supplierPrices, prices);
+
+function priceListError(message, details = null) {
+  const error = new Error(message);
+  error.code = 'PRICE_LIST_INVALID';
+  if (details) error.details = details;
+  return error;
+}
+
+function existingSupplierIds() {
+  return new Set(loadEntities().map(entity => entity.entity_id));
+}
+
+/** Vínculos vigentes de un producto (se ignoran los de proveedores eliminados). */
+export function getSupplierPricesForProduct(productId) {
+  const suppliers = existingSupplierIds();
+  return loadSupplierPrices().filter(entry => productIdOfEntry(entry) === productId && suppliers.has(supplierIdOf(entry)));
+}
+
+/** Lista de precios vigente de un proveedor (se ignoran productos eliminados). */
+export function getSupplierPriceList(entityId) {
+  const products = new Set(loadProducts().map(product => product.id_producto || product.id));
+  return loadSupplierPrices().filter(entry => supplierIdOf(entry) === entityId && products.has(productIdOfEntry(entry)));
+}
+
+export function findSupplierPrice(entityId, productId) {
+  return getSupplierPriceList(entityId).find(entry => productIdOfEntry(entry) === productId) || null;
+}
+
+function assertPriceListPermission(session) {
+  assertPermission(PERMISSIONS.PRICELISTS_MANAGE, session);
+}
+
+function buildPriceEntries(productId, values, previous = []) {
+  const timestamp = now();
+  return values.map(value => {
+    const current = previous.find(entry => supplierIdOf(entry) === value.entity_id);
+    return {
+      id: current?.id || uid('price'),
+      id_producto: productId,
+      entity_id: value.entity_id,
+      precio: value.precio,
+      moneda: value.moneda,
+      createdAt: current?.createdAt || timestamp,
+      updatedAt: timestamp
+    };
+  });
+}
+
+function validatedPriceValues(entries, { requireAtLeastOne }) {
+  const result = validateProductSupplierPrices(entries, { suppliers: loadEntities(), requireAtLeastOne });
+  if (!result.valid) {
+    const messages = [result.general, ...result.rows.flatMap(row => Object.values(row.errors))].filter(Boolean);
+    throw priceListError([...new Set(messages)].join(' '), result);
+  }
+  return result.values;
+}
+
+/**
+ * Reemplaza los vínculos proveedor–precio de un producto. Con sesión activa exige el permiso
+ * `pricelists.manage` (Gerente y Administrador) y al menos un vínculo.
+ */
+export function setProductSupplierPrices(productId, entries = [], options = {}) {
+  const session = getSession();
+  if (!options.skipAccessCheck) assertPriceListPermission(session);
+  if (!productById(productId)) throw createPurchasingError('PRODUCT_NOT_FOUND');
+  const requireAtLeastOne = options.requireAtLeastOne ?? Boolean(session);
+  const values = validatedPriceValues(entries, { requireAtLeastOne });
+  const all = loadSupplierPrices();
+  const previous = all.filter(entry => productIdOfEntry(entry) === productId);
+  const next = [...all.filter(entry => productIdOfEntry(entry) !== productId), ...buildPriceEntries(productId, values, previous)];
+  saveSupplierPrices(next);
+  return getSupplierPricesForProduct(productId);
+}
+
+/** Agrega o actualiza el precio acordado de un producto con un proveedor. */
+export function upsertSupplierPrice(entry = {}, options = {}) {
+  if (!options.skipAccessCheck) assertPriceListPermission(getSession());
+  const productId = productIdOfEntry(entry);
+  if (!productById(productId)) throw createPurchasingError('PRODUCT_NOT_FOUND');
+  const supplier = loadEntities().find(item => item.entity_id === supplierIdOf(entry)) || null;
+  const result = validateSupplierPriceEntry(entry, { supplier });
+  if (!result.valid) throw priceListError(Object.values(result.errors).join(' '), result);
+  const all = loadSupplierPrices();
+  const index = all.findIndex(item => productIdOfEntry(item) === productId && supplierIdOf(item) === result.value.entity_id);
+  const [built] = buildPriceEntries(productId, [result.value], index >= 0 ? [all[index]] : []);
+  if (index >= 0) all[index] = built;
+  else all.push(built);
+  saveSupplierPrices(all);
+  return built;
+}
+
+export function deleteSupplierPrice(entityId, productId, options = {}) {
+  const session = getSession();
+  if (!options.skipAccessCheck) assertPriceListPermission(session);
+  const all = loadSupplierPrices();
+  const next = all.filter(entry => !(supplierIdOf(entry) === entityId && productIdOfEntry(entry) === productId));
+  if (next.length === all.length) throw priceListError('No se encontró el precio del proveedor para el producto.');
+  const remaining = next.filter(entry => productIdOfEntry(entry) === productId && existingSupplierIds().has(supplierIdOf(entry)));
+  if (session && remaining.length === 0) throw priceListError(PRICE_LIST_ERRORS.LINKS_REQUIRED);
+  saveSupplierPrices(next);
+  return true;
+}
+
+/**
+ * Crea un producto y sus vínculos proveedor–precio en una sola operación (006). Con sesión
+ * activa exige `pricelists.manage` y al menos un proveedor; si algo falla no persiste nada.
+ */
+export function createProductWithSupplierPrices(data = {}, entries = [], options = {}) {
+  const session = getSession();
+  if (!options.skipAccessCheck) {
+    assertPermission(PERMISSIONS.PRODUCTS_MANAGE, session);
+    assertPriceListPermission(session);
+  }
+  const requireAtLeastOne = options.requireAtLeastOne ?? Boolean(session);
+  const productData = validateProductData(data);
+  const values = validatedPriceValues(entries, { requireAtLeastOne });
+  const snapshot = { products: loadProducts(), prices: loadSupplierPrices() };
+  try {
+    const product = record('products', productData, 'product');
+    const productId = product.id_producto || product.id;
+    saveSupplierPrices([...loadSupplierPrices(), ...buildPriceEntries(productId, values)]);
+    return { ...product, supplierPrices: getSupplierPricesForProduct(productId) };
+  } catch (error) {
+    saveProducts(snapshot.products);
+    saveSupplierPrices(snapshot.prices);
+    throw error;
+  }
+}
+
+/**
+ * Si el proveedor tiene lista de precios, solo admite sus productos en la moneda de la orden y
+ * fija el precio unitario desde la lista. Proveedores sin lista conservan el precio manual de 002.
+ */
+export function applySupplierPriceList(entityId, lines = [], currency = '') {
+  const list = getSupplierPriceList(entityId);
+  if (!list.length) return lines;
+  return priceLinesFromList(lines, list, currency);
+}
+
+export function supplierHasPriceList(entityId) {
+  return getSupplierPriceList(entityId).length > 0;
 }
 export const loadPurchaseOrderLines = () => read(KEYS.lines);
 export const savePurchaseOrderLines = lines => write(KEYS.lines, lines);
@@ -339,7 +496,8 @@ export function replaceOrderLines(orderId, lines, options = {}) {
     assertOrderMutationAllowed(order, session);
   }
   if (!options.allowTerminal) requireEditable(order);
-  const normalized = validateLinesForOrder(orderId, lines);
+  const priced = options.skipPriceList ? lines : applySupplierPriceList(order.entity_id, lines, order.currency);
+  const normalized = validateLinesForOrder(orderId, priced);
   if (normalized.length === 0) throw createPurchasingError('NO_LINES');
   const remaining = loadPurchaseOrderLines().filter(line => line.id_orden_compra !== orderId);
   savePurchaseOrderLines([...remaining, ...normalized]);
@@ -358,6 +516,7 @@ export function addPurchaseOrderLine(line) {
   assertPermission(PERMISSIONS.DOCUMENTS_UPDATE, session);
   assertOrderMutationAllowed(order, session);
   requireEditable(order);
+  [line] = applySupplierPriceList(order.entity_id, [line], order.currency);
   const existing = getLinesForOrder(orderId);
   const result = validateLineForOrder(line, existing);
   if (!result.valid) {
@@ -379,6 +538,7 @@ export function addPurchaseOrderLine(line) {
 export function addOrUpdatePurchaseOrderLine(orderId, line) {
   const order = requireOrder(orderId);
   requireEditable(order);
+  [line] = applySupplierPriceList(order.entity_id, [line], order.currency);
   const existing = getLinesForOrder(orderId);
   const productId = productIdOf(line);
   const current = existing.find(item => productIdOf(item) === productId);
@@ -568,6 +728,7 @@ function transitionSnapshot(order, nextStatus, change, timestamp) {
   const before = snapshotState();
   const orderPatch = { status: nextStatus, updatedAt: timestamp };
   if (nextStatus === 'aprobado' && !order.startDate) orderPatch.startDate = emissionDateFor(timestamp);
+  if (nextStatus === 'aprobado' && !order.ocFolio) orderPatch.ocFolio = nextPurchaseOrderFolio(before.documents);
   return {
     before,
     after: {
@@ -750,6 +911,23 @@ export function getAvailableActionsForOrder(orderId) {
 
 export const getOrderActions = getAvailableActionsForOrder;
 
+export function nextRequestFolio() {
+  return nextCorrelative(loadDocuments().map(document => document.folio));
+}
+
+export function nextPurchaseOrderFolio(documents = loadDocuments()) {
+  return nextCorrelative(documents.map(document => document.ocFolio));
+}
+
+/** 006: asigna el folio correlativo de OC (una sola vez) cuando la solicitud queda emitida. */
+function assignPurchaseOrderFolio(orderId) {
+  const documents = loadDocuments();
+  const index = documents.findIndex(document => document.id === orderId);
+  if (index < 0 || documents[index].ocFolio) return;
+  documents[index] = { ...documents[index], ocFolio: nextPurchaseOrderFolio(documents) };
+  saveDocuments(documents);
+}
+
 function setOrderStartDate(orderId, startDate) {
   const documents = loadDocuments();
   const index = documents.findIndex(document => document.id === orderId);
@@ -797,9 +975,10 @@ export function savePurchaseOrder(input = {}) {
   }
   if (!Array.isArray(lines) || lines.length === 0) throw createPurchasingError('NO_LINES');
 
-  const normalized = validateLinesForOrder(orderId || 'pending', lines);
   const entityId = input.entityId || input.entity_id || orderInput.entityId || orderInput.entity_id;
   const supplier = loadEntities().find(entity => entity.entity_id === entityId);
+  const usesPriceList = Boolean(supplier) && supplierHasPriceList(supplier.entity_id);
+  let normalized = usesPriceList ? null : validateLinesForOrder(orderId || 'pending', lines);
   if (!supplier) {
     throw createPurchasingError('ORDER_INVALID', 'Debe seleccionar un proveedor existente.');
   }
@@ -809,11 +988,19 @@ export function savePurchaseOrder(input = {}) {
     input.paymentTerms ?? orderInput.paymentTerms ?? input.docPaymentTerms,
     supplier.paymentTerms
   );
+  let pricedLines = lines;
+  if (usesPriceList) {
+    pricedLines = applySupplierPriceList(supplier.entity_id, lines, currency);
+    normalized = validateLinesForOrder(orderId || 'pending', pricedLines);
+  }
   const totals = calculateOrderTotals(normalized, { taxRate: taxRateForOrigin(origin), currency });
   let endDateInput = input.endDate ?? orderInput.endDate;
+  const requestedFolio = input.folio ?? orderInput.folio;
+  const hasFolio = requestedFolio !== undefined && requestedFolio !== null && String(requestedFolio).trim() !== '';
   const header = {
     entityId: supplier.entity_id,
-    folio: input.folio ?? orderInput.folio,
+    // 006: la solicitud no pide folio; si no se informa se asigna el correlativo siguiente.
+    folio: hasFolio ? requestedFolio : (current ? current.folio : nextRequestFolio()),
     paymentTerms,
     currency,
     totalAmount: totals.total
@@ -832,7 +1019,7 @@ export function savePurchaseOrder(input = {}) {
       startDate: current.startDate ?? null,
       status: current.status
     });
-    replaceOrderLines(orderId, lines);
+    replaceOrderLines(orderId, pricedLines);
     upsertOrderMetadata(orderId, { id_empleado: employeeId });
     return getPurchaseOrderDetail(orderId);
   }
@@ -849,9 +1036,10 @@ export function savePurchaseOrder(input = {}) {
     status: initialStatus
   });
   if (initialStatus !== 'aprobado') setOrderStartDate(created.id, null);
+  if (initialStatus === 'aprobado') assignPurchaseOrderFolio(created.id);
   try {
     upsertOrderMetadata(created.id, { id_empleado: employeeId });
-    replaceOrderLines(created.id, lines, { skipAccessCheck: true });
+    replaceOrderLines(created.id, pricedLines, { skipAccessCheck: true });
     return getPurchaseOrderDetail(created.id);
   } catch (error) {
     deleteLinesForOrder(created.id);
@@ -900,7 +1088,32 @@ export function deleteProduct(productId) {
   const next = products.filter(product => (product.id_producto || product.id) !== productId);
   if (next.length === products.length) throw createPurchasingError('PRODUCT_NOT_FOUND');
   saveProducts(next);
+  saveSupplierPrices(loadSupplierPrices().filter(entry => productIdOfEntry(entry) !== productId));
   return true;
+}
+
+/**
+ * 006: ficha del proveedor para la búsqueda: datos maestros, historial de órdenes (más recientes
+ * primero) y monto total comprado por moneda, considerando solo OC emitidas (aprobadas o recibidas).
+ */
+export function getSupplierSummary(entityId) {
+  const supplier = loadEntities().find(entity => entity.entity_id === entityId);
+  if (!supplier) return null;
+  const orders = listPurchaseOrdersWithActions()
+    .filter(order => order.entity_id === entityId)
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || Number(b.folio) - Number(a.folio));
+  const totalsByCurrency = {};
+  for (const order of orders) {
+    if (!['aprobado', 'recibido'].includes(order.status)) continue;
+    totalsByCurrency[order.currency] = (totalsByCurrency[order.currency] || 0) + Number(order.totals?.total || 0);
+  }
+  return {
+    supplier,
+    orders,
+    emittedCount: orders.filter(order => ['aprobado', 'recibido'].includes(order.status)).length,
+    totalsByCurrency,
+    priceList: getSupplierPriceList(entityId)
+  };
 }
 
 export const listOrders = listPurchaseOrdersWithActions;

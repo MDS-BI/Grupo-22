@@ -206,3 +206,12 @@ button.danger { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; }
 @media(prefers-reduced-motion:reduce) {
   * { scroll-behavior:auto !important; transition:none !important; animation:none !important; }
 }
+
+/* 006 — listas de precios, folios y ficha del proveedor */
+.request-number, .oc-folio { display:block; }
+.oc-folio { color:var(--muted); font-size:.85em; }
+.link-button { background:none; border:0; padding:0; color:inherit; font:inherit; text-align:left; cursor:pointer; text-decoration:underline; }
+.supplier-summary { margin-top:1.5rem; }
+.supplier-summary-heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+.supplier-total-row strong { margin-right:.5rem; }
+#line-cost[readonly] { background:var(--surface-muted, #f3f4f6); }

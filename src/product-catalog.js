@@ -6,8 +6,14 @@ import {
   updateCategory,
   updateProduct,
   deleteProduct,
-  deleteCategory
+  deleteCategory,
+  createProductWithSupplierPrices,
+  getSupplierPricesForProduct,
+  setProductSupplierPrices
 } from './purchasing-storage.js';
+import { loadEntities } from './storage.js';
+import { currenciesForOrigin, defaultCurrencyForOrigin } from './domain/purchasing.js';
+import { validateProductSupplierPrices } from './domain/price-list.js';
 import { icon } from './ui-icons.js';
 import { PERMISSION_DENIED_MESSAGE } from './auth.js';
 import { mountPanelForm, openSidePanel, closeSidePanel } from './ui-side-panel.js';
@@ -42,6 +48,116 @@ function escape(value) {
 
 function canManage() {
   return catalogOptions.canManage !== false;
+}
+
+/** 006: solo Gerente y Administrador (o el modo sin sesión) mantienen las listas de precios. */
+function canManagePrices() {
+  return canManage() && catalogOptions.canManagePrices !== false;
+}
+
+/** 006: con sesión activa, un producto nuevo exige al menos un proveedor con precio. */
+function requirePriceLinks() {
+  return catalogOptions.requirePriceLinks === true;
+}
+
+function canCreateProduct() {
+  return canManage() && (canManagePrices() || !requirePriceLinks());
+}
+
+export const PRODUCT_CREATE_DENIED_MESSAGE =
+  'Solo Gerente o Administrador pueden crear productos, porque cada producto nuevo debe vincularse a un proveedor con su precio acordado.';
+
+function money(value, currency) {
+  if (catalogOptions.formatMoney) return catalogOptions.formatMoney(value, currency);
+  return `${currency} ${value}`;
+}
+
+function supplierLabel(supplier) {
+  return supplier?.name || '';
+}
+
+function priceRowMarkup(entry = {}, index = 0) {
+  const suppliers = loadEntities();
+  const supplier = suppliers.find(item => item.entity_id === entry.entity_id) || null;
+  let currencies = ['CLP'];
+  let selectedCurrency = entry.moneda || 'CLP';
+  if (supplier) {
+    try {
+      currencies = currenciesForOrigin(supplier);
+      selectedCurrency = currencies.includes(entry.moneda) ? entry.moneda : defaultCurrencyForOrigin(supplier);
+    } catch {
+      currencies = ['CLP'];
+    }
+  }
+  return `<tr data-price-row="${index}">
+    <td><label class="sr-only" for="product-price-supplier-${index}">Proveedor</label>
+      <select id="product-price-supplier-${index}" data-field="entity_id">
+        <option value="">Seleccionar proveedor</option>
+        ${suppliers.map(item => `<option value="${escape(item.entity_id)}"${item.entity_id === entry.entity_id ? ' selected' : ''}>${escape(supplierLabel(item))}</option>`).join('')}
+      </select></td>
+    <td><label class="sr-only" for="product-price-amount-${index}">Precio acordado</label>
+      <input id="product-price-amount-${index}" data-field="precio" type="number" min="0" step="0.01" value="${escape(entry.precio ?? '')}"></td>
+    <td><label class="sr-only" for="product-price-currency-${index}">Moneda</label>
+      <select id="product-price-currency-${index}" data-field="moneda"${currencies.length === 1 ? ' disabled' : ''}>
+        ${currencies.map(code => `<option value="${escape(code)}"${code === selectedCurrency ? ' selected' : ''}>${escape(code)}</option>`).join('')}
+      </select></td>
+    <td class="table-actions"><button type="button" class="danger" data-action="remove-price-row" data-index="${index}">Quitar</button></td>
+  </tr>`;
+}
+
+function collectPriceRows() {
+  const body = qs('product-prices-body');
+  if (!body) return [];
+  return [...body.querySelectorAll('tr[data-price-row]')].map(row => ({
+    entity_id: row.querySelector('[data-field="entity_id"]')?.value || '',
+    precio: row.querySelector('[data-field="precio"]')?.value ?? '',
+    moneda: row.querySelector('[data-field="moneda"]')?.value || ''
+  }));
+}
+
+function renderPriceRows(entries = []) {
+  const section = qs('product-prices-section');
+  const body = qs('product-prices-body');
+  if (!section || !body) return;
+  section.hidden = !canManagePrices();
+  body.innerHTML = entries.length
+    ? entries.map((entry, index) => priceRowMarkup(entry, index)).join('')
+    : '<tr class="empty-price-row"><td colspan="4" class="empty-row">Sin proveedores vinculados.</td></tr>';
+  setError('error-product-prices', '');
+}
+
+function bindPriceRows(form) {
+  if (!form || form.dataset.pricesBound) return;
+  form.dataset.pricesBound = 'true';
+  form.addEventListener('click', event => {
+    const button = event.target.closest('[data-action]');
+    if (!button) return;
+    if (button.dataset.action === 'add-price-row') {
+      renderPriceRows([...collectPriceRows(), { entity_id: '', precio: '', moneda: '' }]);
+      const rows = qs('product-prices-body').querySelectorAll('tr[data-price-row]');
+      rows[rows.length - 1]?.querySelector('select')?.focus();
+    }
+    if (button.dataset.action === 'remove-price-row') {
+      const index = Number(button.dataset.index);
+      renderPriceRows(collectPriceRows().filter((_, rowIndex) => rowIndex !== index));
+      qs('product-price-add')?.focus();
+    }
+  });
+  form.addEventListener('change', event => {
+    if (event.target?.dataset?.field === 'entity_id') renderPriceRows(collectPriceRows());
+  });
+}
+
+function showPriceErrors(result) {
+  const messages = [result.general, ...result.rows.map(row => `Fila ${row.index + 1}: ${Object.values(row.errors).join(' ')}`)];
+  setError('error-product-prices', messages.filter(Boolean).join(' '));
+}
+
+function supplierPricesSummary(product) {
+  const entries = getSupplierPricesForProduct(productId(product));
+  if (!entries.length) return 'Sin proveedor';
+  const names = new Map(loadEntities().map(entity => [entity.entity_id, entity.name]));
+  return entries.map(entry => `${names.get(entry.entity_id) || ''} (${money(entry.precio, entry.moneda)})`).join('; ');
 }
 
 function productId(product) {
@@ -129,15 +245,16 @@ function renderProductTable() {
         <td>${escape(product.unidad_medida || product.unit || '')}</td>
         <td>${escape(categories.get(String(product.id_categoria)) || '')}</td>
         <td>${escape(Number(product.stock || 0))}</td>
+        <td>${escape(supplierPricesSummary(product))}</td>
         ${manage ? `<td class="table-actions">
           <button type="button" class="secondary" data-action="edit-product" data-id="${escape(productId(product))}">${icon('edit', { className: 'ui-icon' })}Editar</button>
           <button type="button" class="danger" data-action="delete-product" data-id="${escape(productId(product))}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>
         </td>` : ''}
       </tr>`).join('')
     : emptyStateRow({
-        colspan: manage ? 5 : 4,
+        colspan: manage ? 6 : 5,
         message: 'No hay productos para los filtros seleccionados.',
-        action: manage ? 'new-product' : '',
+        action: canCreateProduct() ? 'new-product' : '',
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('product-table'), productSort);
@@ -192,6 +309,7 @@ function clearProductForm() {
   if (qs('product-form-feedback')) qs('product-form-feedback').textContent = '';
   clearProductErrors();
   renderCategoryOptions();
+  renderPriceRows([]);
 }
 
 function clearCategoryForm() {
@@ -236,6 +354,22 @@ function submitProduct() {
   setError('error-product-unidad', errors.unidad_medida);
   setError('error-product-stock', errors.stock);
   setError('error-product-categoria', errors.id_categoria);
+  const managePrices = canManagePrices();
+  if (!editingProductId && !canCreateProduct()) {
+    showFeedback(PRODUCT_CREATE_DENIED_MESSAGE, true);
+    return;
+  }
+  const priceRows = managePrices ? collectPriceRows() : [];
+  if (managePrices) {
+    const priceValidation = validateProductSupplierPrices(priceRows, {
+      suppliers: loadEntities(),
+      requireAtLeastOne: requirePriceLinks()
+    });
+    if (!priceValidation.valid) {
+      showPriceErrors(priceValidation);
+      return;
+    }
+  }
   if (Object.keys(errors).length) return;
   try {
     const payload = {
@@ -244,8 +378,15 @@ function submitProduct() {
       stock: Number(data.stock),
       id_categoria: data.id_categoria
     };
-    if (editingProductId) updateProduct(editingProductId, payload);
-    else addProduct(payload);
+    const priceOptions = { requireAtLeastOne: requirePriceLinks() };
+    if (editingProductId) {
+      updateProduct(editingProductId, payload);
+      if (managePrices) setProductSupplierPrices(editingProductId, priceRows, priceOptions);
+    } else if (managePrices) {
+      createProductWithSupplierPrices(payload, priceRows, priceOptions);
+    } else {
+      addProduct(payload);
+    }
     clearProductForm();
     closeSidePanel({ force: true });
     showFeedback('');
@@ -291,9 +432,14 @@ function openProductForm(product = null) {
     denyPermission();
     return;
   }
+  if (!product && !canCreateProduct()) {
+    showFeedback(PRODUCT_CREATE_DENIED_MESSAGE, true);
+    return;
+  }
   ensureForms(true);
   clearProductForm();
   if (product) {
+    renderPriceRows(getSupplierPricesForProduct(productId(product)));
     editingProductId = productId(product);
     qs('product-id').value = editingProductId;
     qs('product-nombre').value = productName(product);
@@ -430,8 +576,10 @@ function ensureForms(manage) {
         handler();
       });
     }
+    if (formId === 'product-form') bindPriceRows(form);
   }
   renderCategoryOptions(qs('product-categoria')?.value || '');
+  renderPriceRows(collectPriceRows());
 }
 
 function catalogMarkup(manage) {
@@ -445,7 +593,7 @@ function catalogMarkup(manage) {
     <section role="tabpanel" class="tab-panel" id="product-panel-catalogo" aria-labelledby="products-tab-catalogo">
       <div class="page-heading">
         <div><h2>Catálogo y stock</h2></div>
-        ${manage ? '<button type="button" class="primary" id="product-list-new" data-action="new-product">+ Nuevo</button>' : ''}
+        ${manage && canCreateProduct() ? '<button type="button" class="primary" id="product-list-new" data-action="new-product">+ Nuevo</button>' : ''}
       </div>
       <div class="list-filters" id="product-filters">
         <div class="field"><label for="product-filter-query">Buscar</label><input id="product-filter-query" type="search" autocomplete="off"></div>
@@ -460,6 +608,7 @@ function catalogMarkup(manage) {
             <th data-sort-key="unidad_medida" aria-sort="none"><button type="button" class="sort-button" data-sort="unidad_medida">Unidad<span class="sort-indicator" aria-hidden="true"></span></button></th>
             <th data-sort-key="id_categoria" aria-sort="none"><button type="button" class="sort-button" data-sort="id_categoria">Categoría<span class="sort-indicator" aria-hidden="true"></span></button></th>
             <th data-sort-key="stock" aria-sort="none"><button type="button" class="sort-button" data-sort="stock">Stock<span class="sort-indicator" aria-hidden="true"></span></button></th>
+            <th>Proveedores y precios</th>
             ${manage ? '<th>Acciones</th>' : ''}
           </tr></thead>
           <tbody id="product-table-body"></tbody>
