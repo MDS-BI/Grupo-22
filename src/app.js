@@ -67,7 +67,7 @@ import {
   openSidePanel
 } from './ui-side-panel.js';
 import { initTheme, toggleTheme } from './ui-theme.js';
-import { ensureShellScaffold, updateBreadcrumb, bindGlobalSearch } from './ui-shell.js';
+import { ensureShellScaffold, updateBreadcrumb, bindGlobalSearch, navGroupFor, syncThemeToggle } from './ui-shell.js';
 import {
   buildOrderRows,
   filterEntities,
@@ -311,6 +311,10 @@ function renderLoginHints() {
     .join('');
 }
 
+function demoUserIcon() {
+  return '<svg class="demo-user-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>';
+}
+
 function renderLoginDemoUsersTable() {
   const container = qs('demo-users-hints');
   const body = qs('login-demo-users-body');
@@ -318,7 +322,7 @@ function renderLoginDemoUsersTable() {
   const demoUsers = loadDemoUsers();
   container.hidden = demoUsers.length === 0;
   body.innerHTML = demoUsers
-    .map(user => `<tr><td><code>${escapeHtml(user.userId)}</code></td><td>${escapeHtml(user.cargo || roleLabel(user.role))}</td></tr>`)
+    .map(user => `<tr><td><button type="button" class="demo-user-login" data-action="login-demo-user" data-user-id="${escapeHtml(user.userId)}" aria-label="Ingresar como ${escapeHtml(user.userId)}, ${escapeHtml(user.cargo || roleLabel(user.role))}">${demoUserIcon()}<code>${escapeHtml(user.userId)}</code></button></td><td>${escapeHtml(user.cargo || roleLabel(user.role))}</td></tr>`)
     .join('');
 }
 
@@ -366,6 +370,16 @@ function bindAuthEvents() {
   renderLoginDemoUsersTable();
   qs('login-form')?.addEventListener('submit', handleLogin);
   qs('logout-button')?.addEventListener('click', handleLogout);
+  qs('login-demo-users-body')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-action="login-demo-user"]');
+    if (!button) return;
+    const input = qs('login-user-id');
+    const form = qs('login-form');
+    if (!input || !form) return;
+    input.value = button.dataset.userId || '';
+    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+    else form.dispatchEvent(new form.ownerDocument.defaultView.Event('submit', { bubbles: true, cancelable: true }));
+  });
 }
 
 function renderLogo() {
@@ -440,9 +454,20 @@ function ensureNavOrder() {
   const order = isPurchasing()
     ? ['nav-dashboard', 'nav-documents', 'nav-entities', 'nav-products', 'nav-search']
     : ['nav-dashboard', 'nav-entities', 'nav-documents', 'nav-search'];
+  // 005: si el armazón agrupó la navegación, cada botón se ordena dentro de su grupo
+  // (Operación, Maestros, Herramientas) conservando el orden de 003.
+  const grouped = sidebar.querySelector('[data-nav-group]');
   for (const id of order) {
     const button = qs(id);
-    if (button) sidebar.append(button);
+    if (!button) continue;
+    const group = grouped ? sidebar.querySelector(`[data-nav-group="${navGroupFor(id)}"]`) : null;
+    if (!group) {
+      sidebar.append(button);
+      continue;
+    }
+    const reserved = group.querySelector('.nav-reserved');
+    if (reserved) group.insertBefore(button, reserved);
+    else group.append(button);
   }
 }
 
@@ -2021,9 +2046,10 @@ export function getRecoveryResult() {
 }
 
 export async function boot() {
-  initTheme();
+  const initialTheme = initTheme();
   bindAuthEvents();
   ensureShellScaffold();
+  syncThemeToggle(initialTheme);
   bindGlobalSearch((q) => {
     if (!getSession()) return;
     showView('search');
@@ -2033,7 +2059,7 @@ export async function boot() {
   const themeToggle = qs('theme-toggle');
   if (themeToggle && !themeToggle.dataset.bound) {
     themeToggle.dataset.bound = '1';
-    themeToggle.addEventListener('click', () => toggleTheme());
+    themeToggle.addEventListener('click', () => syncThemeToggle(toggleTheme()));
   }
   if (!getSession()) {
     revealLoginGate();

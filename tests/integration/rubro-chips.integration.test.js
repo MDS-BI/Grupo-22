@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { bootPurchasing, installDom, installStyles } from '../helpers/purchasing-app.js';
 
 let dom;
