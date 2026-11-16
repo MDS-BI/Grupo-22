@@ -101,12 +101,12 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 **Objetivo**: Listado tabla/tablero, formulario ordenado, detalle con progreso/historial/totales e impresión formal.  
 **Prueba independiente**: Alternar tabla/tablero (solo lectura), validar orden Cabecera→Detalle→Totales sin tarjeta vacía, progreso/timeline/acciones permitidas, e impresión con folio OC-0001 o SOL-0001 si no emitida.
 
-- [ ] T026 [US3] Implementar alternancia de vista tabla/tablero por columnas de estado (tablero solo lectura, sin arrastrar) en `src/app.js` y `src/styles.css` conservando ids/`data-action` de OC
-- [ ] T027 [US3] Reestructurar visualmente formulario de OC en secciones Cabecera, Detalle de compra y Totales (ocultar/omitir tarjeta de totales vacía) en `src/app.js` y `src/styles.css` sin cambiar validaciones ni flujo
-- [ ] T028 [US3] Implementar detalle de OC con barra de progreso de estados, línea de tiempo vertical de historial, tarjeta de totales y acciones permitidas destacadas en `src/app.js` y `src/styles.css`
-- [ ] T029 [US3] Implementar estilos de impresión de OC/documento formal (logo/datos módulo, folio destacado OC o SOL, proveedor/solicitante, líneas, totales, firma aprobador) en `src/styles.css` y plantilla/markup en `src/app.js`
-- [ ] T030 [P] [US3] Crear pruebas de integración de tablero OC (alternancia tabla/tablero, solo lectura, preservación de ids/acciones) en `tests/integration/oc-board.integration.test.js`
-- [ ] T031 [US3] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T026 [US3] Implementar alternancia de vista tabla/tablero por columnas de estado (tablero solo lectura, sin arrastrar) en `src/app.js` y `src/styles.css` conservando ids/`data-action` de OC
+- [X] T027 [US3] Reestructurar visualmente formulario de OC en secciones Cabecera, Detalle de compra y Totales (ocultar/omitir tarjeta de totales vacía) en `src/app.js` y `src/styles.css` sin cambiar validaciones ni flujo
+- [X] T028 [US3] Implementar detalle de OC con barra de progreso de estados, línea de tiempo vertical de historial, tarjeta de totales y acciones permitidas destacadas en `src/app.js` y `src/styles.css`
+- [X] T029 [US3] Implementar estilos de impresión de OC/documento formal (logo/datos módulo, folio destacado OC o SOL, proveedor/solicitante, líneas, totales, firma aprobador) en `src/styles.css` y plantilla/markup en `src/app.js`
+- [X] T030 [P] [US3] Crear pruebas de integración de tablero OC (alternancia tabla/tablero, solo lectura, preservación de ids/acciones) en `tests/integration/oc-board.integration.test.js`
+- [X] T031 [US3] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 **Checkpoint**: US3 operativa e independiente; flujo de estados sin cambios.
 

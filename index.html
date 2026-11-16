@@ -116,6 +116,11 @@
           </div>
           <p class="filter-summary" id="document-filter-summary" aria-live="polite"></p>
           <p class="filter-error" id="documents-filter-error" role="alert" hidden></p>
+          <div class="view-toggle" id="documents-view-toggle" role="group" aria-label="Vista de la lista" hidden>
+            <button type="button" class="secondary" data-view-mode="table" aria-pressed="true">Tabla</button>
+            <button type="button" class="secondary" data-view-mode="board" aria-pressed="false">Tablero</button>
+          </div>
+          <div class="order-board" id="document-board" hidden></div>
           <div class="table-wrapper">
             <table class="data-table" id="document-table">
               <thead><tr>
@@ -274,7 +279,8 @@
             <tbody id="document-lines-body"></tbody>
           </table>
         </div>
-        <div id="document-totals" class="order-totals" aria-live="polite"></div>
+        <h3 class="totals-heading" id="document-totals-heading">Totales</h3>
+        <div id="document-totals" class="order-totals" aria-live="polite" aria-labelledby="document-totals-heading"></div>
       </section>
       <div class="panel-form-actions">
         <button class="primary" type="submit" id="document-submit-button">Guardar Orden de Compra</button>

@@ -810,6 +810,57 @@ function renderFolioCell(document) {
   return `<span class="request-number">${escapeHtml(request)}</span>${oc ? `<span class="oc-folio">${escapeHtml(oc)}</span>` : ''}`;
 }
 
+// 005 · US3: vista tablero (solo lectura) por columnas de estado, sobre las mismas filas filtradas.
+let documentViewMode = 'table';
+const BOARD_COLUMNS = Object.freeze([
+  ['borrador', 'Solicitud – Borrador'],
+  ['pendiente', 'Solicitud – Pendiente de aprobación'],
+  ['aprobado', 'OC emitida – Aprobada'],
+  ['recibido', 'OC – Recibida'],
+  ['cancelado', 'Cancelada']
+]);
+
+function renderDocumentBoard(rows, entityNames) {
+  const board = qs('document-board');
+  const toggle = qs('documents-view-toggle');
+  const tableWrapper = qs('document-table')?.closest('.table-wrapper');
+  if (!board || !toggle) return;
+  const purchasing = isPurchasing();
+  toggle.hidden = !purchasing;
+  const showBoard = purchasing && documentViewMode === 'board';
+  board.hidden = !showBoard;
+  if (tableWrapper) tableWrapper.hidden = showBoard;
+  for (const button of toggle.querySelectorAll('[data-view-mode]')) {
+    button.setAttribute('aria-pressed', button.dataset.viewMode === documentViewMode ? 'true' : 'false');
+  }
+  if (!showBoard) {
+    board.innerHTML = '';
+    return;
+  }
+  const today = new Date();
+  board.innerHTML = BOARD_COLUMNS.map(([status, label]) => {
+    const items = rows.filter(row => row.status === status);
+    const cards = items.map(row => {
+      const reference = [formatRequestNumber(row.folio) || row.folio, formatPurchaseOrderFolio(row.ocFolio)].filter(Boolean).join(' · ');
+      const overdue = isOverdueOrder(row, today);
+      return `<li><button type="button" class="board-card" data-action="board-view-order" data-id="${escapeHtml(row.id)}" aria-label="Ver detalle de ${escapeHtml(reference)}">
+        <span class="board-card-head"><strong>${escapeHtml(reference)}</strong>${overdue ? '<span class="board-flag">Atrasada</span>' : ''}</span>
+        <span class="board-card-supplier">${escapeHtml(row.entityName ?? entityNames.get(row.entity_id) ?? '')}</span>
+        <span class="board-card-foot"><span>Entrega ${escapeHtml(formatDate(row.endDate))}</span><strong>${escapeHtml(formatMoney(row.total ?? row.totalAmount, row.currency || 'CLP'))}</strong></span>
+      </button></li>`;
+    }).join('');
+    return `<section class="board-column board-column-${status}" aria-labelledby="board-heading-${status}">
+      <h3 id="board-heading-${status}"><span>${escapeHtml(label)}</span><span class="board-count">${items.length}</span></h3>
+      <ul class="board-list">${cards || '<li class="board-empty">Sin órdenes</li>'}</ul>
+    </section>`;
+  }).join('');
+}
+
+function setDocumentViewMode(mode) {
+  documentViewMode = mode === 'board' ? 'board' : 'table';
+  renderDocumentTable();
+}
+
 function documentFilterSummary() {
   const entity = loadEntities().find(item => item.entity_id === documentFilters.entityId);
   return filterSummary([
@@ -869,6 +920,7 @@ function renderDocumentTable() {
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('document-table'), documentSort);
+  renderDocumentBoard(sorted, entityNames);
   const summary = qs('document-filter-summary');
   if (summary) summary.textContent = isPurchasing() ? documentFilterSummary() : '';
   const clear = qs('documents-filter-clear');
@@ -1040,6 +1092,10 @@ function applyPurchasingFormAdjustments() {
   // 006: la solicitud no pide folio; el correlativo se asigna automáticamente al guardar.
   const folioField = qs('folio')?.closest('.field');
   if (folioField) folioField.hidden = true;
+  // 005 · US3 (FR-020/021): la sección heredada de totales manuales queda oculta (todos sus campos
+  // ya lo estaban); el formulario queda Cabecera → Detalle de compra → Totales.
+  const legacySection = qs('document-legacy-fields');
+  if (legacySection) legacySection.hidden = true;
 }
 
 /** 006: texto de ayuda de Moneda según el origen del proveedor. */
@@ -1091,6 +1147,11 @@ function renderDraftLines() {
     currency: draftCurrency,
     taxRate: draftTaxRate
   });
+  // 005 · US3 (FR-021): sin líneas no se muestra una tarjeta de totales vacía.
+  const totals = qs('document-totals');
+  if (totals && isPurchasing()) totals.hidden = draftLines.length === 0;
+  const totalsHeading = qs('document-totals-heading');
+  if (totalsHeading && totals) totalsHeading.hidden = totals.hidden;
 }
 
 function showLineErrors(errors) {
@@ -1971,6 +2032,14 @@ function bindEvents() {
     if (!row || event.target.closest('button')) return;
     event.preventDefault();
     openOrderDetail(row.dataset.orderId);
+  });
+  qs('documents-view-toggle')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-view-mode]');
+    if (button) setDocumentViewMode(button.dataset.viewMode);
+  });
+  qs('document-board')?.addEventListener('click', event => {
+    const card = event.target.closest('[data-action="board-view-order"]');
+    if (card) openOrderDetail(card.dataset.id);
   });
   qs('document-table-body').addEventListener('click', event => {
     const button = event.target.closest('button[data-action]');
