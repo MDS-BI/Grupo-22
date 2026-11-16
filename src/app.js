@@ -107,6 +107,7 @@ import {
   topSuppliers
 } from './ui-dashboard.js';
 import { spendColumnsSvg, statusBarChartSvg } from './ui-charts.js';
+import { mountChips } from './ui-chips.js';
 import { loadDemoData, requiresDemoReplacement } from './purchasing-demo-data.js';
 import { confirmAction } from './ui-feedback.js';
 
@@ -551,6 +552,7 @@ function renderRubroOptions(selectedIds = []) {
   select.innerHTML = loadRubros()
     .map(rubro => `<option value="${escapeHtml(rubroValue(rubro))}"${selected.has(rubroValue(rubro)) ? ' selected' : ''}>${escapeHtml(rubroLabel(rubro))}</option>`)
     .join('');
+  if (isPurchasing()) mountChips(select, { labelId: 'supplier-rubros-label', emptyText: 'Sin rubros registrados' });
 }
 
 function renderSearchRubroOptions() {
@@ -560,6 +562,7 @@ function renderSearchRubroOptions() {
   select.innerHTML = loadRubros()
     .map(rubro => `<option value="${escapeHtml(rubroValue(rubro))}"${selected.has(rubroValue(rubro)) ? ' selected' : ''}>${escapeHtml(rubroLabel(rubro))}</option>`)
     .join('');
+  if (isPurchasing()) mountChips(select, { labelId: 'search-rubros-label', emptyText: 'Sin rubros registrados' });
 }
 
 function selectedSearchRubros() {
@@ -644,6 +647,7 @@ function renderEntityFilterOptions() {
   select.innerHTML = loadRubros()
     .map(rubro => `<option value="${escapeHtml(rubroValue(rubro))}"${selected.has(String(rubroValue(rubro))) ? ' selected' : ''}>${escapeHtml(rubroLabel(rubro))}</option>`)
     .join('');
+  if (isPurchasing()) mountChips(select, { labelId: 'entities-filter-rubros-label', emptyText: 'Sin rubros registrados' });
   const origin = qs('entities-filter-origin');
   if (origin) origin.value = entityFilters.origin;
 }
@@ -693,12 +697,66 @@ function renderEntityTable() {
         actionLabel: '+ Nuevo'
       });
   applySortState(qs('entity-table'), entitySort);
+  renderEntityCards(rows, { canEdit, canDelete });
   const summary = qs('entity-filter-summary');
   if (summary) summary.textContent = isPurchasing() ? entityFilterSummary() : '';
   const clear = qs('entities-filter-clear');
   if (clear) clear.hidden = !(isPurchasing() && hasActiveFilters(entityFilters));
 }
 
+
+// 005 · US4: vista de tarjetas de proveedores (avatar de iniciales, chips de rubro y origen).
+let entityViewMode = 'table';
+
+function initialsOf(name) {
+  const words = String(name || '').replace(/^Demo\s+/i, '').split(/\s+/).filter(word => /[A-Za-zÁÉÍÓÚÑáéíóúñ0-9]/.test(word));
+  return (words.slice(0, 2).map(word => word[0]).join('') || '?').toUpperCase();
+}
+
+function entityRubroNames(entity) {
+  const rubros = loadRubros();
+  return (entity.rubro_ids || [])
+    .map(id => rubros.find(item => rubroValue(item) === String(id)))
+    .filter(Boolean)
+    .map(rubroLabel);
+}
+
+function renderEntityCards(rows, { canEdit, canDelete }) {
+  const container = qs('entity-cards');
+  const toggle = qs('entities-view-toggle');
+  const tableWrapper = qs('entity-table')?.closest('.table-wrapper');
+  if (!container || !toggle) return;
+  toggle.hidden = !isPurchasing();
+  const showCards = isPurchasing() && entityViewMode === 'cards';
+  container.hidden = !showCards;
+  if (tableWrapper) tableWrapper.hidden = showCards;
+  for (const button of toggle.querySelectorAll('[data-view-mode]')) {
+    button.setAttribute('aria-pressed', button.dataset.viewMode === entityViewMode ? 'true' : 'false');
+  }
+  if (!showCards) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = rows.length
+    ? `<ul class="supplier-card-list">${rows.map(entity => {
+        const foreign = String(entity.origin || '').trim() === 'Extranjero';
+        const chips = entityRubroNames(entity).map(name => `<li class="chip chip-static">${escapeHtml(name)}</li>`).join('');
+        return `<li class="supplier-card">
+          <div class="supplier-card-head">
+            <span class="avatar" aria-hidden="true">${escapeHtml(initialsOf(entity.name))}</span>
+            <div class="supplier-card-title"><strong>${escapeHtml(entity.name)}</strong><span>${escapeHtml(supplierTaxIdentity(entity))}</span></div>
+            <span class="origin-tag ${foreign ? 'origin-foreign' : 'origin-national'}">${foreign ? 'Extranjero' : 'Nacional'}</span>
+          </div>
+          ${chips ? `<ul class="chip-list" aria-label="Rubros">${chips}</ul>` : '<p class="supplier-card-muted">Sin rubros</p>'}
+          <p class="supplier-card-muted">Condición de pago: ${escapeHtml(paymentTermLabel(entity.paymentTerms) || '—')}</p>
+          ${canEdit || canDelete ? `<div class="supplier-card-actions">
+            ${canEdit ? `<button type="button" class="secondary" data-card-action="edit" data-id="${escapeHtml(entity.id)}">${icon('edit', { className: 'ui-icon' })}Editar</button>` : ''}
+            ${canDelete ? `<button type="button" class="danger" data-card-action="delete" data-id="${escapeHtml(entity.id)}">${icon('trash', { className: 'ui-icon' })}Eliminar</button>` : ''}
+          </div>` : ''}
+        </li>`;
+      }).join('')}</ul>`
+    : '<p class="insight-empty">No hay proveedores para los filtros seleccionados.</p>';
+}
 
 function renderDocumentEntityOptions() {
   const selectedEntity = qs('document-entity').value;
@@ -1914,6 +1972,20 @@ function bindEvents() {
     }
   });
 
+  qs('entities-view-toggle')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-view-mode]');
+    if (!button) return;
+    entityViewMode = button.dataset.viewMode === 'cards' ? 'cards' : 'table';
+    renderEntityTable();
+  });
+  qs('entity-cards')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-card-action]');
+    if (!button) return;
+    // Reutiliza exactamente las acciones (y permisos) de la tabla, que sigue en el DOM.
+    const target = [...qs('entity-table-body').querySelectorAll('button[data-action]')]
+      .find(item => item.dataset.action === button.dataset.cardAction && item.dataset.id === button.dataset.id);
+    target?.click();
+  });
   qs('entity-table-body').addEventListener('click', event => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;

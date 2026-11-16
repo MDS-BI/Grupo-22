@@ -392,3 +392,40 @@ button.danger { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; }
 .print-note { color:#6b7280; font-size:.75rem !important; }
 .print-document section { border:0; padding:0; background:transparent; border-radius:0; }
 .print-history { margin-top:20px; }
+
+/* 005 · US4 — chips de rubros, tarjetas de proveedores, nivel de stock, tabla de precios del producto */
+.chips-source { position:absolute !important; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; padding:0; margin:-1px; }
+.chip-group { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+.chip { display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:0 14px; border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--text); font:inherit; font-size:.88rem; cursor:pointer; }
+.chip[aria-pressed="true"] { background:var(--color-brand-dark); border-color:var(--color-brand-dark); color:#FFFFFF; }
+:root[data-theme="dark"] .chip[aria-pressed="true"] { background:#1E4258; border-color:#4B7A99; }
+.chip:hover, .chip:focus-visible { border-color:var(--action-bg); }
+.chip-check { font-weight:700; color:#FBBF24; }
+.chip-empty { color:var(--muted); font-size:.85rem; }
+.chip-static { min-height:28px; padding:0 10px; cursor:default; font-size:.8rem; background:var(--surface-alt); }
+.supplier-card-list { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+.supplier-card { display:flex; flex-direction:column; gap:10px; padding:16px; border:1px solid var(--border); border-radius:14px; background:var(--surface); }
+.supplier-card-head { display:flex; align-items:center; gap:12px; }
+.supplier-card-title { display:flex; flex-direction:column; min-width:0; flex:1; }
+.supplier-card-title strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.supplier-card-title span, .supplier-card-muted { color:var(--muted); font-size:.85rem; margin:0; }
+.avatar { flex:none; width:44px; height:44px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--color-brand-dark); color:#FBBF24; font-family:var(--font-heading); font-weight:700; }
+.origin-tag { flex:none; padding:3px 10px; border-radius:999px; font-size:.75rem; font-weight:600; }
+.origin-national { background:#E0F2FE; color:#075985; } .origin-foreign { background:#EDE9FE; color:#5B21B6; }
+.chip-list { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px; }
+.supplier-card-actions { display:flex; gap:8px; margin-top:auto; }
+.stock-cell { display:flex; align-items:center; gap:10px; font-variant-numeric:tabular-nums; }
+.stock-value { min-width:2ch; text-align:right; font-weight:600; }
+.stock-meter { display:block; width:80px; height:8px; border-radius:4px; background:var(--border); overflow:hidden; }
+.stock-meter span { display:block; height:100%; border-radius:4px; }
+.stock-high span { background:var(--status-received); } .stock-mid span { background:var(--status-pending); } .stock-low span { background:var(--status-cancelled); }
+.stock-tag-empty { padding:2px 8px; border-radius:999px; background:#FEE2E2; color:#B91C1C; font-size:.75rem; font-weight:600; }
+#product-prices-table { min-width:0; table-layout:fixed; }
+#product-prices-table select, #product-prices-table input { width:100%; min-width:0; }
+#product-prices-table th:nth-child(1) { width:42%; } #product-prices-table th:nth-child(2) { width:24%; } #product-prices-table th:nth-child(3) { width:16%; } #product-prices-table th:nth-child(4) { width:18%; }
+#product-prices-table .table-actions button { width:100%; padding:6px 8px; }
+@media (max-width: 640px) {
+  #product-prices-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+  #product-prices-table, #product-prices-table tbody, #product-prices-table tr, #product-prices-table td { display:block; width:100%; }
+  #product-prices-table tr { border:1px solid var(--border); border-radius:10px; padding:8px; margin-bottom:8px; }
+}

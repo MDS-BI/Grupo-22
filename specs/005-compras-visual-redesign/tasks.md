@@ -117,12 +117,12 @@ Hallazgos de la revisión del commit `91ffa37` sobre T002, T014, T015 y T016:
 **Objetivo**: Vistas alternativas en proveedores/productos y controles (chips de rubros sincronizados, stock, ficha 006).  
 **Prueba independiente**: Alternar vistas proveedores, ver barra/etiqueta stock, seleccionar rubros por chips con selects originales ocultos y sincronizados, y validar formulario producto/ficha proveedor/ayuda Moneda del 006 sin cortes (móvil apilado).
 
-- [ ] T032 [US4] Implementar alternancia tabla/tarjetas en Proveedores con avatar de iniciales, chips de rubro y etiqueta Nacional/Extranjero en `src/app.js` y `src/styles.css`
-- [ ] T033 [US4] Implementar indicador visual de nivel de stock y etiqueta "Sin stock" en listados de Productos en `src/app.js` y `src/styles.css`
-- [ ] T034 [US4] Implementar componente visual de chips de rubros sincronizado bidireccionalmente con selects múltiples originales (`supplier-rubros`, `search-rubros` y equivalentes) manteniéndolos ocultos en DOM en `src/ui-shell.js` o `src/app.js` y `src/styles.css`
-- [ ] T035 [US4] Ajustar presentación del formulario de producto y ficha de proveedor en Búsqueda (006) para que la tabla de proveedores y precios quepa en panel lateral (móvil filas apiladas) preservando costo unitario no editable con lista de precios y ayuda de Moneda en `src/app.js` y `src/styles.css`
-- [ ] T036 [P] [US4] Crear pruebas de integración de chips de rubros (sincronía con select oculto, selección/reflejo de valor) en `tests/integration/rubro-chips.integration.test.js`
-- [ ] T037 [US4] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
+- [X] T032 [US4] Implementar alternancia tabla/tarjetas en Proveedores con avatar de iniciales, chips de rubro y etiqueta Nacional/Extranjero en `src/app.js` y `src/styles.css`
+- [X] T033 [US4] Implementar indicador visual de nivel de stock y etiqueta "Sin stock" en listados de Productos en `src/app.js` y `src/styles.css`
+- [X] T034 [US4] Implementar componente visual de chips de rubros sincronizado bidireccionalmente con selects múltiples originales (`supplier-rubros`, `search-rubros` y equivalentes) manteniéndolos ocultos en DOM en `src/ui-shell.js` o `src/app.js` y `src/styles.css`
+- [X] T035 [US4] Ajustar presentación del formulario de producto y ficha de proveedor en Búsqueda (006) para que la tabla de proveedores y precios quepa en panel lateral (móvil filas apiladas) preservando costo unitario no editable con lista de precios y ayuda de Moneda en `src/app.js` y `src/styles.css`
+- [X] T036 [P] [US4] Crear pruebas de integración de chips de rubros (sincronía con select oculto, selección/reflejo de valor) en `tests/integration/rubro-chips.integration.test.js`
+- [X] T037 [US4] Verificación de fase: ejecutar `npm test -- --run` y `npm run lint`
 
 **Checkpoint**: US4 operativa e independiente; elementos 006 preservados.
 

@@ -82,6 +82,11 @@
             <button type="button" class="secondary" id="entities-filter-clear" data-action="clear-entity-filters" hidden>Limpiar filtros</button>
           </div>
           <p class="filter-summary" id="entity-filter-summary" aria-live="polite"></p>
+          <div class="view-toggle" id="entities-view-toggle" role="group" aria-label="Vista de proveedores" hidden>
+            <button type="button" class="secondary" data-view-mode="table" aria-pressed="true">Tabla</button>
+            <button type="button" class="secondary" data-view-mode="cards" aria-pressed="false">Tarjetas</button>
+          </div>
+          <div id="entity-cards" class="supplier-cards" hidden></div>
           <div class="table-wrapper">
             <table class="data-table" id="entity-table">
               <thead><tr>
