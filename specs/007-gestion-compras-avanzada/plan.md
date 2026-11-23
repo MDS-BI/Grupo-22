@@ -16,15 +16,16 @@ La lógica nueva es mayoritariamente de **cálculo sobre datos existentes**, por
 
 **Almacenamiento**: `localStorage`. Claves nuevas `erp_purchasing:areas`, `erp_purchasing:budgets` y `erp_purchasing:notification-reads`; campos opcionales `stock_minimo` (producto), `estado` (proveedor, agregado a `BASE_FIELDS.entity`), `id_area` (metadata de orden) y `tramos` (precio acordado del `006`).
 
-**Pruebas**: Unitarias para cada módulo de dominio (casos límite de la especificación) y para los servicios; integración por historia y por rol. Sin modificar pruebas existentes.
+**Pruebas**: Unitarias para cada módulo de dominio (casos límite de la especificación) y para los servicios; integración por historia y por rol. Las pruebas existentes se mantienen sin cambiar su intención; solo se ajustan los conteos de demostración (12→16).
 
 **Objetivos de Rendimiento**: Reportes con 2.000 OC en ≤ 1 s (SC-008); el panel conserva su presupuesto de `001` (≤ 500 ms): el cálculo de bajo mínimo y avisos es lineal y se hace una vez por render. El historial se indexa por orden una sola vez por cálculo.
 
 **Restricciones**:
 
-- No modificar pruebas existentes; no cambiar transiciones ni la matriz de `004` más allá de los dos permisos nuevos.
-- Toda creación de órdenes pasa por `savePurchaseOrder` para heredar las reglas de `002`, `004` y `006`.
+- No cambiar la intención de las pruebas existentes; solo se ajustan los conteos de demostración (12→16). No cambiar transiciones ni la matriz de `004` más allá de los dos permisos nuevos.
+- Toda creación de órdenes pasa por `savePurchaseOrder` para heredar las reglas de `002`, `004` y `006`. Los borradores creados por sugeridas y carrito pueden omitir `id_area`; `AREA_REQUIRED` se valida solo al enviar a revisión (FR-018/T033). Punto de aplicación: `src/purchasing-storage.js` → `changeOrderStatus(orderId, 'pendiente')`, con el valor de `#document-area` leído en el submit de `src/app.js` (T034) y el error definido en `src/domain/purchasing.js` (T007); prueba dedicada T065.
 - Sanitizar todo texto en el DOM; CSV con escapado RFC 4180.
+- El precio guardado se recalcula siempre en servidor desde la lista vigente; la UI solo propone un precio y el payload del cliente nunca es fuente de verdad (FR-033/SC-010, T064).
 - WCAG 2.1 AA; los gráficos con tabla equivalente; la bandeja operable con teclado y `Escape`.
 
 **Incógnitas**: Ninguna bloqueante. Umbrales A/B/C, regla de reposición y advertencia de presupuesto son propuestas ajustables con `/speckit.clarify` sin cambiar la arquitectura.
@@ -44,12 +45,13 @@ La lógica nueva es mayoritariamente de **cálculo sobre datos existentes**, por
 1. **Vistas derivadas, no persistidas**: evaluación, reportes y avisos se calculan al mostrarse; así no hay datos que se desincronicen y la sustitución de demo no deja residuos. Solo se guardan las lecturas de avisos.
 2. **Fecha de recepción desde el historial**: `status-history` ya registra el paso a `recibido` con `changedAt`; no se agrega campo nuevo a la orden.
 3. **Área en la metadata de orden** (igual que `id_empleado` en `003`): no toca `BASE_FIELDS.document` ni la validación de `001`.
-4. **Activación condicional** (patrón del `006`): el área solo es obligatoria si existe al menos un área activa; así los datos y las pruebas anteriores siguen funcionando.
+4. **Área: una sola regla** (activación condicional del `006`): los borradores se guardan sin `id_area` aunque haya áreas activas; el área es obligatoria solo al enviar a revisión y solo si existe al menos un área activa. Así los datos y las pruebas anteriores siguen funcionando y las sugeridas mantienen la generación en un clic (SC-002).
 5. **Proveedor inactivo como campo de la entidad base**: se agrega `estado` a `BASE_FIELDS.entity`; la eliminación en cascada de `001` FR-003 no cambia.
 6. **Solicitudes sugeridas atómicas**: se toma un snapshot de `KEYS` y, si falla la creación de algún borrador, se restaura todo.
 7. **CSV propio**: función `toCsv` con BOM y `;` para Excel en configuración chilena; descarga con `Blob` y un enlace temporal.
-8. **Tramos dentro del precio acordado**: se agregan como lista opcional en la misma entrada del `006` (no como entidad aparte); `unitPriceFor` reemplaza la lectura directa de `precio` en `applySupplierPriceList`, de modo que el `006` sigue siendo el único punto que fija precios y un precio sin tramos se comporta igual que antes.
-9. **Compra por producto como modo del mismo formulario**: el modo «Comprar por producto» arma un carrito y, al guardar, llama a `savePurchaseOrder` una vez por proveedor dentro de un snapshot; el modo «Elegir proveedor primero» reutiliza el formulario existente, así las pruebas del `002`–`006` sobre ese formulario no cambian.
+8. **Tramos dentro del precio acordado**: se agregan como lista opcional en la misma entrada del `006` (no como entidad aparte); `unitPriceFor` reemplaza la lectura directa de `precio` en `applySupplierPriceList`, de modo que el `006` sigue siendo el único punto que fija precios y un precio sin tramos se comporta igual que antes. Separación de responsabilidades: la lista fija los tramos, la UI calcula para mostrar y el servidor recalcula el precio de cada línea en `savePurchaseOrder`, `replaceOrderLines`, `addPurchaseOrderLine` y `addOrUpdatePurchaseOrderLine`, ignorando el payload (FR-033/SC-010, T064).
+9. **Compra por producto como modo del mismo formulario**: el modo «Comprar por producto» arma un carrito y, al guardar, llama a `savePurchaseOrder` una vez por proveedor dentro de un snapshot, sin exigir `id_area` en el borrador (T033); el modo «Elegir proveedor primero» reutiliza el formulario existente, así las pruebas del `002`–`006` sobre ese formulario no cambian.
+10. **Calificación interna vs. mostrada**: `gradeFor` se calcula siempre como entrada de FR-011, con independencia del rol; ficha, tarjetas y Reportes exigen `reports.view` y solo la tabla comparativa de US7 muestra la columna a roles con `documents.create` (excepción explícita de FR-005).
 
 ## Estructura del Proyecto
 
@@ -92,9 +94,9 @@ tests/
 | Fase | Contenido | Responsable sugerido | Depende de |
 |---|---|---|---|
 | Base | Permisos, claves, campos nuevos, módulos de dominio vacíos con pruebas | Uno del grupo | — |
-| US1 + US6 | Evaluación; duplicar, inactivar, exportar | Persona A | Base |
-| US7 | Tramos por cantidad, comparación de proveedores y carrito | Persona A (después de US1) o quien termine primero | Base; usa la calificación de US1 si está disponible |
-| US2 + US5 | Stock mínimo y sugeridas; notificaciones | Persona B | Base (US5 usa la consulta del 005) |
+| US1 + US6 | Evaluación; duplicar, inactivar, exportar | Persona A | Base; US1 es dependencia dura de US2 y US7 |
+| US7 | Tramos por cantidad, comparación de proveedores y carrito | Persona A (después de US1) | Base + US1 (dependencia dura): la calificación de FR-004 es dato interno obligatorio del paso (4) de FR-011, sin omisión ni desempate alternativo; su visualización en la tabla sigue la excepción de FR-005 |
+| US2 + US5 | Stock mínimo y sugeridas; notificaciones | Persona B | Base + US1 (dependencia dura para US2, que necesita la calificación de FR-004 en FR-011); US5 usa la consulta del 005 |
 | US4 + US3 | Presupuesto por área; reportes | Persona C | Base (Reportes usa áreas de US4) |
 | Demo y cierre | Datos demo, README, verificación completa | Uno del grupo | Todas |
 
@@ -114,7 +116,8 @@ Recorrido manual en [quickstart.md](quickstart.md).
 
 | Desviación | Motivo | Alternativa descartada |
 |---|---|---|
-| Área obligatoria solo si hay áreas activas | Compatibilidad con datos y pruebas previas | Exigirla siempre obligaba a modificar pruebas de `002`–`006` |
+| Área obligatoria al enviar, solo si hay áreas activas | Compatibilidad con datos y pruebas previas; borradores sin área en sugeridas y carrito | Exigirla al crear obligaba a añadir un selector de área a la sugerida y a la UI de compra por producto y rompía la generación en un clic (SC-002), además de modificar pruebas de `002`–`006` |
 | Gasto por rubro contado en cada rubro | Un proveedor puede tener varios rubros y no hay criterio de prorrateo | Prorratear en partes iguales inventaría una distribución |
 | Presupuesto solo en CLP | Sin tipo de cambio en el sistema | Convertir con un tipo de cambio fijo daría cifras engañosas |
+| Ranking de ofertas sin conversión de moneda | CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación → nombre, según FR-011 | Convertir USD/EUR a CLP con un tipo fijo daría un orden engañoso |
 | Dos modos de ingreso en la nueva solicitud | El modo por producto es el recorrido natural, pero el modo por proveedor lo usan las pruebas y flujos existentes | Reemplazar el formulario rompía pruebas de `002`–`006` |

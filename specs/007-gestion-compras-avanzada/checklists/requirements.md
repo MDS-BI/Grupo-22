@@ -34,3 +34,4 @@
 - Decisiones propuestas por el equipo y ajustables con `/speckit.clarify`: umbrales A/B/C (90 % y 70 %), reposición hasta el doble del mínimo, presupuesto que advierte sin bloquear.
 - Historia 7 agregada en la revisión del 2026-11-16 (compra por producto con tramos por cantidad); declara cambios sobre `006` FR-001, FR-004, FR-010, FR-011 y FR-022.
 - El formato CSV (FR-016) y los nombres de permisos (FR-013, FR-017) son requisitos de interoperabilidad y de la matriz de `004`, no detalles de implementación.
+- US1 es dependencia dura de US2 y US7: FR-011 aplica siempre el paso de calificación (A > B > C > Sin datos) antes del nombre, sin desempate alternativo.

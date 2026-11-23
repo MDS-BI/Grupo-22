@@ -76,12 +76,13 @@ Reglas:
 - El campo `precio` del `006` se conserva y equivale al tramo `desde: 1`. Si `tramos` existe, el tramo desde 1 es obligatorio y `precio` se sincroniza con él.
 - Precio aplicable a una cantidad `q`: el del tramo con el mayor `desde ≤ q`.
 - Escritura con `pricelists.manage` (`006`).
+- El precio guardado en una línea de orden se recalcula en servidor con `unitPriceFor` desde la lista vigente en `savePurchaseOrder`, `replaceOrderLines`, `addPurchaseOrderLine` y `addOrUpdatePurchaseOrderLine`; el precio o tramo enviado por el cliente no es fuente de verdad (FR-033/SC-010, T064).
 
 ### Metadata de orden — campo agregado
 
 | Campo | Tipo | Restricciones |
 |---|---|---|
-| `id_area` | string | FK → Área; obligatorio en solicitudes nuevas o editadas solo si existe al menos un área activa. |
+| `id_area` | string | FK → Área; opcional en borradores guardados con `savePurchaseOrder` aunque existan áreas activas; obligatorio al enviar a revisión si hay al menos un área activa (`AREA_REQUIRED`, regla única de FR-018/T033). Se valida y persiste en `src/purchasing-storage.js` → `changeOrderStatus(orderId, 'pendiente')` con el valor de `#document-area` (`src/app.js`, T034); error definido en `src/domain/purchasing.js` (T007). |
 
 ### Permisos — agregados
 
@@ -89,6 +90,8 @@ Reglas:
 |---|:---:|:---:|:---:|:---:|:---:|
 | `reports.view` | ✓ | ✓ | — | — | — |
 | `budgets.manage` | ✓ | ✓ | — | — | — |
+
+Nota: `reports.view` rige ficha, tarjetas y Reportes. La tabla comparativa de US7 muestra la calificación a roles con `documents.create` por la excepción de visualización de FR-005; el grade interno de FR-011 se calcula para todos los roles.
 
 ## Vistas Derivadas (no persistidas)
 
@@ -122,8 +125,10 @@ Reglas:
 | `cantidad` | Cantidad solicitada |
 | `tramo` | `desde` del tramo aplicado |
 | `precioUnitario`, `totalNeto`, `moneda` | Según el tramo aplicable |
-| `calificacion` | Evaluación (US1) o «Sin datos» |
-| `mejor` | `true` para la opción destacada (FR-011) |
+| `calificacion` | Grade interno de FR-004 (US1) o «Sin datos», usado por FR-011 con independencia del rol; su exhibición en la tabla comparativa de US7 sigue la excepción de FR-005 (roles con `documents.create`, sin `reports.view`) |
+| `mejor` | `true` para la primera opción del ranking de FR-011 (CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación A > B > C > Sin datos → nombre alfabéticamente menor), sin conversión de moneda |
+
+Regla de comparación (FR-011): las opciones se ordenan sin conversión de moneda por CLP primero, luego moneda por defecto del proveedor, luego menor precio numérico dentro de la misma moneda, luego calificación (A > B > C > Sin datos) y, por último, nombre alfabéticamente menor. El grade se usa siempre como dato interno del ranking; la visibilidad de la columna en US7 se rige por la excepción de FR-005, no por `reports.view`. US1 es dependencia dura de US2 y US7: no se admite omisión del paso de calificación ni desempate alternativo.
 
 ### Carrito de solicitud (temporal, en el formulario)
 
