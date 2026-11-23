@@ -1,4 +1,4 @@
-# Especificación de la Funcionalidad: Gestión de Compras Avanzada
+npm run # Especificación de la Funcionalidad: Gestión de Compras Avanzada
 
 **Rama de la funcionalidad**: `007-gestion-compras-avanzada`
 
