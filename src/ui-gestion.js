@@ -22,7 +22,9 @@ import { unreadCount } from './domain/notifications.js';
 import { monthKey, areaSpend } from './domain/budget.js';
 import { parseDateInput, formatDateMask } from './domain/purchasing.js';
 import { loadDocuments, loadEntities } from './storage.js';
-import { loadOrderMetadata } from './purchasing-storage.js';
+import { getLinesForOrder, loadOrderMetadata, loadStatusHistory } from './purchasing-storage.js';
+import { stockEvolution } from './ui-dashboard.js';
+import { stockEvolutionLineChartSvg } from './ui-charts.js';
 import { PERMISSIONS } from './auth.js';
 
 let ctx = null;
@@ -543,6 +545,32 @@ export function renderReorderCard() {
         <span class="reorder-meta">${inRequest ? `<span class="reorder-open">En ${esc(inRequest.folio)}</span>` : `Sugerido: <strong>${quantity}</strong>`}</span>
       </li>`).join('')
     : '<li class="insight-empty">Nada que reponer por ahora.</li>';
+  const documents = loadDocuments();
+  const linesByOrder = new Map(documents
+    .filter(order => order.status === 'recibido')
+    .map(order => [order.id, getLinesForOrder(order.id)]));
+  const historyByOrder = new Map();
+  for (const change of loadStatusHistory()) {
+    if (!historyByOrder.has(change.id_orden_compra)) historyByOrder.set(change.id_orden_compra, []);
+    historyByOrder.get(change.id_orden_compra).push(change);
+  }
+  const evolution = stockEvolution(items, documents, { linesByOrder, historyByOrder });
+  const chart = el('chart-stock');
+  if (chart) {
+    chart.innerHTML = stockEvolutionLineChartSvg(evolution.points, evolution.minimum, { title: 'Evolución del stock' });
+  }
+  const chartBody = el('chart-stock-table')?.querySelector('tbody');
+  if (chartBody) {
+    chartBody.innerHTML = evolution.points.map(point => `<tr><td>${esc(point.label)}</td><td>${esc(point.reference)}</td><td>${esc(point.value)}</td></tr>`).join('');
+  }
+  const chartNote = el('chart-stock-note');
+  if (chartNote) {
+    chartNote.textContent = !items.length
+      ? 'Sin productos bajo el mínimo.'
+      : evolution.simulated
+        ? 'Evolución simulada: no hay recepciones registradas; el último punto es el stock actual.'
+        : `Stock total de los primeros ${Math.min(items.length, 5)} productos. Línea de mínimo: ${evolution.minimum}.`;
+  }
   const areaField = el('reorder-area-field');
   if (areaField) {
     areaField.hidden = !canCreate || !pending.length || !activeAreas.length;

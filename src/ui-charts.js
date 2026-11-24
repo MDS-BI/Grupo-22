@@ -88,3 +88,71 @@ export function spendColumnsSvg(buckets = [], currency = 'CLP', { formatMoney = 
   }).join('');
   return `<svg class="chart chart-spend" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)} en ${esc(currency)}: ${esc(summary)}">${grid}${columns}</svg>`;
 }
+
+export function topSuppliersBarChartSvg(rows = [], currency = 'CLP', { formatMoney = value => String(value), title = 'Top proveedores por monto' } = {}) {
+  const width = 520;
+  const rowHeight = 44;
+  const height = Math.max(84, rows.length * rowHeight + 16);
+  const labelWidth = 158;
+  const barMax = 240;
+  const valueX = labelWidth + barMax + 10;
+  const max = Math.max(1, ...rows.map(row => Number(row.total || 0)));
+  const summary = rows.map(row => `${row.name}: ${formatMoney(row.total, currency)}`).join(', ');
+  const grid = [0.25, 0.5, 0.75, 1].map(ratio => {
+    const x = Math.round(labelWidth + barMax * ratio);
+    return `<line x1="${x}" x2="${x}" y1="6" y2="${height - 10}" class="chart-grid chart-top-grid"></line>`;
+  }).join('');
+  const bars = rows.map((row, index) => {
+    const total = Number(row.total || 0);
+    const barWidth = Math.max(6, Math.round((total / max) * barMax));
+    const name = String(row.name || '');
+    const label = name.length > 21 ? `${name.slice(0, 20)}…` : name;
+    const amount = formatMoney(total, currency);
+    const y = index * rowHeight + 10;
+    return `<g>
+      <title>${esc(name)}: ${esc(amount)}</title>
+      <circle cx="12" cy="${y + 12}" r="11" class="chart-top-rank${index === 0 ? ' is-first' : ''}"></circle>
+      <text x="12" y="${y + 16}" text-anchor="middle" class="chart-top-rank-label">${index + 1}</text>
+      <text x="30" y="${y + 16}" class="chart-label chart-top-label">${esc(label)}</text>
+      <rect x="${labelWidth}" y="${y}" width="${barWidth}" height="24" rx="6" class="${index === 0 ? 'chart-bar-current' : 'chart-bar'}"></rect>
+      <text x="${Math.min(labelWidth + barWidth + 8, valueX)}" y="${y + 17}" class="chart-value chart-top-value">${esc(amount)}</text>
+    </g>`;
+  }).join('');
+  return `<svg class="chart chart-top" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)} en ${esc(currency)}: ${esc(summary)}">${grid}${bars}</svg>`;
+}
+
+export function stockEvolutionLineChartSvg(points = [], minimum = 0, { formatValue = value => String(value), title = 'Evolución del stock' } = {}) {
+  if (!points.length) return '';
+  const width = 520;
+  const height = 220;
+  const left = 46;
+  const right = 506;
+  const top = 20;
+  const bottom = 170;
+  const values = points.map(point => Math.max(0, Number(point.value) || 0));
+  const floor = Math.max(0, Number(minimum) || 0);
+  const ceiling = Math.max(1, floor, ...values) * 1.12;
+  const yFor = value => bottom - (value / ceiling) * (bottom - top);
+  const step = points.length > 1 ? (right - left) / (points.length - 1) : 0;
+  const coords = points.map((point, index) => ({
+    x: Math.round(left + index * step),
+    y: Math.round(yFor(values[index]))
+  }));
+  const minimumY = Math.round(yFor(floor));
+  const summary = points.map((point, index) => `${point.label}: ${formatValue(values[index])}`).join(', ');
+  const grid = [0, Math.round(ceiling / 2), Math.round(ceiling)].map(value => {
+    const y = Math.round(yFor(value));
+    return `<line x1="${left}" x2="${right}" y1="${y}" y2="${y}" class="chart-grid"></line>`;
+  }).join('');
+  const line = coords.length > 1
+    ? `<polyline points="${coords.map(point => `${point.x},${point.y}`).join(' ')}" class="chart-line"></polyline>`
+    : '';
+  const dots = coords.map((point, index) => `<g>
+      <circle cx="${point.x}" cy="${point.y}" r="5" class="chart-point"></circle>
+      <text x="${point.x}" y="${point.y - 10}" text-anchor="middle" class="chart-value">${esc(formatValue(values[index]))}</text>
+      <text x="${point.x}" y="194" text-anchor="middle" class="chart-label">${esc(points[index].label)}</text>
+    </g>`).join('');
+  const reference = `<line x1="${left}" x2="${right}" y1="${minimumY}" y2="${minimumY}" class="chart-min-line"></line>
+    <text x="${right}" y="${minimumY - 6}" text-anchor="end" class="chart-min-label">Mín. ${esc(formatValue(floor))}</text>`;
+  return `<svg class="chart chart-stock" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}. Mínimo ${esc(formatValue(floor))}: ${esc(summary)}">${grid}${reference}${line}${dots}</svg>`;
+}

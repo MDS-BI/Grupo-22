@@ -75,6 +75,57 @@ export function topSuppliers(orders = [], suppliers = [], { limit = 5 } = {}) {
   ]));
 }
 
+function shortDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ''));
+  return match ? `${match[2]}-${match[3]}` : '';
+}
+
+function lookup(map, key) {
+  if (map instanceof Map) return map.get(key) ?? map.get(String(key));
+  return map?.[key] ?? map?.[String(key)];
+}
+
+function simulatedEvolution(current, minimum) {
+  const gap = Math.max(1, minimum - current, current);
+  const ratios = [0.85, 0.65, 0.45, 0.2, 0];
+  return ratios.map((ratio, index) => ({
+    label: index === ratios.length - 1 ? 'Hoy' : `D-${ratios.length - 1 - index}`,
+    reference: '',
+    value: Math.max(0, Math.round(current + gap * ratio))
+  }));
+}
+
+export function stockEvolution(items = [], orders = [], { linesByOrder = new Map(), historyByOrder = new Map(), limit = 5 } = {}) {
+  const selected = items.slice(0, limit);
+  const ids = new Set(selected.map(({ product }) => product.id_producto || product.id));
+  const minimum = selected.reduce((sum, { product }) => sum + Math.max(0, Number(product.stock_minimo || 0)), 0);
+  const current = selected.reduce((sum, { product }) => sum + Math.max(0, Number(product.stock || 0)), 0);
+  if (!ids.size) return { points: simulatedEvolution(current, minimum), minimum, simulated: true };
+  const receipts = orders.flatMap(order => {
+    if (order.status !== 'recibido') return [];
+    const lines = lookup(linesByOrder, order.id) || [];
+    const quantity = lines.reduce((sum, line) => ids.has(line.id_producto || line.productId)
+      ? sum + Math.max(0, Number(line.cantidad || 0))
+      : sum, 0);
+    if (!quantity) return [];
+    const history = lookup(historyByOrder, order.id) || [];
+    const change = history.find(item => item.to === 'recibido');
+    const date = text(change?.changedAt || order.updatedAt || '').slice(0, 10);
+    const reference = formatPurchaseOrderFolio(order.ocFolio) || formatRequestNumber(order.folio) || text(order.folio);
+    return [{ date, label: shortDate(date) || text(reference), reference, quantity }];
+  }).sort((a, b) => a.date.localeCompare(b.date));
+  if (!receipts.length) return { points: simulatedEvolution(current, minimum), minimum, simulated: true };
+  const before = receipts.reduce((sum, receipt) => sum + receipt.quantity, 0);
+  let running = Math.max(0, current - before);
+  const points = [{ label: receipts[0].label, reference: '', value: running }];
+  for (const receipt of receipts) {
+    running += receipt.quantity;
+    points.push({ label: receipt.label, reference: receipt.reference, value: running });
+  }
+  points.push({ label: 'Hoy', reference: '', value: current });
+  return { points, minimum, simulated: false };
+}
+
 function attentionItem(order, reason, names) {
   return {
     id: order.id,

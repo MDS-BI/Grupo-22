@@ -4,9 +4,15 @@ import {
   countByStatus,
   isOverdueOrder,
   monthlySpend,
+  stockEvolution,
   topSuppliers
 } from '../../src/ui-dashboard.js';
-import { spendColumnsSvg, statusBarChartSvg } from '../../src/ui-charts.js';
+import {
+  spendColumnsSvg,
+  statusBarChartSvg,
+  stockEvolutionLineChartSvg,
+  topSuppliersBarChartSvg
+} from '../../src/ui-charts.js';
 
 const today = new Date(2026, 10, 16);
 const suppliers = [{ entity_id: 's1', name: 'Uno' }, { entity_id: 's2', name: 'Dos' }];
@@ -64,5 +70,45 @@ describe('005 · cálculos del Panel', () => {
     expect(status).toContain('OC emitida – Aprobada: 3');
     const spend = spendColumnsSvg([{ label: 'Nov 26', totals: { CLP: 1000 } }], 'CLP', { formatMoney: (value, currency) => `${currency} ${value}` });
     expect(spend).toContain('Nov 26: CLP 1000');
+  });
+
+  it('dibuja barras por proveedor y una serie de stock con mínimo', () => {
+    const topChart = topSuppliersBarChartSvg([{ name: 'Proveedor Uno', total: 2380 }], 'CLP', { formatMoney: value => `CLP ${value}` });
+    expect(topChart).toContain('<rect');
+    expect(topChart).toContain('Proveedor Uno');
+    expect(topChart).toContain('CLP 2380');
+    expect(topChart).toContain('chart-top-rank');
+    expect(topChart).toContain('chart-top-value');
+    const stockChart = stockEvolutionLineChartSvg([
+      { label: '11-01', value: 4 },
+      { label: 'Hoy', value: 9 }
+    ], 10);
+    expect(stockChart).toContain('<polyline');
+    expect(stockChart).toContain('<circle');
+    expect(stockChart).toContain('chart-min-line');
+    expect(stockChart).toContain('Mín. 10');
+  });
+
+  it('reconstruye la evolución del stock desde las recepciones', () => {
+    const low = [{ product: { id_producto: 'p1', stock: 4, stock_minimo: 10 } }];
+    const received = [{ id: 'o1', status: 'recibido', ocFolio: 1, updatedAt: '2026-11-10T00:00:00Z' }];
+    const linesByOrder = new Map([['o1', [{ id_producto: 'p1', cantidad: 6 }]]]);
+    const historyByOrder = new Map([['o1', [{ to: 'recibido', changedAt: '2026-11-10T00:00:00Z' }]]]);
+    const evolution = stockEvolution(low, received, { linesByOrder, historyByOrder });
+    expect(evolution.minimum).toBe(10);
+    expect(evolution.points.map(point => point.value)).toEqual([0, 6, 4]);
+    expect(evolution.points.at(-1).label).toBe('Hoy');
+    expect(evolution.simulated).toBe(false);
+  });
+
+  it('simula la evolución cuando no hay recepciones y nunca deja el gráfico vacío', () => {
+    const low = [{ product: { id_producto: 'p1', stock: 4, stock_minimo: 10 } }];
+    const evolution = stockEvolution(low, []);
+    expect(evolution.simulated).toBe(true);
+    expect(evolution.points).toHaveLength(5);
+    expect(evolution.points.at(-1)).toMatchObject({ label: 'Hoy', value: 4 });
+    const chart = stockEvolutionLineChartSvg(evolution.points, evolution.minimum);
+    expect(chart).toContain('<polyline');
+    expect(chart).toContain('Mín. 10');
   });
 });

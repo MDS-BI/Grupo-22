@@ -146,7 +146,7 @@ import {
   monthlySpend,
   topSuppliers
 } from './ui-dashboard.js';
-import { spendColumnsSvg, statusBarChartSvg } from './ui-charts.js';
+import { spendColumnsSvg, statusBarChartSvg, topSuppliersBarChartSvg } from './ui-charts.js';
 import { mountChips } from './ui-chips.js';
 import { loadDemoData, requiresDemoReplacement } from './purchasing-demo-data.js';
 import { confirmAction } from './ui-feedback.js';
@@ -1784,6 +1784,8 @@ function renderDashboardInsights(documents, entities) {
   const container = qs('dashboard-insights');
   if (!container) return;
   container.hidden = !isPurchasing() || !canUse(PERMISSIONS.DOCUMENTS_VIEW);
+  const attentionCard = qs('insight-attention');
+  if (attentionCard) attentionCard.hidden = container.hidden;
   for (const id of ['stat-entities-detail', 'stat-documents-detail', 'stat-overdue-detail', 'stat-products-detail']) {
     if (qs(id)) qs(id).textContent = '';
   }
@@ -1835,12 +1837,11 @@ function renderDashboardInsights(documents, entities) {
   qs('top-suppliers').innerHTML = currencies.length
     ? currencies.map(currency => {
         const rows = top[currency];
-        const max = Math.max(1, ...rows.map(row => row.total));
-        return `<div class="top-group"><h3>${escapeHtml(currency)}</h3><ol class="top-list">${rows.map(row => `<li>
-          <span class="top-name">${escapeHtml(row.name)}</span>
-          <span class="top-bar" aria-hidden="true"><span style="width:${Math.max(4, Math.round((row.total / max) * 100))}%"></span></span>
-          <strong class="top-amount">${escapeHtml(formatMoney(row.total, currency))}</strong>
-        </li>`).join('')}</ol></div>`;
+        const equivalent = rows.map(row => `<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(formatMoney(row.total, currency))}</td></tr>`).join('');
+        return `<div class="top-group"><h3>${escapeHtml(currency)}</h3>
+          ${topSuppliersBarChartSvg(rows, currency, { formatMoney, title: 'Top 5 proveedores por monto' })}
+          <table class="sr-only"><caption>Top 5 proveedores por monto en ${escapeHtml(currency)}</caption><thead><tr><th scope="col">Proveedor</th><th scope="col">Monto</th></tr></thead><tbody>${equivalent}</tbody></table>
+        </div>`;
       }).join('')
     : '<p class="insight-empty">Sin OC emitidas todavía.</p>';
 

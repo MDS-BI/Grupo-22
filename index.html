@@ -28,6 +28,11 @@
     <main class="main-content">
       <section id="view-dashboard" class="view">
         <div class="page-heading"><div><span class="eyebrow">Espacio de trabajo</span><h1 id="dashboard-heading">Adquisiciones y Compras</h1></div></div>
+        <section class="insight-card attention-card" id="insight-attention" aria-labelledby="attention-heading" hidden>
+          <h2 id="attention-heading">Requiere tu atención</h2>
+          <p class="insight-subtitle" id="attention-subtitle"></p>
+          <ul class="attention-list" id="attention-list"></ul>
+        </section>
         <div class="quick-actions">
           <button id="action-new-entity"><span class="action-icon" data-icon="plus"></span><strong id="action-new-entity-title">Nuevo Proveedor</strong></button>
           <button id="action-new-document"><span class="action-icon" data-icon="plus"></span><strong id="action-new-document-title">Nueva Orden de Compra</strong></button>
@@ -64,17 +69,15 @@
           <section class="insight-card" id="insight-reorder" aria-labelledby="reorder-heading" hidden>
             <h2 id="reorder-heading">Productos bajo el mínimo</h2>
             <p class="insight-subtitle" id="reorder-subtitle"></p>
+            <div id="chart-stock" class="chart-host"></div>
+            <table class="sr-only" id="chart-stock-table"><caption>Evolución del stock de productos bajo el mínimo</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Referencia</th><th scope="col">Stock</th></tr></thead><tbody></tbody></table>
+            <p class="insight-note" id="chart-stock-note"></p>
             <ul class="reorder-list" id="reorder-list"></ul>
             <div class="reorder-actions">
               <div class="field" id="reorder-area-field" hidden><label for="reorder-area">Área</label><select id="reorder-area"></select></div>
               <button type="button" class="primary" id="reorder-create" hidden>Crear solicitudes sugeridas</button>
             </div>
             <p class="feedback" id="reorder-feedback" role="status" aria-live="polite"></p>
-          </section>
-          <section class="insight-card" id="insight-attention" aria-labelledby="attention-heading">
-            <h2 id="attention-heading">Requiere tu atención</h2>
-            <p class="insight-subtitle" id="attention-subtitle"></p>
-            <ul class="attention-list" id="attention-list"></ul>
           </section>
         </div>
       </section>
