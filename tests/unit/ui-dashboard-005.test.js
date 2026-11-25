@@ -98,17 +98,18 @@ describe('005 · cálculos del Panel', () => {
     expect(evolution.minimum).toBe(10);
     expect(evolution.points.map(point => point.value)).toEqual([0, 6, 4]);
     expect(evolution.points.at(-1).label).toBe('Hoy');
-    expect(evolution.simulated).toBe(false);
+    expect(evolution.withoutHistory).toBe(false);
   });
 
-  it('simula la evolución cuando no hay recepciones y nunca deja el gráfico vacío', () => {
+  it('sin recepciones no inventa historia: muestra solo el stock actual frente al mínimo', () => {
     const low = [{ product: { id_producto: 'p1', stock: 4, stock_minimo: 10 } }];
     const evolution = stockEvolution(low, []);
-    expect(evolution.simulated).toBe(true);
-    expect(evolution.points).toHaveLength(5);
-    expect(evolution.points.at(-1)).toMatchObject({ label: 'Hoy', value: 4 });
+    expect(evolution.withoutHistory).toBe(true);
+    expect(evolution.points).toEqual([{ label: 'Hoy', reference: '', value: 4 }]);
     const chart = stockEvolutionLineChartSvg(evolution.points, evolution.minimum);
-    expect(chart).toContain('<polyline');
+    expect(chart).not.toContain('<polyline');
     expect(chart).toContain('Mín. 10');
+    expect(chart).not.toMatch(/D-\d/);
+    expect(stockEvolution([], []).points).toEqual([]);
   });
 });

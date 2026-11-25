@@ -1,4 +1,4 @@
-npm run # Especificación de la Funcionalidad: Gestión de Compras Avanzada
+# Especificación de la Funcionalidad: Gestión de Compras Avanzada
 
 **Rama de la funcionalidad**: `007-gestion-compras-avanzada`
 
@@ -226,6 +226,13 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 - **FR-039**: La solicitud sugerida (FR-010) y la duplicación (FR-025) DEBEN usar el precio del tramo aplicable a su cantidad.
 - **FR-040**: La ficha del proveedor (`006`) DEBE mostrar los tramos de cada precio acordado.
 
+#### Panel (mejoras de visualización)
+
+- **FR-041**: La tarjeta «Requiere tu atención» (`005`) DEBE mostrarse al inicio del Panel, antes de los indicadores, y ocultarse cuando el rol no tiene elementos pendientes. En modo oscuro, sus etiquetas de motivo («Por aprobar», «Atrasada», etc.) DEBEN mantener contraste legible.
+- **FR-042**: «Top 5 proveedores por monto» (`005`) DEBE mostrarse, por moneda, como gráfico de barras horizontales con la posición (1 a 5, la primera destacada), el nombre del proveedor (truncado con «…» sobre 21 caracteres y completo en la descripción emergente) y el monto. El gráfico DEBE tener `role="img"` con un resumen textual y una tabla equivalente oculta para lectores de pantalla.
+- **FR-043**: La tarjeta «Productos bajo el mínimo» (FR-008) DEBE incluir un gráfico de línea «Evolución del stock» con el stock total de los primeros 5 productos bajo el mínimo y una línea punteada con la suma de sus mínimos. Los puntos se reconstruyen desde las recepciones registradas: se parte del stock actual menos lo recibido, se suma cada recepción (`recibido` del historial de estados, con fecha y folio de la OC) y el último punto es «Hoy» con el stock actual. Sin recepciones de esos productos, el gráfico DEBE mostrar solo el punto «Hoy» frente al mínimo con la nota «Sin historial de recepciones»; NO DEBE inventar valores. Sin productos bajo el mínimo, no se dibuja. Incluye tabla equivalente oculta (fecha, referencia, stock).
+- **FR-044**: Los accesos rápidos del Panel DEBEN mostrarse en 5 columnas en escritorio, con el texto ajustado para no desbordar su botón.
+
 #### Datos de demostración
 
 - **FR-029**: La carga de demostración (`003`) DEBE incluir 3 áreas con presupuesto del mes en curso (uno de ellos excedido), stock mínimo en al menos 4 productos (2 bajo el mínimo), áreas en las órdenes demo, fechas de recepción que produzcan al menos un proveedor A, uno B y uno C, y tramos por cantidad en al menos 3 precios acordados de productos con más de un proveedor, coherentes con las cantidades de las órdenes demo.
@@ -246,6 +253,7 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 | `006` FR-001 y FR-011 (precio acordado) | Un precio por producto y proveedor | El precio admite tramos por cantidad y la línea usa el tramo aplicable (FR-031 a FR-033); sin tramos, el comportamiento es idéntico. |
 | `006` FR-004 (formulario de producto) | Proveedor, precio y moneda | Agrega tramos por proveedor (FR-038). |
 | `006` FR-010 y `002` (formulario de solicitud) | Se elige primero el proveedor | Modo «Comprar por producto» por defecto con comparación de proveedores y carrito multi-proveedor; el modo anterior se conserva (FR-034 a FR-037). |
+| `005` (Panel: «Requiere tu atención», «Top 5 proveedores», accesos rápidos) | Atención junto a los gráficos; Top 5 como lista con barras | Atención al inicio del Panel (FR-041); Top 5 como gráfico de barras accesible (FR-042); accesos rápidos en 5 columnas (FR-044). |
 | `003` FR-075, FR-081, FR-086 (demostración) | Sin áreas ni mínimos; 12 órdenes | Agrega datos del 007 (FR-029, FR-030) y 4 órdenes recibidas de Fábrica de Ideas para la calificación B: la demo queda con **16 órdenes**. Las pruebas existentes siguen pasando sin cambiar su intención; solo se ajustan los conteos de demostración (12→16). |
 | `005` US4 (filtros de Solicitudes y OC) | «Fecha desde/hasta» como `type="date"` (mm/dd/aaaa según el navegador) | Campos de texto con máscara `dd-mm-aaaa`, igual que la fecha de entrega. |
 | `005` US5 (modo oscuro) | Fondos de hover y de filtros mezclados con blanco | Se mezclan con `--surface`: en modo claro no cambia nada y en modo oscuro el texto sigue legible. |

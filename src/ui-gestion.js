@@ -567,8 +567,8 @@ export function renderReorderCard() {
   if (chartNote) {
     chartNote.textContent = !items.length
       ? 'Sin productos bajo el mínimo.'
-      : evolution.simulated
-        ? 'Evolución simulada: no hay recepciones registradas; el último punto es el stock actual.'
+      : evolution.withoutHistory
+        ? 'Sin historial de recepciones: se muestra solo el stock actual frente al mínimo.'
         : `Stock total de los primeros ${Math.min(items.length, 5)} productos. Línea de mínimo: ${evolution.minimum}.`;
   }
   const areaField = el('reorder-area-field');

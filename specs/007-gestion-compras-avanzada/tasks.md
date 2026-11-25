@@ -157,6 +157,13 @@
 - [x] T053 [P] Documentar el 007 en `README.md` y completar `quickstart.md`.
 - [x] T054 Ejecutar `npm test -- --run`, `npm run lint` y `npm run build`; recorrido manual del quickstart con capturas.
 
+## Phase 10: Mejoras del Panel (FR-041 a FR-044)
+
+- [x] T066 [P] Mover `#insight-attention` al inicio del Panel en `index.html`, ocultarla sin pendientes (`renderDashboardInsights` en `src/app.js`) y agregar el contraste de `.attention-reason` en modo oscuro (`src/styles.css`) (FR-041).
+- [x] T067 [P] Implementar `topSuppliersBarChartSvg` en `src/ui-charts.js` y usarlo en el Top 5 del Panel (`src/app.js`) con tabla equivalente oculta; accesos rápidos en 5 columnas (FR-042, FR-044).
+- [x] T068 Implementar `stockEvolution` en `src/ui-dashboard.js` y `stockEvolutionLineChartSvg` en `src/ui-charts.js`; mostrar el gráfico `#chart-stock`, su tabla `#chart-stock-table` y la nota `#chart-stock-note` en la tarjeta «Productos bajo el mínimo» (`renderReorderCard` en `src/ui-gestion.js`). Sin recepciones, solo el punto «Hoy» y la nota «Sin historial de recepciones» (FR-043).
+- [x] T069 [P] Pruebas unitarias en `tests/unit/ui-dashboard-005.test.js`: barras del Top 5, reconstrucción del stock desde recepciones, y caso sin recepciones que no inventa puntos (FR-042, FR-043).
+
 ## Dependencies & Execution Order
 
 - Phase 1 → Phase 2 → historias.
@@ -179,7 +186,7 @@
 
 ## Nota de implementación (2026-11-16)
 
-Todas las tareas están implementadas, salvo T064 (revalidación de precio en servidor) y T065 (prueba dedicada de `AREA_REQUIRED`), agregadas tras el análisis. Algunos archivos quedaron agrupados distinto a lo planificado:
+Las mejoras del Panel (T066–T069, FR-041 a FR-044) se agregaron después, para documentar en el spec el commit `4afb7bc`. Todas las tareas están implementadas, salvo T064 (revalidación de precio en servidor) y T065 (prueba dedicada de `AREA_REQUIRED`), agregadas tras el análisis. Algunos archivos quedaron agrupados distinto a lo planificado:
 
 | Planificado | Implementado |
 |---|---|
