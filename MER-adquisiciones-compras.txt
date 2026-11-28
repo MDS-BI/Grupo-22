@@ -1,65 +1,264 @@
-MODELO ENTIDAD-RELACIÓN - MÓDULO DE ADQUISICIONES Y COMPRAS
+MODELO ENTIDAD-RELACIÓN - MÓDULO DE ADQUISICIONES Y COMPRAS (ITERACIÓN 007)
 
+Este archivo describe el MER completo del módulo después de la iteración 007.
+Mantiene las seis entidades originales y agrega rubros, listas de precios con
+tramos, áreas con presupuesto mensual, usuarios con rol RBAC e historial de
+estados, entre las extensiones de soporte. Los nombres entre paréntesis son los
+campos reales guardados en localStorage.
+
+=======================================================================
 ENTIDADES
+=======================================================================
 
-1. PROVEEDOR (equivale a Entidad en módulo base)
+1. PROVEEDOR (equivale a Entidad en el módulo base)
    - entity_id (PK, generado automáticamente)
-   - codigo (UK, VARCHAR, OBLIGATORIO)
-   - nombre (VARCHAR, OBLIGATORIO)
-   - rut (VARCHAR, OPCIONAL)
+   - codigo / code (UK, VARCHAR, OBLIGATORIO)
+   - nombre / name (VARCHAR, OBLIGATORIO)
+   - rut / taxId / foreignTaxId (VARCHAR, OPCIONAL)
    - email (VARCHAR, OPCIONAL, formato válido)
-   - telefono (VARCHAR, OPCIONAL)
-   - direccion (VARCHAR, OPCIONAL)
+   - telefono / phone (VARCHAR, OPCIONAL)
+   - direccion / address (VARCHAR, OPCIONAL)
+   - origen (VARCHAR, 'Nacional' o 'Extranjero'; define moneda e IVA)
+   - paymentTerms (VARCHAR: Contado, 30 días, 60 días, 90 días)
+   - rubro_ids (FK -> RUBRO.id_rubro, MULTIVALUADO; 0..N)
+   - estado (VARCHAR, 'activo' o 'inactivo'; DEFAULT 'activo') [007]
+     * Un proveedor inactivo no se ofrece en solicitudes nuevas,
+       sugeridas ni duplicadas; conserva sus OC, ficha y evaluación.
+   - createdAt, updatedAt (ISO)
 
 2. EMPLEADO
-   - id_empleado (PK, INT, AUTO_INCREMENT)
+   - id_empleado (PK, INT/VARCHAR, AUTO_INCREMENT/UUID)
+   - userId (FK -> USUARIO.userId, OPCIONAL; presente en usuarios demo)
    - nombre (VARCHAR, OBLIGATORIO)
    - cargo (VARCHAR, OPCIONAL)
+   - createdAt, updatedAt (ISO)
+   * No se elimina si tiene órdenes asociadas.
 
-3. CATEGORIA
-   - id_categoria (PK, INT, AUTO_INCREMENT)
+3. USUARIO (autenticación y RBAC, módulo 004)
+   - userId (PK, VARCHAR 2-40 [A-Z0-9._@-], normalizado a mayúsculas)
    - nombre (VARCHAR, OBLIGATORIO)
+   - cargo (VARCHAR, OPCIONAL)
+   - role (VARCHAR: 'administrador', 'gerente', 'comprador', 'bodeguero',
+           'consulta'; valor inválido -> 'consulta')
+   - activo (BOOLEAN, DEFAULT true)
+   - id_empleado (FK -> EMPLEADO.id_empleado, OPCIONAL)
+   * El rol determina los permisos, entre ellos reports.view y
+     budgets.manage, agregados en la iteración 007.
 
-4. PRODUCTO
-   - id_producto (PK, INT, AUTO_INCREMENT)
+4. CATEGORIA
+   - id_categoria (PK, INT/VARCHAR, AUTO_INCREMENT/UUID)
+   - nombre (VARCHAR, OBLIGATORIO, UNICO sin distinguir mayúsculas)
+   * No se elimina si tiene productos asociados.
+
+5. RUBRO [007, visible desde 005]
+   - id_rubro (PK, INT/VARCHAR, AUTO_INCREMENT/UUID)
+   - nombre (VARCHAR, OBLIGATORIO, UNICO sin distinguir mayúsculas ni tildes)
+   - createdAt, updatedAt (ISO)
+   * Un proveedor puede pertenecer a varios rubros y un rubro a varios
+     proveedores; en Reportes el gasto se cuenta completo en cada rubro.
+
+6. PROVEEDOR_RUBRO (entidad intermedia de la relación M:N) [007]
+   - entity_id (PK, FK -> PROVEEDOR.entity_id)
+   - id_rubro (PK, FK -> RUBRO.id_rubro)
+   * Implementado físicamente como el arreglo rubro_ids dentro de PROVEEDOR.
+
+7. PRODUCTO
+   - id_producto (PK, INT/VARCHAR, AUTO_INCREMENT/UUID)
    - nombre (VARCHAR, OBLIGATORIO)
-   - unidad_medida (VARCHAR, OPCIONAL - unidad, kilo, caja, etc.)
-   - stock (INT, DEFAULT 0)
+   - unidad_medida (VARCHAR, OPCIONAL: unidad, kilo, caja, etc.)
+   - stock (INT, DEFAULT 0; aumenta una sola vez al recibir una OC)
+   - stock_minimo (INT, DEFAULT 0, >= 0) [007]
+     * 0 significa sin control; está bajo el mínimo cuando stock <= stock_minimo
+       y stock_minimo > 0. Cantidad sugerida = max(1, 2*mínimo - stock).
    - id_categoria (FK -> CATEGORIA.id_categoria)
+   - createdAt, updatedAt (ISO)
 
-5. ORDEN_COMPRA (equivale a Documento en módulo base)
-   - id_orden_compra (PK, generado automáticamente)
+8. LISTA_PRECIO (precio acordado producto-proveedor, módulo 006 + 007)
+   - id (PK, generado automáticamente)
+   - id_producto (FK -> PRODUCTO.id_producto, OBLIGATORIO)
    - entity_id (FK -> PROVEEDOR.entity_id, OBLIGATORIO)
-   - id_empleado (FK -> EMPLEADO.id_empleado, OBLIGATORIO)
-   - folio (INT, OBLIGATORIO, POSITIVO, único por serie)
-   - fecha_emision (DATE, OBLIGATORIO, formato YYYY-MM-DD)
-   - fecha_entrega (DATE, OBLIGATORIO, >= fecha_emision)
-   - estado (VARCHAR, controlado por statusLifecycle)
-   - total (DECIMAL/NUMERIC, >= 0)
+   - precio (DECIMAL/NUMERIC, > 0; precio base, equivale al tramo desde 1)
+   - moneda (VARCHAR: 'CLP', 'USD' o 'EUR'; permitida según origen del proveedor)
+   - tramos (LISTA de {desde, precio}, OPCIONAL) [007]
+     * desde entero >= 1, único y ordenado; tramo desde 1 obligatorio
+       si existen tramos; precio > 0 en la moneda de la lista.
+     * Precio aplicable a cantidad q: tramo con mayor desde <= q.
+   - createdAt, updatedAt (ISO)
+   * Unicidad por par (entity_id, id_producto). Solo roles con
+     pricelists.manage mantienen la lista.
 
-6. DETALLE_COMPRA (Entidad intermedia - resuelve M:N)
-   - id_orden_compra (PK, FK -> ORDEN_COMPRA.id_orden_compra)
-   - id_producto (PK, FK -> PRODUCTO.id_producto)
-   - cantidad (INT, OBLIGATORIO, > 0)
-   - costo_unitario (DECIMAL/NUMERIC, OBLIGATORIO, >= 0)
+9. TRAMO_PRECIO (detalle de la lista de precios por cantidad) [007]
+   - id_lista_precio (PK, FK -> LISTA_PRECIO.id)
+   - desde (PK, INT, >= 1, único dentro de la lista)
+   - precio (DECIMAL/NUMERIC, > 0, en la moneda de LISTA_PRECIO)
+   * Persistido anidado en LISTA_PRECIO.tramos.
 
+10. ORDEN_COMPRA (equivale a Documento en el módulo base)
+    - id (PK, generado automáticamente)
+    - entity_id (FK -> PROVEEDOR.entity_id, OBLIGATORIO)
+    - folio (INT, OBLIGATORIO, POSITIVO; correlativo de solicitud SOL-0001)
+    - ocFolio (INT, OPCIONAL; correlativo de OC OC-0001 al aprobar)
+    - fecha_emision / startDate (DATE, OBLIGATORIO, YYYY-MM-DD)
+    - fecha_entrega / endDate (DATE, OBLIGATORIO, >= fecha_emision)
+    - estado / status (VARCHAR controlado por statusLifecycle:
+                      borrador, pendiente, aprobado, recibido, cancelado)
+    - moneda / currency (VARCHAR: CLP, USD, EUR; sin conversión automática)
+    - paymentTerms (VARCHAR, OPCIONAL)
+    - subtotal, discount, taxAmount (DECIMAL/NUMERIC, OPCIONALES)
+    - total / totalAmount (DECIMAL/NUMERIC, >= 0, calculado)
+    - createdAt, updatedAt (ISO)
+
+11. DETALLE_COMPRA (entidad intermedia; resuelve M:N OC-PRODUCTO)
+    - id_orden_compra (PK, FK -> ORDEN_COMPRA.id)
+    - id_producto (PK, FK -> PRODUCTO.id_producto)
+    - cantidad (INT, OBLIGATORIO, > 0)
+    - costo_unitario (DECIMAL/NUMERIC, OBLIGATORIO, >= 0)
+      * Con lista de precios se recalcula desde LISTA_PRECIO/tramos;
+        sin lista se mantiene el precio manual del módulo 002.
+    - totalNeto (DERIVADO = cantidad * costo_unitario)
+
+12. METADATA_ORDEN (extensión de la orden)
+    - id (PK, generado automáticamente)
+    - id_orden_compra (FK -> ORDEN_COMPRA.id, UNICO)
+    - id_empleado (FK -> EMPLEADO.id_empleado, OBLIGATORIO)
+    - id_area (FK -> AREA.id_area, OPCIONAL) [007]
+      * Los borradores se guardan sin exigirlo; se valida AREA_REQUIRED
+        al enviar a revisión si existe al menos un área activa.
+    - stock_aplicado (BOOLEAN, controla la recepción idempotente)
+    - appliedAt, createdAt, updatedAt (ISO)
+
+13. AREA (centro de costo) [007]
+    - id_area (PK, generado automáticamente)
+    - nombre (VARCHAR, OBLIGATORIO, UNICO sin distinguir mayúsculas ni tildes)
+    - activa (BOOLEAN, DEFAULT true)
+    - presupuesto_mensual_clp (DERIVADO de PRESUPUESTO_MENSUAL; CLP entero >= 0)
+    - createdAt, updatedAt (ISO)
+    * Un área desactivada no se ofrece en solicitudes nuevas, pero sus OC
+      siguen apareciendo en Reportes. Escritura con budgets.manage.
+
+14. PRESUPUESTO_MENSUAL [007]
+    - id (PK, generado automáticamente)
+    - id_area (FK -> AREA.id_area, OBLIGATORIO)
+    - mes (VARCHAR 'aaaa-mm', OBLIGATORIO)
+    - monto (INT, CLP, >= 0; 0 cuenta como definido)
+    - createdAt, updatedAt (ISO)
+    * UNICO por (id_area, mes). Solo OC en CLP descuentan del presupuesto.
+
+15. HISTORIAL_ESTADO (trazabilidad del ciclo de vida)
+    - id (PK, generado automáticamente, INMUTABLE)
+    - id_orden_compra (FK -> ORDEN_COMPRA.id, OBLIGATORIO)
+    - from (VARCHAR, estado anterior)
+    - to (VARCHAR, estado nuevo)
+    - changedAt (ISO, fecha/hora del cambio en America/Santiago)
+    * El registro con to='recibido' entrega la fecha de recepción usada
+      por la evaluación de proveedores; si no existe, se usa updatedAt
+      de la orden como fecha aproximada.
+
+16. LECTURA_NOTIFICACION [007]
+    - userId (PK, FK -> USUARIO.userId)
+    - idsLeidos (LISTA de VARCHAR '<tipo>:<idOrden>:<estado>')
+      * Máximo 500 por usuario. Los avisos se derivan del estado actual;
+        solo se persiste su lectura.
+
+17. TRANSACCION (recuperación ante fallos)
+    - id (PK)
+    - type (VARCHAR: 'transition' o 'receipt')
+    - id_orden_compra (FK -> ORDEN_COMPRA.id)
+    - before, after (SNAPSHOT de las claves de persistencia)
+    - appliedAt (ISO, OPCIONAL)
+
+=======================================================================
 RELACIONES Y CARDINALIDADES
+=======================================================================
 
 - PROVEEDOR (1) ----< (N) ORDEN_COMPRA
-  Un proveedor puede recibir muchas órdenes de compra. Cada orden pertenece a un solo proveedor.
+  Un proveedor puede recibir muchas órdenes; cada orden pertenece a uno solo.
+  Los proveedores inactivos conservan sus órdenes pero no reciben nuevas.
 
-- EMPLEADO (1) ----< (N) ORDEN_COMPRA
-  Un empleado puede registrar muchas órdenes de compra. Cada orden es registrada por un solo empleado.
+- EMPLEADO (1) ----< (N) ORDEN_COMPRA (vía METADATA_ORDEN)
+  Un empleado registra muchas órdenes; cada orden tiene un solicitante.
 
-- ORDEN_COMPRA (1) ----< (N) DETALLE_COMPRA (mínimo 1)
-  Una orden de compra tiene al menos una línea de detalle y puede tener varias.
+- USUARIO (1) ----< (1) EMPLEADO (opcional)
+  El usuario de la sesión se vincula a su empleado para "Solo mis OC" y
+  para las notificaciones de solicitudes aprobadas o rechazadas.
 
-- PRODUCTO (1) ----< (N) DETALLE_COMPRA
-  Un producto puede aparecer en muchas líneas de detalle de distintas órdenes de compra.
+- USUARIO (N) ----< (1) ROL (RBAC)
+  Un rol concentra los permisos: 19 de la iteración 004 más reports.view
+  y budgets.manage de la iteración 007.
+
+- PROVEEDOR (N) >----< (N) RUBRO
+  Resuelta por PROVEEDOR_RUBRO / rubro_ids. Un proveedor tiene 0..N rubros;
+  un rubro agrupa 0..N proveedores.
 
 - CATEGORIA (1) ----< (N) PRODUCTO
-  Una categoría agrupa muchos productos. Cada producto pertenece a una sola categoría.
+  Una categoría agrupa muchos productos; cada producto tiene una sola.
 
-NOTA: La relación entre ORDEN_COMPRA y PRODUCTO es muchos a muchos (M:N), 
-resuelta mediante la entidad intermedia DETALLE_COMPRA con clave primaria compuesta 
-(id_orden_compra, id_producto).
+- PRODUCTO (N) >----< (N) PROVEEDOR
+  Resuelta por LISTA_PRECIO: un producto se vende a varios proveedores y
+  cada proveedor acuerda un precio (con moneda y tramos por cantidad).
+
+- LISTA_PRECIO (1) ----< (N) TRAMO_PRECIO
+  Cada lista puede tener varios tramos por cantidad, con desde único.
+
+- ORDEN_COMPRA (1) ----< (N) DETALLE_COMPRA (mínimo 1)
+  Una orden tiene al menos una línea y puede tener varias.
+
+- PRODUCTO (1) ----< (N) DETALLE_COMPRA
+  Un producto aparece en muchas líneas de distintas órdenes.
+
+- AREA (1) ----< (N) PRESUPUESTO_MENSUAL
+  Un área tiene un presupuesto por mes; la clave es (id_area, mes).
+
+- AREA (1) ----< (N) ORDEN_COMPRA (vía METADATA_ORDEN, opcional)
+  Si hay áreas activas, el área se exige al enviar la solicitud a revisión;
+  las órdenes antiguas se muestran como "Sin área".
+
+- ORDEN_COMPRA (1) ----< (N) HISTORIAL_ESTADO
+  Cada transición válida agrega un registro inmutable; una transición
+  inválida no modifica la orden ni el historial.
+
+- ORDEN_COMPRA (1) ----< (N) LECTURA_NOTIFICACION (derivada)
+  Los avisos se calculan del estado actual y del historial; el usuario
+  solo guarda cuáles ya leyó.
+
+=======================================================================
+REGLAS DE INTEGRIDAD DE LA ITERACION 007
+=======================================================================
+
+- Datos anteriores: productos sin stock_minimo (= 0), órdenes sin id_area
+  ("Sin área") y proveedores sin estado (= activo).
+- Evaluación de proveedores: A >= 90% de entregas a tiempo, B >= 70% y < 90%,
+  C < 70%, "Sin datos" sin OC recibidas evaluables. El grade es dato interno
+  del desempate de FR-011 y se muestra según permisos (US7 tiene excepción).
+- Comparación de ofertas: CLP -> moneda por defecto del proveedor -> menor
+  precio numérico en la misma moneda -> calificación -> nombre, sin conversión.
+- Presupuesto: solo OC en CLP; Gerente ve el disponible al aprobar y recibe
+  una advertencia no bloqueante si se excede.
+- Notificaciones: derivadas del estado y del rol; el contador DEBE coincidir
+  con los avisos no leídos.
+- Exportación CSV: filas visibles con filtros activos, ';' como separador,
+  UTF-8 con BOM y escapado RFC 4180.
+- Sustitución de demostración: elimina de forma atómica todas las claves,
+  incluidas áreas, presupuestos, tramos y lecturas de notificaciones.
+- Eliminar un proveedor con OC sigue eliminando en cascada sus órdenes; la
+  confirmación advierte cuántas y recomienda usar "Inactivar".
+
+=======================================================================
+CORRESPONDENCIA CON EL MODULO BASE
+=======================================================================
+
+| En el MER              | En el módulo base | Tratamiento                                      |
+|------------------------|-------------------|--------------------------------------------------|
+| PROVEEDOR              | Entidad           | Renombrado; agrega estado y rubro_ids            |
+| ORDEN_COMPRA           | Documento         | Renombrado; statusLifecycle y ocFolio            |
+| EMPLEADO, PRODUCTO,    | Sin equivalente   | Extensión: datos maestros adicionales            |
+| CATEGORIA, RUBRO, AREA |                   |                                                  |
+| DETALLE_COMPRA,        | Sin equivalente   | Extensión: líneas, metadata e historial          |
+| METADATA_ORDEN,        |                   |                                                  |
+| HISTORIAL_ESTADO       |                   |                                                  |
+| USUARIO                | erp_auth:users    | Autenticación y RBAC (004)                       |
+
+Nota: la relación ORDEN_COMPRA-PRODUCTO es M:N y se resuelve con
+DETALLE_COMPRA, cuya clave primaria es compuesta (id_orden_compra,
+id_producto). La relación PROVEEDOR-RUBRO también es M:N y se resuelve con
+PROVEEDOR_RUBRO, de clave primaria compuesta (entity_id, id_rubro).

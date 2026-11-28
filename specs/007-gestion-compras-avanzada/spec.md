@@ -35,27 +35,6 @@ Como **Gerente de Compras**, quiero ver en la ficha de cada proveedor su puntual
 
 ---
 
-### Historia de Usuario 7 - Comprar por producto comparando proveedores y precios por cantidad (Prioridad: P1)
-
-Como **Comprador**, quiero empezar una solicitud eligiendo el producto y la cantidad, y que el sistema me muestre los proveedores que ya lo venden con el precio acordado para esa cantidad, para elegir la mejor opción sin saber de antemano a quién comprarle.
-
-**Por qué esta prioridad**: Es el recorrido natural de una compra y corrige la observación de la revisión: hoy hay que elegir el proveedor antes de ver qué vende. Además incorpora descuentos por volumen, habituales en los acuerdos con proveedores.
-
-**Prueba Independiente**: Con datos de demostración, abrir «+ Nueva solicitud» → «Comprar por producto», buscar un producto con dos proveedores, ingresar una cantidad que cruce un tramo de precio, comprobar la tabla comparativa (con su columna «Calificación» visible para el Comprador según FR-005) y la opción destacada, agregar dos productos de proveedores distintos y guardar: se crean dos solicitudes, una por proveedor.
-
-**Escenarios de Aceptación**:
-
-1. **Dado** el formulario de nueva solicitud, **cuando** se abre, **entonces** ofrece dos modos: «Comprar por producto» (por defecto) y «Elegir proveedor primero» (el flujo actual del `006`).
-2. **Dado** el modo «Comprar por producto», **cuando** el Comprador busca un producto y escribe una cantidad, **entonces** ve una tabla con cada proveedor **activo** que lo vende: precio unitario aplicable a esa cantidad, tramo aplicado, total neto, moneda y calificación (Historia 1). La calificación mostrada en esta tabla sigue la excepción de FR-005: se muestra a los roles que usan este modo (requiere `documents.create`) sin exigir `reports.view`; el grade calculado por `gradeFor` (FR-004) se usa además como valor **interno** del criterio de FR-011 con independencia del rol. Ante ofertas en monedas mixtas, la tabla se ordena con el mismo criterio determinista de FR-011 (CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación → nombre), sin conversión automática de moneda.
-3. **Dada** la tabla comparativa, **cuando** se muestra, **entonces** la primera opción según el criterio determinista de FR-011 (CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación A > B > C > Sin datos → nombre alfabéticamente menor; sin conversión de moneda) queda destacada como «Mejor precio» y se elige con un clic; también se puede elegir otra.
-4. **Dado** un precio acordado con tramos (por ejemplo 1–9 a $1.000, 10–49 a $950, 50 o más a $900), **cuando** la cantidad cambia, **entonces** el precio unitario se recalcula con el tramo cuya cantidad mínima es la mayor que no supera la cantidad.
-5. **Dados** productos elegidos de proveedores distintos, **cuando** se guarda, **entonces** se crea una solicitud por proveedor con sus líneas, el mismo empleado y fecha de entrega; el borrador se guarda sin `id_area` y el área se exige al enviar a revisión (regla única de FR-018), y el aviso informa los números creados (por ejemplo «Se crearon SOL-0012 y SOL-0013»).
-6. **Dado** un producto sin proveedores activos con precio, **cuando** se busca, **entonces** se indica «Sin proveedores con precio acordado» y no se puede agregar.
-7. **Dado** el modo «Elegir proveedor primero» o la edición de una solicitud existente, **cuando** se agregan líneas, **entonces** el precio también usa los tramos según la cantidad y sigue sin ser editable (`006` FR-011).
-8. **Dado** el formulario de producto, **cuando** un rol con `pricelists.manage` edita el precio acordado con un proveedor, **entonces** puede agregar tramos «desde N unidades: precio»; un precio sin tramos equivale a un único tramo desde 1 unidad.
-
----
-
 ### Historia de Usuario 2 - Detectar productos bajo el mínimo y generar la solicitud sugerida (Prioridad: P1)
 
 Como **Bodeguero**, quiero definir un stock mínimo por producto y ver cuáles están bajo ese mínimo; como **Comprador**, quiero generar con un clic las solicitudes para reponerlos con el proveedor de mejor precio.
@@ -69,7 +48,7 @@ Como **Bodeguero**, quiero definir un stock mínimo por producto y ver cuáles e
 1. **Dado** el formulario de producto, **cuando** un rol con `products.manage` lo edita, **entonces** puede ingresar «Stock mínimo» (entero ≥ 0; 0 significa sin control).
 2. **Dado** un producto con stock mínimo > 0 y stock **menor o igual** al mínimo, **cuando** se abre el Panel, **entonces** aparece en la tarjeta «Productos bajo el mínimo» con su stock, su mínimo y la cantidad sugerida.
 3. **Dado** un producto bajo el mínimo, **cuando** se calcula la cantidad sugerida, **entonces** es `2 × mínimo − stock actual` (reponer hasta el doble del mínimo), con un mínimo de 1.
-4. **Dados** productos bajo el mínimo con lista de precios, **cuando** el Comprador pulsa «Crear solicitud sugerida», **entonces** el sistema crea **un borrador por proveedor**, eligiendo para cada producto el proveedor primero según el criterio determinista de FR-011 (CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación A > B > C > Sin datos → nombre alfabéticamente menor; sin conversión de moneda), aplicando los tramos de la Historia 7 a la cantidad sugerida, con la cantidad sugerida y el precio de la lista. Los borradores se crean sin exigir `id_area`, aunque haya áreas activas; el área se asigna al enviar a revisión (regla única de FR-018).
+4. **Dados** productos bajo el mínimo con lista de precios, **cuando** el Comprador pulsa «Crear solicitud sugerida», **entonces** el sistema crea **un borrador por proveedor**, eligiendo para cada producto el proveedor primero según el criterio determinista de FR-011 (CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación A > B > C > Sin datos → nombre alfabéticamente menor; sin conversión de moneda), aplicando los tramos de US7 a la cantidad sugerida, con la cantidad sugerida y el precio de la lista. Los borradores se crean sin exigir `id_area`, aunque haya áreas activas; el área se asigna al enviar a revisión (regla única de FR-018).
 5. **Dado** un producto bajo el mínimo sin ningún proveedor en su lista de precios, **cuando** se generan las solicitudes, **entonces** se omite y el aviso de resultado lo nombra.
 6. **Dados** los borradores generados, **cuando** el Comprador los abre, **entonces** siguen el flujo normal de `002` y `004` (editar, enviar a revisión, aprobar); quedan asociados al empleado de la sesión. Los borradores pueden guardarse sin `id_area` aunque haya áreas activas; si las hay, el Comprador debe elegir un área activa válida **al enviarlos a revisión**, momento en que se valida `AREA_REQUIRED` y se guarda en la metadata de la orden (regla única de FR-018).
 7. **Dado** el Bodeguero, **cuando** ve el Panel, **entonces** ve la tarjeta «Productos bajo el mínimo» pero no el botón «Crear solicitud sugerida» (requiere `documents.create`).
@@ -140,8 +119,31 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 1. **Dada** una orden en cualquier estado, **cuando** un rol con `documents.create` pulsa «Duplicar», **entonces** se crea un borrador nuevo con el mismo proveedor, área, condición de pago y líneas, con los precios **vigentes** de la lista del `006`, folio correlativo nuevo y sin folio OC; las líneas cuyo producto ya no está en la lista se omiten y se informa cuáles.
 2. **Dado** un proveedor, **cuando** un rol con `entities.update` pulsa «Inactivar», **entonces** el proveedor queda inactivo: no aparece en el selector de nuevas solicitudes ni en las sugeridas, conserva sus OC, su ficha y su evaluación, y se muestra con la etiqueta «Inactivo» en listas y búsqueda; «Reactivar» lo revierte.
 3. **Dado** un proveedor con OC, **cuando** se pide eliminarlo, **entonces** el diálogo de confirmación advierte que se eliminarán sus N órdenes (`001` FR-003) y recomienda usar la acción «Inactivar», disponible junto a «Eliminar» en la misma fila o tarjeta.
-4. **Dadas** las listas de Proveedores, Productos y Solicitudes y Órdenes de Compra, **cuando** se pulsa «Exportar CSV», **entonces** se descargan las filas visibles con los filtros activos, con las mismas columnas de la tabla, en el formato CSV de la Historia 3.
+4. **Dadas** las listas de Proveedores, Productos y Solicitudes y Órdenes de Compra, **cuando** se pulsa «Exportar CSV», **entonces** se descargan las filas visibles con los filtros activos, con las mismas columnas de la tabla, en el formato CSV de US3.
 5. **Dada** una OC de un proveedor inactivo, **cuando** se edita o duplica, **entonces** se informa que el proveedor está inactivo y no se permite duplicar hasta reactivarlo.
+
+---
+
+### Historia de Usuario 7 - Comprar por producto comparando proveedores y precios por cantidad (Prioridad: P1)
+
+Como **Comprador**, quiero empezar una solicitud eligiendo el producto y la cantidad, y que el sistema me muestre los proveedores que ya lo venden con el precio acordado para esa cantidad, para elegir la mejor opción sin saber de antemano a quién comprarle.
+
+**Por qué esta prioridad**: Es el recorrido natural de una compra y corrige la observación de la revisión: hoy hay que elegir el proveedor antes de ver qué vende. Además incorpora descuentos por volumen, habituales en los acuerdos con proveedores.
+
+**Prueba Independiente**: Con datos de demostración, abrir «+ Nueva solicitud» → «Comprar por producto», buscar un producto con dos proveedores, ingresar una cantidad que cruce un tramo de precio, comprobar la tabla comparativa (con su columna «Calificación» visible para el Comprador según FR-005) y la opción destacada, agregar dos productos de proveedores distintos y guardar: se crean dos solicitudes, una por proveedor.
+
+**Escenarios de Aceptación**:
+
+1. **Dado** el formulario de nueva solicitud, **cuando** se abre, **entonces** ofrece dos modos: «Comprar por producto» (por defecto) y «Elegir proveedor primero» (el flujo actual del `006`).
+2. **Dado** el modo «Comprar por producto», **cuando** el Comprador busca un producto y escribe una cantidad, **entonces** ve una tabla con cada proveedor **activo** que lo vende: precio unitario aplicable a esa cantidad, tramo aplicado, total neto, moneda y calificación (US1). La calificación mostrada en esta tabla sigue la excepción de FR-005: se muestra a los roles que usan este modo (requiere `documents.create`) sin exigir `reports.view`; el grade calculado por `gradeFor` (FR-004) se usa además como valor **interno** del criterio de FR-011 con independencia del rol. Ante ofertas en monedas mixtas, la tabla se ordena con el mismo criterio determinista de FR-011 (CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación → nombre), sin conversión automática de moneda.
+3. **Dada** la tabla comparativa, **cuando** se muestra, **entonces** la primera opción según el criterio determinista de FR-011 (CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación A > B > C > Sin datos → nombre alfabéticamente menor; sin conversión de moneda) queda destacada como «Mejor precio» y se elige con un clic; también se puede elegir otra.
+4. **Dado** un precio acordado con tramos (por ejemplo 1–9 a $1.000, 10–49 a $950, 50 o más a $900), **cuando** la cantidad cambia, **entonces** el precio unitario se recalcula con el tramo cuya cantidad mínima es la mayor que no supera la cantidad.
+5. **Dados** productos elegidos de proveedores distintos, **cuando** se guarda, **entonces** se crea una solicitud por proveedor con sus líneas, el mismo empleado y fecha de entrega; el borrador se guarda sin `id_area` y el área se exige al enviar a revisión (regla única de FR-018), y el aviso informa los números creados (por ejemplo «Se crearon SOL-0012 y SOL-0013»).
+6. **Dado** un producto sin proveedores activos con precio, **cuando** se busca, **entonces** se indica «Sin proveedores con precio acordado» y no se puede agregar.
+7. **Dado** el modo «Elegir proveedor primero» o la edición de una solicitud existente, **cuando** se agregan líneas, **entonces** el precio también usa los tramos según la cantidad y sigue sin ser editable (`006` FR-011).
+8. **Dado** el formulario de producto, **cuando** un rol con `pricelists.manage` edita el precio acordado con un proveedor, **entonces** puede agregar tramos «desde N unidades: precio»; un precio sin tramos equivale a un único tramo desde 1 unidad.
+
+---
 
 ### Casos Límite
 
@@ -203,7 +205,7 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 #### Notificaciones
 
 - **FR-022**: La campana reservada por el `005` (FR-013 del `005`) DEBE mostrarse con sesión activa, con contador de no leídos y una bandeja accesible (botón con `aria-expanded`, lista con enlaces a cada orden).
-- **FR-023**: Los avisos DEBEN derivarse del estado actual según el rol (Historia 5, escenario 2) y reutilizar la función de «Requiere tu atención» del `005`.
+- **FR-023**: Los avisos DEBEN derivarse del estado actual según el rol (US5, escenario 2) y reutilizar la función de «Requiere tu atención» del `005`.
 - **FR-024**: El estado de lectura DEBE guardarse por usuario en `localStorage`; cada aviso tiene un identificador estable `<tipo>:<idOrden>:<estado>`.
 
 #### Mejoras rápidas
@@ -212,6 +214,11 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 - **FR-026**: El proveedor DEBE admitir el estado `activo`/`inactivo` (por defecto activo), editable con `entities.update`; los inactivos no se ofrecen en solicitudes nuevas, sugeridas ni duplicadas.
 - **FR-027**: La confirmación de eliminar un proveedor con OC DEBE informar cuántas órdenes se eliminarán y recomendar la acción «Inactivar», que se muestra junto a «Eliminar».
 - **FR-028**: Las listas de Proveedores, Productos y Solicitudes y Órdenes de Compra DEBEN permitir exportar a CSV las filas visibles con los filtros activos (formato FR-016).
+
+#### Datos de demostración
+
+- **FR-029**: La carga de demostración (`003`) DEBE incluir 3 áreas con presupuesto del mes en curso (uno de ellos excedido), stock mínimo en al menos 4 productos (2 bajo el mínimo), áreas en las órdenes demo, fechas de recepción que produzcan al menos un proveedor A, uno B y uno C, y tramos por cantidad en al menos 3 precios acordados de productos con más de un proveedor, coherentes con las cantidades de las órdenes demo.
+- **FR-030**: La sustitución de datos demo DEBE eliminar también áreas, presupuestos y estados de lectura de notificaciones.
 
 #### Comprar por producto y precios por cantidad
 
@@ -232,11 +239,6 @@ Como **usuario de Compras**, quiero duplicar una OC como nuevo borrador, inactiv
 - **FR-042**: «Top 5 proveedores por monto» (`005`) DEBE mostrarse, por moneda, como gráfico de barras horizontales con la posición (1 a 5, la primera destacada), el nombre del proveedor (truncado con «…» sobre 21 caracteres y completo en la descripción emergente) y el monto. El gráfico DEBE tener `role="img"` con un resumen textual y una tabla equivalente oculta para lectores de pantalla.
 - **FR-043**: La tarjeta «Productos bajo el mínimo» (FR-008) DEBE incluir un gráfico de línea «Evolución del stock» con el stock total de los primeros 5 productos bajo el mínimo y una línea punteada con la suma de sus mínimos. Los puntos se reconstruyen desde las recepciones registradas: se parte del stock actual menos lo recibido, se suma cada recepción (`recibido` del historial de estados, con fecha y folio de la OC) y el último punto es «Hoy» con el stock actual. Sin recepciones de esos productos, el gráfico DEBE mostrar solo el punto «Hoy» frente al mínimo con la nota «Sin historial de recepciones»; NO DEBE inventar valores. Sin productos bajo el mínimo, no se dibuja. Incluye tabla equivalente oculta (fecha, referencia, stock).
 - **FR-044**: Los accesos rápidos del Panel DEBEN mostrarse en 5 columnas en escritorio, con el texto ajustado para no desbordar su botón.
-
-#### Datos de demostración
-
-- **FR-029**: La carga de demostración (`003`) DEBE incluir 3 áreas con presupuesto del mes en curso (uno de ellos excedido), stock mínimo en al menos 4 productos (2 bajo el mínimo), áreas en las órdenes demo, fechas de recepción que produzcan al menos un proveedor A, uno B y uno C, y tramos por cantidad en al menos 3 precios acordados de productos con más de un proveedor, coherentes con las cantidades de las órdenes demo.
-- **FR-030**: La sustitución de datos demo DEBE eliminar también áreas, presupuestos y estados de lectura de notificaciones.
 
 ### Cambios declarados sobre especificaciones anteriores
 

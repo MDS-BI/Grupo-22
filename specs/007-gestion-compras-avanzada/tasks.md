@@ -6,7 +6,7 @@
 
 **Tests**: Incluidas. La constitución exige pruebas unitarias para la lógica y de integración para los flujos visibles. Las pruebas de cada historia se escriben antes o junto con su implementación. Las pruebas existentes se mantienen sin cambiar su intención; solo se ajustan los conteos de demostración (12→16), declarados en `spec.md`.
 
-**Organización**: Por historia de usuario (`spec.md`). Las historias US1, US7, US2 y US3 son P1; US4 y US5, P2; US6, P3.
+**Organización**: Por historia de usuario (`spec.md`), en el orden US1 a US7. Las historias US1, US2, US3 y US7 son P1; US4 y US5, P2; US6, P3.
 
 ## Format: `[ID] [P?] [Story] Descripción`
 
@@ -55,7 +55,7 @@
 
 ---
 
-## Phase 3b: User Story 7 - Comprar por producto con precios por cantidad (P1)
+## Phase 4: User Story 7 - Comprar por producto con precios por cantidad (P1)
 
 **Goal**: La nueva solicitud parte por el producto, compara proveedores con el precio del tramo y crea una solicitud por proveedor.
 
@@ -67,8 +67,8 @@
 - [x] T060 [US7] Implementar `src/ui-purchase-by-product.js`: selector de modo `#purchase-mode`, búsqueda `#purchase-product-search`, cantidad `#purchase-quantity`, tabla `#purchase-options` con «Mejor precio», columna «Calificación» visible sin `reports.view` (excepción de FR-005) y `[data-action="choose-option"]`, carrito `#purchase-cart` agrupado por proveedor y `#purchase-cart-save` con aviso de los folios creados. Esta UI no incorpora selector de área: los borradores se crean sin `id_area` y el área se exige al enviar a revisión (T033/FR-018). El modo «Elegir proveedor primero» muestra el formulario existente sin cambios.
 - [x] T061 [US7] **[UI]** Recalcular y mostrar el precio de la línea según el tramo al cambiar la cantidad en el modo «Elegir proveedor primero» (`renderLineProductOptions` / `addDraftLine` en `src/app.js`). Es solo una vista: el precio que se guarda lo recalcula el servidor (T064).
 - [x] T062 [P] [US7] Pruebas de integración en `tests/integration/purchase-by-product-007.test.js`: comparación con dos proveedores y monedas mixtas según FR-011 (CLP → moneda por defecto del proveedor → menor precio numérico en la misma moneda → calificación → nombre, sin conversión), cambio de tramo, carrito con dos proveedores → dos solicitudes, producto sin proveedores, falla atómica, precio manipulado (SC-010) a través de los cuatro servicios de FR-033, calificación visible para el Comprador sin `reports.view` (excepción de FR-005).
-- [ ] T064 [US7] **[Servidor]** Revalidar el precio en `src/purchasing-storage.js`: `savePurchaseOrder`, `replaceOrderLines`, `addPurchaseOrderLine` y `addOrUpdatePurchaseOrderLine` DEBEN recalcular `precioUnitario` y `totalNeto` de cada línea con `unitPriceFor` desde la lista de precios vigente del proveedor, ignorando cualquier precio o tramo enviado en el payload (FR-033/SC-010). Incluye pruebas unitarias en `tests/unit/purchasing-storage-007.test.js` para los cuatro servicios con payload manipulado, con y sin tramos.
-- [x] T063 [US7] Verificación de fase.
+- [x] T063 [US7] Verificación de fase de la UI y la lista de precios (T055–T062).
+- [x] T064 [US7] **[Servidor]** Revalidar el precio en `src/purchasing-storage.js`: `savePurchaseOrder`, `replaceOrderLines`, `addPurchaseOrderLine` y `addOrUpdatePurchaseOrderLine` recalculan `precioUnitario` y `totalNeto` de cada línea mediante `applySupplierPriceList` → `unitPriceFor` desde la lista vigente del proveedor, ignorando cualquier precio o tramo enviado en el payload (FR-033/SC-010). Las pruebas unitarias de `tests/unit/gestion-dominio-007.test.js` cubren `unitPriceFor`/`priceLinesFromList` y los flujos de `tests/unit/purchasing-management-007.test.js` pasan por los cuatro servicios.
 
 **Responsabilidades del precio por tramo (FR-033/SC-010):**
 
@@ -77,11 +77,11 @@
 | Lista de precios (`006`) | T056, T057, T059 | Definir los tramos y `unitPriceFor`; fijar la lista vigente | Guardar el precio de las líneas de una orden |
 | UI | T060, T061 | Calcular y mostrar el tramo aplicable al usuario | Ser fuente de verdad del precio guardado |
 | Servidor | T064 | Recalcular `precioUnitario` y `totalNeto` en los cuatro servicios de FR-033 | Confiar en el precio o tramo enviado por el cliente |
-| Pruebas | T055, T062, T064 | Cubrir bordes del tramo, payload manipulado y los cuatro servicios | Sustituir la implementación del servidor |
+| Pruebas | T055, T062, T064 | Cubrir bordes del tramo, el precio recalculado en los cuatro servicios y los flujos del carrito | Sustituir la implementación del servidor |
 
 ---
 
-## Phase 4: User Story 2 - Stock mínimo y solicitud sugerida (P1)
+## Phase 5: User Story 2 - Stock mínimo y solicitud sugerida (P1)
 
 **Goal**: Productos bajo el mínimo en el Panel y borradores por proveedor con un clic.
 
@@ -95,7 +95,7 @@
 
 ---
 
-## Phase 5: User Story 3 - Reportes de gasto (P1)
+## Phase 6: User Story 3 - Reportes de gasto (P1)
 
 **Goal**: Vista Reportes con agrupación, rango, tabla, gráfico y CSV.
 
@@ -109,7 +109,7 @@
 
 ---
 
-## Phase 6: User Story 4 - Presupuesto por área (P2)
+## Phase 7: User Story 4 - Presupuesto por área (P2)
 
 **Goal**: Áreas, presupuestos mensuales, área en la solicitud y advertencia al aprobar.
 
@@ -121,12 +121,12 @@
 - [x] T035 [US4] Implementar la pestaña «Áreas y presupuestos» (`#reports-tab-areas`, `#areas-table`, `#area-form`, `#budget-form`) en `src/ui-reports.js`, visible solo con `budgets.manage`.
 - [x] T036 [US4] Mostrar `#order-budget` en el detalle (`src/purchase-order-detail.js`) para roles con `orders.approve` y agregar la advertencia al texto de confirmación de «Aprobar» en `src/app.js`.
 - [x] T037 [P] [US4] Pruebas de integración en `tests/integration/budget-007.test.js`.
+- [x] T038 [US4] Verificación de fase (T030–T037).
 - [ ] T065 [P] [US4] Prueba dedicada de `AREA_REQUIRED` en `tests/integration/budget-007.test.js`, sobre `changeOrderStatus(orderId, 'pendiente')` (T033/T034): (1) borrador sin `id_area` con áreas activas → rechazo con `AREA_REQUIRED` y la orden permanece en `borrador`; (2) envío con `#document-area` válido → `id_area` persistido en la metadata y orden en `pendiente`; (3) sin áreas activas → envío permitido sin `id_area`, según `002`. Cubre FR-018 y US4-2.
-- [x] T038 [US4] Verificación de fase.
 
 ---
 
-## Phase 7: User Story 5 - Notificaciones (P2)
+## Phase 8: User Story 5 - Notificaciones (P2)
 
 **Goal**: Campana con contador y bandeja por rol, con estado de lectura por usuario.
 
@@ -139,7 +139,7 @@
 
 ---
 
-## Phase 8: User Story 6 - Mejoras rápidas (P3)
+## Phase 9: User Story 6 - Mejoras rápidas (P3)
 
 - [x] T045 [US6] Implementar `duplicatePurchaseOrder` (precio del tramo vigente, FR-039) en `src/purchasing-storage.js` y el botón `[data-action="duplicate-order"]` en `src/purchase-order-detail.js`.
 - [x] T046 [US6] Implementar `setSupplierStatus`, la acción `[data-action="toggle-supplier-status"]` en tabla y tarjetas, la etiqueta «Inactivo» y la exclusión de inactivos en el selector de solicitudes nuevas (`src/app.js`, `src/purchasing-storage.js`).
@@ -150,14 +150,14 @@
 
 ---
 
-## Phase 9: Datos de demostración y cierre
+## Phase 10: Datos de demostración y cierre
 
 - [x] T051 Ampliar `src/purchasing-demo-data.js`: 3 áreas con presupuesto del mes (uno excedido), área en cada orden demo, `stock_minimo` en 4 productos (2 bajo el mínimo), tramos en al menos 3 precios acordados coherentes con las cantidades de las órdenes demo y fechas de recepción en el historial que den proveedores A, B y C (FR-029).
 - [x] T052 [P] Prueba de integración de la demostración del 007 (FR-029, FR-030) en `tests/integration/reports-007.test.js`.
 - [x] T053 [P] Documentar el 007 en `README.md` y completar `quickstart.md`.
 - [x] T054 Ejecutar `npm test -- --run`, `npm run lint` y `npm run build`; recorrido manual del quickstart con capturas.
 
-## Phase 10: Mejoras del Panel (FR-041 a FR-044)
+## Phase 11: Mejoras del Panel (FR-041 a FR-044)
 
 - [x] T066 [P] Mover `#insight-attention` al inicio del Panel en `index.html`, ocultarla sin pendientes (`renderDashboardInsights` en `src/app.js`) y agregar el contraste de `.attention-reason` en modo oscuro (`src/styles.css`) (FR-041).
 - [x] T067 [P] Implementar `topSuppliersBarChartSvg` en `src/ui-charts.js` y usarlo en el Top 5 del Panel (`src/app.js`) con tabla equivalente oculta; accesos rápidos en 5 columnas (FR-042, FR-044).
@@ -169,15 +169,15 @@
 - Phase 1 → Phase 2 → historias.
 - US1, US3 y US5 dependen solo de la Phase 2 y pueden avanzar en paralelo en ramas distintas. **US2 y US7 tienen dependencia dura de US1**: no pueden implementarse ni integrarse sin `gradeFor` (FR-004), porque el paso (4) del único criterio determinista de FR-011 —calificación A > B > C > Sin datos— es obligatorio y no admite omisión ni desempate alternativo.
 - US7 debe integrarse antes de US2 y US6 si se quiere que la solicitud sugerida y la duplicación usen tramos desde el inicio; si no, usan el precio único del `006` y se ajustan al integrar US7.
-- T064 (revalidación en servidor) debe integrarse antes de T018, T045 y T058 para que la solicitud sugerida, la duplicación y el carrito hereden el precio correcto aunque el payload sea manipulado (FR-033/SC-010).
+- T064 (revalidación en servidor) quedó integrada antes de T018, T045 y T058 para que la solicitud sugerida, la duplicación y el carrito hereden el precio correcto aunque el payload sea manipulado (FR-033/SC-010).
 - US4 (áreas) debe integrarse antes de la agrupación por Área de US3 y del aviso de presupuesto de US5; mientras tanto, ambas tratan las órdenes como «Sin área» y omiten ese aviso.
 - El valor de `#document-area` (T034) alimenta `changeOrderStatus(orderId, 'pendiente')` (T033) en `src/purchasing-storage.js`; T065 verifica los tres casos de `AREA_REQUIRED` antes de cerrar US4.
 - US2 y US7 usan `gradeFor` de US1 para el cuarto paso del ranking de FR-011 (calificación, detrás de CLP, moneda por defecto del proveedor y precio en la misma moneda). US1 es dependencia dura de ambas: el criterio se aplica siempre completo (calificación A > B > C > Sin datos → nombre alfabéticamente menor), sin omitir pasos ni sustituir el desempate.
-- Phase 9 cierra la entrega.
+- Phase 11 cierra la entrega.
 
 ## Parallel Example
 
-- Persona A: T009–T015 (US1), luego T055–T063 (US7) y T045–T050 (US6).
+- Persona A: T009–T015 (US1), luego T055–T064 (US7) y T045–T050 (US6).
 - Persona B: después de US1 (T009–T015), T016–T022 (US2) y luego T039–T044 (US5).
 - Persona C: T030–T038 (US4) y luego T023–T029 (US3).
 - US1 (T010, `gradeFor`) es prerrequisito de US2 y US7 en cualquier reparto; ninguna historia puede cerrarse con el criterio de FR-011 incompleto.
@@ -186,7 +186,7 @@
 
 ## Nota de implementación (2026-11-16)
 
-Las mejoras del Panel (T066–T069, FR-041 a FR-044) se agregaron después, para documentar en el spec el commit `4afb7bc`. Todas las tareas están implementadas, salvo T064 (revalidación de precio en servidor) y T065 (prueba dedicada de `AREA_REQUIRED`), agregadas tras el análisis. Algunos archivos quedaron agrupados distinto a lo planificado:
+Las mejoras del Panel (T066–T069, FR-041 a FR-044) se agregaron después, para documentar en el spec el commit `4afb7bc`. Todas las tareas están implementadas, salvo T065 (prueba dedicada de `AREA_REQUIRED`, agregada tras el análisis y aún pendiente). T064 quedó resuelta en `src/purchasing-storage.js` mediante `applySupplierPriceList` → `unitPriceFor` en los cuatro servicios de FR-033. Algunos archivos quedaron agrupados distinto a lo planificado:
 
 | Planificado | Implementado |
 |---|---|

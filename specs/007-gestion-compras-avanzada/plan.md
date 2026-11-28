@@ -6,19 +6,23 @@
 
 ## Resumen
 
-La lógica nueva es mayoritariamente de **cálculo sobre datos existentes**, por lo que se implementa como funciones puras en cinco módulos de dominio nuevos, probados con pruebas unitarias. La persistencia agrega tres claves a `KEYS` y tres campos opcionales con valor por defecto, lo que mantiene compatibles los datos y las pruebas anteriores. La interfaz se agrega en módulos de vista propios (`ui-reports.js`, `ui-notifications.js`, `ui-areas.js`) para no seguir inflando `src/app.js`, con los tokens y componentes visuales del `005` (tarjetas, chips, tablas, gráficos SVG).
+La lógica nueva es mayoritariamente de **cálculo sobre datos existentes**, por lo que se implementa como funciones puras en módulos de `src/domain/` (`supplier-evaluation.js`, `price-tiers.js`, `reorder.js`, `budget.js`, `reports.js`, `notifications.js`, además de `price-list.js` del `006`). La persistencia agrega tres claves a `KEYS` y cuatro campos opcionales con valor por defecto (`stock_minimo`, `estado`, `id_area` y `tramos`), lo que mantiene compatibles los datos y las pruebas anteriores. La interfaz se concentra en `src/ui-gestion.js` (Reportes, Evaluación, Áreas y presupuestos, campana y tarjeta de reposición) y `src/ui-purchase-mode.js` (compra por producto), con `src/app.js` como orquestador de eventos y navegación, reutilizando los tokens y componentes visuales del `005` (tarjetas, chips, tablas, gráficos SVG).
 
 ## Contexto Técnico
 
-**Lenguaje/Versión**: JavaScript ES2022, HTML5, CSS.
+| Aspecto | Decisión | Evidencia en el repositorio |
+|---|---|---|
+| Lenguaje y marcado | JavaScript ES2022 (módulos ES), HTML5 y CSS | `"type": "module"` en `package.json`; `index.html` como entry point |
+| Empaquetado y servidor de desarrollo | Vite 8.2 | `npm run dev`, `npm run build` y `npm run preview` en `package.json` |
+| Pruebas | Vitest 4.1 + jsdom 30 | `npm test -- --run`; `vitest.config.mjs` con `fileParallelism: false` |
+| Calidad | ESLint 10 + Prettier 3 | `npm run lint`, `npm run format`; `eslint.config.js` |
+| Persistencia | `localStorage`, sin backend ni llamadas de red | `src/storage.js` y `src/purchasing-storage.js` leen/escriben JSON por clave |
+| Claves nuevas en 007 | `erp_purchasing:areas`, `erp_purchasing:budgets`, `erp_purchasing:notification-reads` | Incluidas en `KEYS`; cubiertas por snapshot/restore/clear |
+| Campos nuevos en 007 | `stock_minimo`, `estado`, `id_area`, `tramos` | Producto, proveedor, metadata de orden y precio acordado del `006` |
+| Estrategia de pruebas | Unitarias puras + integración con DOM simulado | `tests/unit/` y `tests/integration/`; helper `tests/helpers/purchasing-app.js` |
+| Objetivos de rendimiento | Reportes con 2.000 OC en ≤ 1 s (SC-008); Panel ≤ 500 ms | Cálculos lineales e historial indexado por orden una sola vez por cálculo |
 
-**Dependencias Principales**: Vite 8.2, Vitest 4.1, jsdom 30, ESLint 10. Sin dependencias nuevas (CSV y gráficos propios).
-
-**Almacenamiento**: `localStorage`. Claves nuevas `erp_purchasing:areas`, `erp_purchasing:budgets` y `erp_purchasing:notification-reads`; campos opcionales `stock_minimo` (producto), `estado` (proveedor, agregado a `BASE_FIELDS.entity`), `id_area` (metadata de orden) y `tramos` (precio acordado del `006`).
-
-**Pruebas**: Unitarias para cada módulo de dominio (casos límite de la especificación) y para los servicios; integración por historia y por rol. Las pruebas existentes se mantienen sin cambiar su intención; solo se ajustan los conteos de demostración (12→16).
-
-**Objetivos de Rendimiento**: Reportes con 2.000 OC en ≤ 1 s (SC-008); el panel conserva su presupuesto de `001` (≤ 500 ms): el cálculo de bajo mínimo y avisos es lineal y se hace una vez por render. El historial se indexa por orden una sola vez por cálculo.
+Las pruebas existentes se mantienen sin cambiar su intención; solo se ajustan los conteos de demostración (12→16).
 
 **Restricciones**:
 
@@ -34,7 +38,7 @@ La lógica nueva es mayoritariamente de **cálculo sobre datos existentes**, por
 
 | Principio | Estado | Evidencia |
 |---|---|---|
-| I. Calidad y mantenibilidad | PASS | Cinco módulos de dominio puros y tres módulos de vista; `app.js` solo enlaza eventos y navegación. |
+| I. Calidad y mantenibilidad | PASS | Módulos de dominio puros en `src/domain/`, vistas de gestión en `ui-gestion.js` y `ui-purchase-mode.js`; `app.js` enlaza eventos y navegación. |
 | II. Test-first y verificación | PASS | Pruebas unitarias por módulo antes de la vista; integración por historia; batería completa en cada fase. |
 | III. Consistencia de UX | PASS | Reutiliza componentes del `005` (tarjetas, chips, gráficos, insignias) y los mensajes en español del sistema. |
 | IV. Rendimiento y confiabilidad | PASS | Cálculos lineales con índices; creación de solicitudes sugeridas con restauración ante error (snapshot de `KEYS`). |
@@ -56,37 +60,47 @@ La lógica nueva es mayoritariamente de **cálculo sobre datos existentes**, por
 ## Estructura del Proyecto
 
 ```text
+index.html                         # entry point de Vite; vistas, formularios e ids estables
 src/
-├── auth.js                       # + REPORTS_VIEW, BUDGETS_MANAGE
-├── module-config.js              # + estado en BASE_FIELDS.entity
+├── main.js                        # arranque de la aplicación (boot)
+├── app.js                         # orquestación: eventos, navegación, submit con #document-area
+├── auth.js                        # usuarios, sesión, RBAC y REPORTS_VIEW / BUDGETS_MANAGE
+├── module-config.js               # BASE_FIELDS.entity incluye estado; configuración del módulo
+├── access-policy.js               # resolución del empleado solicitante desde la sesión RBAC
+├── storage.js                     # claves base, entidades, documentos, rubros y snapshots
+├── purchasing-storage.js          # KEYS, persistencia de 007 y recálculo de precios en los 4 servicios
+├── purchasing-management.js       # servicios de 007: evaluación, opciones, carrito, áreas, notificaciones
+├── purchasing-demo-data.js        # carga/sustitución atómica de la demostración del 007
+├── purchasing-list-query.js       # consultas y filtros de listas
+├── purchasing-list-view.js        # render de listas de solicitudes y OC
 ├── domain/
-│   ├── supplier-evaluation.js    # NUEVO
-│   ├── price-tiers.js            # NUEVO: tramos, comparación de proveedores, carrito
-│   ├── reorder.js                # NUEVO
-│   ├── budget.js                 # NUEVO
-│   ├── reports.js                # NUEVO (incluye toCsv)
-│   └── notifications.js          # NUEVO
-├── purchasing-storage.js         # + claves, áreas, presupuestos, sugeridas, duplicar, estado del proveedor, lecturas
-├── purchasing-demo-data.js       # + áreas, presupuestos, mínimos, fechas de recepción
-├── ui-reports.js                 # NUEVO: vista Reportes + pestaña Áreas y presupuestos
-├── ui-notifications.js           # NUEVO: campana y bandeja
-├── ui-purchase-by-product.js     # NUEVO: modo «Comprar por producto» y carrito
-├── ui-dashboard.js               # + tarjeta "Productos bajo el mínimo"
-├── supplier-summary-view.js      # + sección de evaluación
-├── product-catalog.js            # + stock mínimo, tramos por proveedor, exportar CSV
-├── purchase-order-detail.js      # + presupuesto del área, Duplicar
-├── app.js                        # navegación a Reportes, área en el formulario, inactivar, exportar
-└── styles.css                    # estilos de las piezas nuevas con tokens del 005
-index.html                        # vista Reportes, bandeja, campos nuevos
+│   ├── purchasing.js              # estados, transiciones, totales y PURCHASING_ERRORS
+│   ├── price-list.js              # validación de listas y priceLinesFromList (usa unitPriceFor)
+│   ├── price-tiers.js             # normalizar/validar tramos, unitPriceFor, ranking FR-011, carrito
+│   ├── supplier-evaluation.js     # receiptDateOf, evaluateSupplier, gradeFor
+│   ├── reorder.js                 # isBelowMinimum, suggestedQuantity, pickSupplier
+│   ├── budget.js                  # monthKey, areaSpend, budgetStatus
+│   ├── reports.js                 # spendReport, toCsv (BOM, ';', RFC 4180)
+│   └── notifications.js           # notificationsFor, unreadCount
+├── ui-gestion.js                  # Reportes + pestañas, campana, tarjeta de reposición
+├── ui-purchase-mode.js            # «Comprar por producto», comparación y carrito
+├── ui-dashboard.js                # Panel con «Productos bajo el mínimo»
+├── ui-shell.js / ui-side-panel.js # navegación y panel lateral con permisos
+├── supplier-summary-view.js       # ficha del proveedor con evaluación y tramos
+├── product-catalog.js             # catálogo, stock mínimo y tramos por proveedor
+├── purchase-order-detail.js       # detalle, presupuesto del área y Duplicar
+├── purchase-order-lines.js        # líneas de la orden
+├── purchase-order-print.js        # impresión del detalle
+├── ui-chips.js / ui-charts.js     # chips de rubros y gráficos SVG con tabla equivalente
+├── ui-theme.js / ui-feedback.js   # tema claro/oscuro y mensajes accesibles
+└── styles.css / styles/tokens.css # estilos y tokens visuales del 005
 tests/
-├── unit/supplier-evaluation-007.test.js
-├── unit/price-tiers-007.test.js
-├── unit/reorder-007.test.js
-├── unit/budget-007.test.js
-├── unit/reports-007.test.js
-├── unit/notifications-007.test.js
-├── unit/purchasing-storage-007.test.js
-└── integration/{evaluation,purchase-by-product,reorder,reports,budget,notifications,quick-actions}-007.test.js
+├── helpers/purchasing-app.js      # montaje de JSDOM y localStorage por prueba
+├── unit/gestion-dominio-007.test.js
+├── unit/purchasing-management-007.test.js
+├── unit/purchasing-demo-data.test.js
+├── unit/auth.test.js, storage.test.js, purchasing-workflow.test.js, ...
+└── integration/gestion-007.test.js, purchasing-006.test.js, purchase-order-*.test.js, ...
 ```
 
 ## Orden de Implementación y Reparto
@@ -101,6 +115,18 @@ tests/
 | Demo y cierre | Datos demo, README, verificación completa | Uno del grupo | Todas |
 
 Las ramas de cada persona salen de la rama del 007 después de integrar la fase Base, y se integran de una en una para limitar conflictos en `app.js`, `index.html` y `styles.css`.
+
+## Estrategia de pruebas en Vitest
+
+| Nivel | Ubicación | Qué cubre | Cómo se ejecuta |
+|---|---|---|---|
+| Dominio puro | `tests/unit/gestion-dominio-007.test.js` | Tramos (`unitPriceFor`, bordes 9/10/49/50), ranking de FR-011, `gradeFor`, gasto por área, CSV, avisos | Vitest con aserciones sin DOM |
+| Servicios y persistencia | `tests/unit/purchasing-management-007.test.js`, `tests/unit/purchasing-storage-007.test.js`, `tests/unit/storage.test.js` | Permisos, claves, sugeridas atómicas, duplicación, inactivación, `AREA_REQUIRED`, precios recalculados en los cuatro servicios | Vitest con `localStorage` simulado por el helper |
+| Integración visible | `tests/integration/gestion-007.test.js`, `tests/integration/purchasing-*.test.js`, `tests/integration/purchase-order-*.test.js` | Flujos por rol, navegación, filtros, bandeja, panel y detalle | Vitest + JSDOM mediante `tests/helpers/purchasing-app.js` |
+| Rendimiento | Pruebas de reportes y demostración | 2.000 OC en ≤ 1 s (SC-008) y coherencia de los 16 pedidos demo | Vitest con temporización y snapshot de `KEYS` |
+| Regresión 001–006 | Batería completa en `tests/unit/` y `tests/integration/` | Intención original intacta; solo cambian los conteos de demo 12→16 | `npm test -- --run` |
+
+`vitest.config.mjs` fija `fileParallelism: false` porque las pruebas comparten claves de `localStorage` y el DOM simulado; cada prueba limpia su estado con los helpers de `tests/helpers/`. Las pruebas se escriben antes o junto con la implementación de cada historia, según exige la constitución del proyecto.
 
 ## Validación
 

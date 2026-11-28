@@ -2,7 +2,50 @@
 
 **Especificación**: [../spec.md](../spec.md) | **Modelo**: [../data-model.md](../data-model.md)
 
-Funciones síncronas sobre `localStorage`. «Con sesión» = `getSession()` devuelve un usuario. Sin sesión, acceso completo (`004`).
+Funciones síncronas sobre `localStorage`. «Con sesión» = `getSession()` devuelve un usuario. Sin sesión, acceso completo (`004`). Las firmas son síncronas: no hay promesas ni llamadas de red; la persistencia se valida y se escribe en el mismo ciclo.
+
+## Convenciones de entrada y salida
+
+| Regla | Detalle |
+|---|---|
+| Entradas | Objetos planos con los nombres de campo de [data-model.md](../data-model.md); los alias del `006` (`entityId`, `productId`, `precio`) se normalizan antes de validar |
+| Salidas | Objeto o arreglo plano; las vistas derivadas devuelven `{ ... }` con los campos documentados en el modelo de datos |
+| Errores | Excepción con `error.code` estable y `error.message` en español; nunca se devuelve `null` como señal de error, salvo las consultas marcadas explícitamente |
+| Autorización | Con sesión se exige el permiso indicado; sin sesión rige el acceso completo de `004` |
+| Transaccionalidad | Las operaciones multi-registro toman un snapshot de `KEYS` y restauran el estado ante cualquier fallo |
+
+## Códigos de error
+
+| Código | Origen | Condición | Mensaje / efecto |
+|---|---|---|---|
+| `PERMISSION_DENIED` | `src/auth.js`, `src/access-policy.js`, `src/purchasing-storage.js` | La sesión no tiene el permiso de la operación o el empleado no coincide con el solicitante permitido | «No tienes permisos para ejecutar esta acción.» |
+| `ORDER_INVALID` | `src/domain/purchasing.js` | Faltan proveedor o empleado, o la orden no es válida | La operación se rechaza sin persistir |
+| `ORDER_NOT_FOUND` | `src/domain/purchasing.js` | No existe la orden indicada | Consulta o transacción rechazada |
+| `ORDER_TERMINAL` | `src/domain/purchasing.js` | La orden está `recibido` o `cancelado` | Se bloquea la edición |
+| `NO_LINES` | `src/domain/purchasing.js` | La orden no tiene líneas válidas | No se guarda ni se envía a revisión |
+| `LINE_INVALID` / `LINE_NOT_FOUND` | `src/domain/purchasing.js` | Cantidad o precio inválidos, producto repetido o línea inexistente | La operación se rechaza |
+| `PRODUCT_NOT_FOUND` / `PRODUCT_DUPLICATE` | `src/domain/purchasing.js` | Producto inexistente o repetido en la misma orden | La línea se rechaza |
+| `PRODUCT_NOT_IN_PRICE_LIST` | `src/domain/purchasing.js` | El proveedor tiene lista y el producto no está en ella | No se puede agregar la línea |
+| `PRICE_CURRENCY_MISMATCH` | `src/domain/purchasing.js` | La moneda del precio acordado difiere de la de la orden | Se pide cambiar la moneda |
+| `INVALID_TRANSITION` | `src/domain/purchasing.js` | Transición no permitida por `PURCHASE_TRANSITIONS` | El historial no se modifica |
+| `STOCK_ALREADY_APPLIED` | `src/domain/purchasing.js` | Recepcionar dos veces la misma orden | No se duplica el stock |
+| `AREA_REQUIRED` | `src/domain/purchasing.js` | Envío a revisión sin área válida cuando hay áreas activas (FR-018) | El borrador permanece en `borrador` |
+| `AREA_NOT_FOUND` | `src/domain/purchasing.js` | `id_area` inexistente o inactivo | Se rechaza el guardado |
+| `SUPPLIER_INACTIVE` | `src/domain/purchasing.js` | Proveedor inactivo en una orden nueva | Se pide reactivarlo |
+| `BUDGET_INVALID` | `src/domain/purchasing.js` | Presupuesto negativo, no entero o no numérico | No se persiste el presupuesto |
+| `PERSISTENCE_ERROR` | `src/purchasing-storage.js` | Fallo al escribir en `localStorage` | Se restaura el snapshot y se informa el error |
+| `EMPLOYEE_REFERENCED` / `CATEGORY_DUPLICATE` / `PRODUCT_REFERENCED` | `src/purchasing-storage.js` | Eliminación de un registro referenciado o nombre duplicado | La eliminación o creación se bloquea |
+| `SUPPLIER_REQUIRED`, `SUPPLIER_NOT_FOUND`, `SUPPLIER_DUPLICATE`, `PRICE_INVALID`, `CURRENCY_INVALID`, `LINKS_REQUIRED` | `src/domain/price-list.js` | Validación del precio acordado con proveedor | Se devuelven errores por campo en el formulario de producto |
+
+## Validaciones compartidas
+
+| Validación | Regla |
+|---|---|
+| Tramos | `desde` entero ≥ 1 y único; `precio` > 0; el tramo `desde: 1` es obligatorio si hay tramos; `normalizeTiers` los ordena |
+| Área | Los borradores pueden guardarse sin `id_area`; `AREA_REQUIRED` se valida al pasar a `pendiente` si existe al menos un área activa (FR-018/T033/T034) |
+| Presupuesto | Entero ≥ 0 en CLP; único por (`id_area`, `mes`); 0 cuenta como definido |
+| CSV | Separador `;`, UTF-8 con BOM, escapado RFC 4180, montos sin separador de miles y punto decimal |
+| Precio guardado | `unitPriceFor` desde la lista vigente; el precio o tramo enviado por el cliente se ignora (FR-033/SC-010) |
 
 ## Dominio puro (`src/domain/`)
 
@@ -55,22 +98,22 @@ Funciones síncronas sobre `localStorage`. «Con sesión» = `getSession()` devu
 | `notificationsFor(role, context)` | Lista de avisos (data-model) |
 | `unreadCount(notifications, readIds)` | `number` |
 
-## Servicios (`src/purchasing-storage.js`)
+## Servicios (`src/purchasing-management.js` y `src/purchasing-storage.js`)
 
-| Función | Permiso con sesión | Comportamiento |
-|---|---|---|
-| `loadAreas()`, `saveArea(data)`, `setAreaActive(id, activa)` | `budgets.manage` (escritura) | Nombre único; no se elimina un área usada |
-| `loadBudgets()`, `setBudget(areaId, mes, monto)` | `budgets.manage` | Upsert por área y mes |
-| `getSupplierEvaluation(entityId)` | — | Usa órdenes, totales e historial |
-| `listBelowMinimum()` | — | Productos bajo el mínimo con cantidad sugerida y solicitud abierta, si existe |
-| `createSuggestedRequests({ employeeId })` | `documents.create` | Crea borradores con `savePurchaseOrder`, sin exigir `id_area` aunque haya áreas activas; el área se asigna al enviar a revisión (FR-018/T033) |
-| `duplicatePurchaseOrder(orderId)` | `documents.create` | Borrador nuevo con precios vigentes; devuelve `{ order, omitted }` |
-| `setSupplierStatus(entityId, estado)` | `entities.update` | `activo` / `inactivo` |
-| `getAreaBudgetForOrder(orderId)` | — | `budgetStatus` del mes en curso o `null` |
-| `loadNotificationReads(userId)`, `markNotificationsRead(userId, ids)` | — | Lecturas por usuario |
-| `setSupplierPriceTiers(entityId, productId, tiers)` | `pricelists.manage` | Guarda tramos validados |
-| `getPurchaseOptions(productId, quantity)` | — | `compareSupplierOptions` con proveedores activos y evaluaciones; la calificación se muestra en la tabla US7 según la excepción de FR-005 (roles con `documents.create`) |
-| `createRequestsFromCart(cart, header)` | `documents.create` | Una solicitud por proveedor, atómico (snapshot de `KEYS`); devuelve los folios creados; los borradores no requieren `id_area` hasta el envío a revisión (FR-018/T033) |
+| Función | Módulo | Permiso con sesión | Comportamiento |
+|---|---|---|---|
+| `loadAreas()`, `saveArea(data)`, `setAreaActive(id, activa)` | `purchasing-management.js` | `budgets.manage` (escritura) | Nombre único; no se elimina un área usada |
+| `loadBudgets()`, `setBudget(areaId, mes, monto)` | `purchasing-management.js` | `budgets.manage` | Upsert por área y mes; `monto` entero CLP ≥ 0 |
+| `getSupplierEvaluation(entityId)` | `purchasing-management.js` | — | Usa órdenes, totales e historial |
+| `listBelowMinimum()` | `purchasing-management.js` | — | Productos bajo el mínimo con cantidad sugerida y solicitud abierta, si existe |
+| `createSuggestedRequests(header)` | `purchasing-management.js` | `documents.create` | Crea borradores con `savePurchaseOrder`, sin exigir `id_area` aunque haya áreas activas; el área se asigna al enviar a revisión (FR-018/T033) |
+| `duplicatePurchaseOrder(orderId, header)` | `purchasing-management.js` | `documents.create` | Borrador nuevo con precios vigentes y folio nuevo; devuelve `{ order, omitted }` |
+| `setSupplierStatus(entityId, estado)` | `purchasing-management.js` | `entities.update` | `activo` / `inactivo`; los inactivos se excluyen de solicitudes nuevas y sugeridas |
+| `getAreaBudgetForOrder(orderId)` | `purchasing-management.js` | — | `budgetStatus` del mes en curso o `null` |
+| `loadNotificationReads(userId)`, `markNotificationsRead(userId, ids)` | `purchasing-management.js` | — | Lecturas por usuario; máximo 500 ids |
+| `setSupplierPriceTiers(entityId, productId, tiers)` | `purchasing-management.js` | `pricelists.manage` | Guarda tramos validados con `validateTiers` |
+| `getPurchaseOptions(productId, quantity)` | `purchasing-management.js` | — | `compareSupplierOptions` con proveedores activos y evaluaciones; la calificación se muestra en la tabla US7 según la excepción de FR-005 (roles con `documents.create`) |
+| `createRequestsFromCart(cart, header)` | `purchasing-management.js` | `documents.create` | Una solicitud por proveedor, atómico (snapshot de `KEYS`); devuelve los folios creados; los borradores no requieren `id_area` hasta el envío a revisión (FR-018/T033) |
 
 ### Cambios en servicios existentes
 
