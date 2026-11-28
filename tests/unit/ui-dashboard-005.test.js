@@ -79,6 +79,7 @@ describe('005 · cálculos del Panel', () => {
     expect(topChart).toContain('CLP 2380');
     expect(topChart).toContain('chart-top-rank');
     expect(topChart).toContain('chart-top-value');
+    expect(topChart).toContain('chart-axis');
     const stockChart = stockEvolutionLineChartSvg([
       { label: '11-01', value: 4 },
       { label: 'Hoy', value: 9 }
@@ -87,6 +88,10 @@ describe('005 · cálculos del Panel', () => {
     expect(stockChart).toContain('<circle');
     expect(stockChart).toContain('chart-min-line');
     expect(stockChart).toContain('Mín. 10');
+    expect(stockChart).toContain('chart-axis');
+    expect(stockChart).toContain('chart-axis-tick');
+    expect(stockChart).toContain('chart-point--alert');
+    expect(stockChart).toContain('<title>');
   });
 
   it('reconstruye la evolución del stock desde las recepciones', () => {

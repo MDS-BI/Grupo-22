@@ -94,7 +94,7 @@ export function topSuppliersBarChartSvg(rows = [], currency = 'CLP', { formatMon
   const rowHeight = 44;
   const height = Math.max(84, rows.length * rowHeight + 16);
   const labelWidth = 158;
-  const barMax = 240;
+  const barMax = 215;
   const valueX = labelWidth + barMax + 10;
   const max = Math.max(1, ...rows.map(row => Number(row.total || 0)));
   const summary = rows.map(row => `${row.name}: ${formatMoney(row.total, currency)}`).join(', ');
@@ -102,11 +102,12 @@ export function topSuppliersBarChartSvg(rows = [], currency = 'CLP', { formatMon
     const x = Math.round(labelWidth + barMax * ratio);
     return `<line x1="${x}" x2="${x}" y1="6" y2="${height - 10}" class="chart-grid chart-top-grid"></line>`;
   }).join('');
+  const axis = `<line x1="${labelWidth}" x2="${labelWidth}" y1="6" y2="${height - 10}" class="chart-axis"></line>`;
   const bars = rows.map((row, index) => {
     const total = Number(row.total || 0);
     const barWidth = Math.max(6, Math.round((total / max) * barMax));
     const name = String(row.name || '');
-    const label = name.length > 21 ? `${name.slice(0, 20)}…` : name;
+    const label = name.length > 20 ? `${name.slice(0, 19)}…` : name;
     const amount = formatMoney(total, currency);
     const y = index * rowHeight + 10;
     return `<g>
@@ -118,41 +119,53 @@ export function topSuppliersBarChartSvg(rows = [], currency = 'CLP', { formatMon
       <text x="${Math.min(labelWidth + barWidth + 8, valueX)}" y="${y + 17}" class="chart-value chart-top-value">${esc(amount)}</text>
     </g>`;
   }).join('');
-  return `<svg class="chart chart-top" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)} en ${esc(currency)}: ${esc(summary)}">${grid}${bars}</svg>`;
+  return `<svg class="chart chart-top" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)} en ${esc(currency)}: ${esc(summary)}">${grid}${axis}${bars}</svg>`;
 }
 
 export function stockEvolutionLineChartSvg(points = [], minimum = 0, { formatValue = value => String(value), title = 'Evolución del stock' } = {}) {
   if (!points.length) return '';
   const width = 520;
-  const height = 220;
-  const left = 46;
-  const right = 506;
-  const top = 20;
-  const bottom = 170;
+  const height = 224;
+  const left = 48;
+  const right = 504;
+  const top = 22;
+  const bottom = 172;
   const values = points.map(point => Math.max(0, Number(point.value) || 0));
   const floor = Math.max(0, Number(minimum) || 0);
-  const ceiling = Math.max(1, floor, ...values) * 1.12;
+  const rawMax = Math.max(1, floor, ...values);
+  const ceiling = Math.ceil(rawMax * 1.18);
   const yFor = value => bottom - (value / ceiling) * (bottom - top);
   const step = points.length > 1 ? (right - left) / (points.length - 1) : 0;
   const coords = points.map((point, index) => ({
-    x: Math.round(left + index * step),
+    x: Math.round(points.length === 1 ? (left + right) / 2 : left + index * step),
     y: Math.round(yFor(values[index]))
   }));
   const minimumY = Math.round(yFor(floor));
   const summary = points.map((point, index) => `${point.label}: ${formatValue(values[index])}`).join(', ');
-  const grid = [0, Math.round(ceiling / 2), Math.round(ceiling)].map(value => {
+  const ticks = [...new Set([0, Math.round(ceiling / 2), ceiling])];
+  const grid = ticks.map(value => {
     const y = Math.round(yFor(value));
-    return `<line x1="${left}" x2="${right}" y1="${y}" y2="${y}" class="chart-grid"></line>`;
+    return `<g>
+      <line x1="${left}" x2="${right}" y1="${y}" y2="${y}" class="chart-grid"></line>
+      <text x="${left - 8}" y="${y + 4}" text-anchor="end" class="chart-axis-tick">${esc(formatValue(value))}</text>
+    </g>`;
   }).join('');
+  const axes = `<line x1="${left}" x2="${left}" y1="${top}" y2="${bottom}" class="chart-axis"></line>
+    <line x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}" class="chart-axis"></line>`;
   const line = coords.length > 1
     ? `<polyline points="${coords.map(point => `${point.x},${point.y}`).join(' ')}" class="chart-line"></polyline>`
     : '';
-  const dots = coords.map((point, index) => `<g>
-      <circle cx="${point.x}" cy="${point.y}" r="5" class="chart-point"></circle>
-      <text x="${point.x}" y="${point.y - 10}" text-anchor="middle" class="chart-value">${esc(formatValue(values[index]))}</text>
-      <text x="${point.x}" y="194" text-anchor="middle" class="chart-label">${esc(points[index].label)}</text>
-    </g>`).join('');
+  const dots = coords.map((point, index) => {
+    const isAlert = values[index] <= floor;
+    const refText = points[index].reference ? ` (${points[index].reference})` : '';
+    return `<g>
+      <title>${esc(points[index].label)}${esc(refText)}: ${esc(formatValue(values[index]))}</title>
+      <circle cx="${point.x}" cy="${point.y}" r="5.5" class="chart-point${isAlert ? ' chart-point--alert' : ''}"></circle>
+      <text x="${point.x}" y="${point.y - 11}" text-anchor="middle" class="chart-value">${esc(formatValue(values[index]))}</text>
+      <text x="${point.x}" y="196" text-anchor="middle" class="chart-label">${esc(points[index].label)}</text>
+    </g>`;
+  }).join('');
   const reference = `<line x1="${left}" x2="${right}" y1="${minimumY}" y2="${minimumY}" class="chart-min-line"></line>
-    <text x="${right}" y="${minimumY - 6}" text-anchor="end" class="chart-min-label">Mín. ${esc(formatValue(floor))}</text>`;
-  return `<svg class="chart chart-stock" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}. Mínimo ${esc(formatValue(floor))}: ${esc(summary)}">${grid}${reference}${line}${dots}</svg>`;
+    <text x="${right}" y="${Math.max(13, minimumY - 6)}" text-anchor="end" class="chart-min-label">Mín. ${esc(formatValue(floor))}</text>`;
+  return `<svg class="chart chart-stock" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}. Mínimo ${esc(formatValue(floor))}: ${esc(summary)}">${grid}${axes}${reference}${line}${dots}</svg>`;
 }
